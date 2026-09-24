@@ -43,8 +43,8 @@ find the slate in the take's audio, everything else is offsets.
 Per shot: eased goto to the clip's first pose (NOT a designed behavior, never
 inside a crop) -> settle 2.5 s -> START beep -> 1.2 s stillness -> play the
 clip on its authored clock (LED envelope AND sound effects streamed to the
-CoreS3) -> 1.2 s stillness -> END beep. Long LED-only loops (S1, S5B) play a
-slice covering >= 2 breath cycles; loops with designed sound (S7b, S8) play
+CoreS3) -> 1.2 s stillness -> END beep. Long LED-only loops (S1, S4B) play a
+slice covering >= 2 breath cycles; loops with designed sound (S5B_BECKON, S8) play
 whole passes so the sfx rhythm stays as shipped (S8 cries once per 4 passes --
 a 2-pass stimulus carries exactly its first cry, as live).
 
@@ -88,31 +88,31 @@ LED_HOLD_TICK = 0.25  # re-send LED during holds (firmware falls back after 500 
 # ~30 deg off-camera, which is exactly D5's "start off-axis so turns read".
 # Use --align to have the robot face the seat bearing while you tape the line.
 SHOTS = [
-    ("S1_IDLE",     ["S1_IDLE"]),
-    ("S2_LISTEN",   ["S2_LISTEN"]),
-    ("S3_ACK",      ["S3_ACK"]),
-    ("S4_PLAN",     ["S4_PLAN"]),
-    ("S5_TRACK",    ["S5A_SETTLE", "S5B_TRACK"]),
-    ("S6_FINETUNE", ["S6_FINETUNE"]),
-    ("S7_SUMMON",   ["S7a", "S7b"]),
-    ("S8_ERROR",    ["S8_ERROR"]),
+    ("S0_IDLE",     ["S0_IDLE"]),
+    ("S1_ATTEND",   ["S1_ATTEND"]),
+    ("S2_ACKNOWLEDGE",      ["S2_ACKNOWLEDGE"]),
+    ("S3_SCAN",     ["S3_SCAN"]),
+    ("S5_TRACK",    ["S4A_SETTLE", "S4B_WATCH"]),
+    ("S6_CORRECT", ["S6_CORRECT"]),
+    ("S7_SUMMON",   ["S5A_FOUND", "S5B_BECKON"]),
+    ("S7_ERROR",    ["S7_ERROR"]),
 ]
 # Long LED-only loops (no sfx) are TRUNCATED to >= 2 breath cycles; loops with
 # designed sound play WHOLE passes so the sfx schedule stays as shipped.
-SLICE = {"S1_IDLE": 12.0, "S5B_TRACK": 11.0}   # cycles: 5.0 s / 3.6 s
-PASSES = {"S7b": 2, "S8_ERROR": 2}             # 2x6.53 s / 2x3.97 s
+SLICE = {"S0_IDLE": 12.0, "S4B_WATCH": 11.0}   # cycles: 5.0 s / 3.6 s
+PASSES = {"S5B_BECKON": 2, "S7_ERROR": 2}             # 2x6.53 s / 2x3.97 s
 # Sequences film as designed: S7 = found -> beckon; S5 = SETTLE -> hold,
-# because live NEVER enters S5B cold -- both entry paths (S4 armed, S6
+# because live NEVER enters S4B cold -- both entry paths (S4 armed, S6
 # corrected) arrive through the settle crane, and the crane is tracking's
 # motion signature (without it the stimulus is a still body + breath, one
 # rhythm away from idle). Each sequence logs a sub_<state> marker, so the
-# crop can also produce the bare S7b / S5B variant if ever wanted.
+# crop can also produce the bare S5B_BECKON / S4B variant if ever wanted.
 
 # D4 taxonomy: each state is filmed ONLY at its own distance. --distance picks
 # the right subset automatically; override with --only (e.g. --only all).
 DISTANCE_SHOTS = {
-    "1m": ["S2_LISTEN", "S3_ACK", "S6_FINETUNE"],   # interaction states
-    "3m": ["S1_IDLE", "S4_PLAN", "S5_TRACK", "S8_ERROR"],  # autonomous
+    "1m": ["S1_ATTEND", "S2_ACKNOWLEDGE", "S6_CORRECT"],   # interaction states
+    "3m": ["S0_IDLE", "S3_SCAN", "S5_TRACK", "S7_ERROR"],  # autonomous
     "6m": ["S7_SUMMON"],                             # summons envelope boundary
 }
 
@@ -163,7 +163,7 @@ def main():
                     help="tag for filenames/log: 1m | 3m | 6m (or anything)")
     ap.add_argument("--cores3", nargs="?", const="auto",
                     help="stream the authored LED envelope (auto-detect port). "
-                         "S1 and S5B carry their state in the LED ONLY -- "
+                         "S1 and S4B carry their state in the LED ONLY -- "
                          "filming without it is filming a dead robot.")
     ap.add_argument("--user-pan", type=float, default=None,
                     help="the seat bearing in deg (default: the authored seat, "
@@ -242,7 +242,7 @@ def main():
         # after this line, REFLASH robot/firmware/cores3_sidekick first.
         link.ui("black")
     else:
-        print("!! NO --cores3: S1_IDLE and S5B_TRACK will show a DEAD robot "
+        print("!! NO --cores3: S0_IDLE and S4B_WATCH will show a DEAD robot "
               "(their only signal is the LED) and NO designed sounds will "
               "play. Only proceed for a motion-only test take.")
 
@@ -349,7 +349,7 @@ def main():
                 # S4's tail is the planning hold: in live, ST.PLAN_BREATH takes
                 # the antenna the moment the clip ends (plan_pending). Everything
                 # else holds its clip's final LED value.
-                if states[-1] == "S4_PLAN":
+                if states[-1] == "S3_SCAN":
                     hold_breath(STILL_INNER, ST.PLAN_BREATH)
                     beep("end")
                     log(shot_id, pas, "end")
@@ -380,8 +380,8 @@ def main():
                        repeat=a.repeat, clips_dir=a.clips,
                        still_inner=STILL_INNER,
                        tones={k: v for k, v in TONES.items()},
-                       led_cycles={"S1_IDLE": 5.0, "S5B_TRACK": 3.6,
-                                   "S7b": 6.53, "S8_ERROR": 3.97},
+                       led_cycles={"S0_IDLE": 5.0, "S4B_WATCH": 3.6,
+                                   "S5B_BECKON": 6.53, "S7_ERROR": 3.97},
                        events=events), fh, indent=1)
     print(f"\nlog -> {out}")
     print("STOP the camera recording. Next:")

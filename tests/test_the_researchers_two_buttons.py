@@ -7,7 +7,7 @@ SPEC mid-session asks the researcher to think in relation ids with an actor
 mid-scene and a participant watching, and what is wanted at that moment is not a
 better spec, it is THIS, noticed, now.
 
-  notice this NOW   -> the flow's `finding` event: S7a performs the notice and a
+  notice this NOW   -> the flow's `finding` event: S5A_FOUND performs the notice and a
                        story opens, collects keyframes and is narrated into the
                        feed. Skips the trigger and the CONFIRMATION judge, which
                        are the two things that just failed.
@@ -27,9 +27,9 @@ from session.session_flow import SessionFlow
 
 
 def _watching():
-    """A flow parked in S5B_TRACK with a request on record."""
+    """A flow parked in S4B_WATCH with a request on record."""
     f = SessionFlow(now=lambda: 0.0)
-    f.state, f.transcript = "S5B_TRACK", "tell me if anyone draws on the board"
+    f.state, f.transcript = "S4B_WATCH", "tell me if anyone draws on the board"
     f._planned_at = 0.0
     return f
 
@@ -42,7 +42,7 @@ def _kinds(out):
 def test_the_forced_finding_performs_and_records():
     out = _watching().feed("finding")
     assert "noticed" in _kinds(out), "no `noticed` means no story is ever opened"
-    assert ("state", "S7a") in out, "the participant must see it notice"
+    assert ("state", "S5A_FOUND") in out, "the participant must see it notice"
 
 
 def test_it_does_not_go_near_the_confirmation_judge():
@@ -76,27 +76,27 @@ def test_resweep_replans_on_the_request_already_on_record():
     f = _watching()
     out = f.feed("resweep")
     assert ("plan", "tell me if anyone draws on the board") in out
-    assert ("state", "S4_PLAN") in out
+    assert ("state", "S3_SCAN") in out
     assert f.plan_pending is True
 
 
 def test_resweep_does_not_re_acknowledge():
-    """S3_ACK is "I heard you" and nobody has said anything. The robot decided
+    """S2_ACKNOWLEDGE is "I heard you" and nobody has said anything. The robot decided
     this itself -- straight to the sweep."""
-    assert ("state", "S3_ACK") not in _watching().feed("resweep")
+    assert ("state", "S2_ACKNOWLEDGE") not in _watching().feed("resweep")
 
 
 def test_resweep_is_refused_before_anything_has_been_asked():
     f = SessionFlow(now=lambda: 0.0)
     out = f.feed("resweep")
-    assert ("state", "S4_PLAN") not in out
+    assert ("state", "S3_SCAN") not in out
     assert f.plan_pending is False
 
 
 def test_resweep_is_refused_while_a_sweep_is_already_out():
     f = _watching()
     f.plan_pending = True
-    assert ("state", "S4_PLAN") not in f.feed("resweep")
+    assert ("state", "S3_SCAN") not in f.feed("resweep")
 
 
 def test_it_takes_the_same_path_as_the_timer():

@@ -16,7 +16,7 @@ nod = bpy.data.objects.get("nod_pivot")   # 3rd DOF, optional
 
 # LED. The generators keyframe the emission Strength, and some of that envelope
 # is synchronised to motion accents -- S4's shutter flash fires 8 frames after
-# the head stops at a station, S7b's peak lands on the top of the toss. Firmware
+# the head stops at a station, S5B_BECKON's peak lands on the top of the toss. Firmware
 # cannot know when those moments are, so the envelope has to travel with the
 # clip. Free-running behaviour (S5's cool breath) stays in firmware, which is
 # also what keeps the LED alive if the serial link stalls.

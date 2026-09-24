@@ -1,4 +1,4 @@
-# Auto-generates the S7b INSIST loop (3-DOF + LED). Run inside S7b.blend after
+# Auto-generates the S5B_BECKON INSIST loop (3-DOF + LED). Run inside S5B_BECKON.blend after
 # repair_rig.py + add_nod_joint.py. OVERWRITES all keys.
 # Design rationale: ../../../robot_motion/S7_DESIGN.md (local, not in this repo).
 #
@@ -27,7 +27,7 @@
 # WHAT REPLACED IT is limited to what the robot can actually know. It knows
 # where the FINDING is, because it was looking at it one clip ago. So it stays
 # there and leans at it, repeatedly, and the participant reads the direction off
-# the body -- which is the same channel S5b/S7a already use, and the only one
+# the body -- which is the same channel S4b/S5A_FOUND already use, and the only one
 # that survives arbitrary placement.
 #
 # THE COST, NAMED. This is no longer joint-attention ENSURE, and the paper must
@@ -61,11 +61,11 @@
 # times per loop, which is the failure v5 exists to remove.
 #
 # Runtime: remap_share_pan translates the whole clip so OBJECT_PAN lands on
-# wherever S5b actually was. With pan constant this is now a pure offset and
+# wherever S4b actually was. With pan constant this is now a pure offset and
 # cannot distort anything -- another thing the alternation made fragile.
 #
 # Loop-safe: every channel starts and ends on the OBJECT hold, which is also
-# S7a's final pose. Keep OBJECT_* in sync with generate_s7_found.py or the loop
+# S5A_FOUND's final pose. Keep OBJECT_* in sync with generate_s5a_found.py or the loop
 # will jump the moment it is entered. Asserted below.
 #
 # SIGN CONVENTION: BLENDER positive nod = head UP; on the bus a higher unit is
@@ -74,14 +74,14 @@
 import bpy
 import math
 
-# ---- keep in sync with generate_s7_found.py ----
-OBJECT_PAN = -25.0    # == the pan S5b was holding when the finding fired.
+# ---- keep in sync with generate_s5a_found.py ----
+OBJECT_PAN = -25.0    # == the pan S4b was holding when the finding fired.
                       # A TEMPLATE: remap_share_pan rewrites it at runtime to
-                      # wherever S5b actually was.
+                      # wherever S4b actually was.
 OBJECT_ELEV = 0.0     # WAS -10, and that number was never measured -- it was
                       # authored as "a desk is below". The finding fires INSIDE
-                      # S5b's own view, so it sits at S5b's gaze, which is level.
-LEAN_DEG = -12.0      # = S5b's HOLD_TILT, so THE REST POSE OF S7 IS THE WATCHING
+                      # S4b's own view, so it sits at S4b's gaze, which is level.
+LEAN_DEG = -12.0      # = S4b's HOLD_TILT, so THE REST POSE OF S7 IS THE WATCHING
                       # POSE. The camera rides on the head; at -22 every panel
                       # the storyboard took during S7's rests sat ten degrees --
                       # a third of the vertical frame -- below its opening
@@ -96,16 +96,16 @@ LEAN_DEG = -12.0      # = S5b's HOLD_TILT, so THE REST POSE OF S7 IS THE WATCHIN
                       # this loop's train of accents over a single held stare.
                       #
                       # THE COST, NAMED: a still photograph of S7 between pushes
-                      # is indistinguishable from S5b watching. The difference
+                      # is indistinguishable from S4b watching. The difference
                       # lives in the motion, the LED (summon) and the sound.
                       #
-                      # Must equal generate_s7_found's -- S7b opens on S7a's
-                      # last frame -- and both must equal S5b's HOLD_TILT.
+                      # Must equal generate_s5a_found's -- S5B_BECKON opens on S5A_FOUND's
+                      # last frame -- and both must equal S4b's HOLD_TILT.
 OBJECT_NOD = OBJECT_ELEV - LEAN_DEG   # cancel the lean's pitch, THEN aim
 
 # ---- the insistence ----
 #
-# v5: THE ALTERNATION IS GONE. S7b used to cross between a template USER_PAN and
+# v5: THE ALTERNATION IS GONE. S5B_BECKON used to cross between a template USER_PAN and
 # the object, twice per loop -- Mundy's third beat, alternating between partner
 # and referent to confirm the referent was taken up.
 #
@@ -137,13 +137,13 @@ FALL_F = 15           # slow, eased return. Ratio 2.14, the same shape the
                       # beckon used: a quick stroke out and a slow one back is
                       # what separates "look" from a nod.
 GAP_F = 8             # between beats, held at the lean
-HOLD_OBJ_F = 14       # the dwell that OPENS the loop. Must be >= S7a's closing
+HOLD_OBJ_F = 14       # the dwell that OPENS the loop. Must be >= S5A_FOUND's closing
                       # hold or the handover reads as the robot losing interest
                       # the moment the loop starts.
 REST_F = 88           # ...and the one that CLOSES it, which is a different job
                       # and a much longer one.
                       #
-                      # S7b LOOPS until OK or S7_IGNORED_TIMEOUT_S (30 s), so
+                      # S5B_BECKON LOOPS until OK or S7_IGNORED_TIMEOUT_S (30 s), so
                       # the cycle length is an insistence RATE, not a duration.
                       # v4 was 8.5 s carrying one accent: 3.5 accents in the 30
                       # s window. Three pushes inside a 4.1 s cycle would be 22
@@ -163,7 +163,7 @@ CYCLES = 1            # one pass already contains BOB_N beats
 
 # ---- LED: one accent per push ----
 LED_HOLD = 4.0        # 127/255 -- lit on the finding, not an event.
-                      # MUST equal S7a's closing value or the handover blinks.
+                      # MUST equal S5A_FOUND's closing value or the handover blinks.
 LED_THERE = 8.0       # 255 -- at the bottom of each push
 LED_EDGE_S = 0.13
 LED_COLOR = (1.00, 0.75, 0.00, 1.0)   # = SUMMON (45/100/100). Render only; the
@@ -186,7 +186,7 @@ REACH_PATH = ""
 def _find_up(rel, starts, levels=8):
     """Walk up, and look one step down into each level's subdirectories -- the
     .blend files live in the local design folder and the generators in the repo,
-    which makes them siblings. See generate_s2_listen.py."""
+    which makes them siblings. See generate_s1_attend.py."""
     for s in starts:
         if not s:
             continue
@@ -226,12 +226,12 @@ reach = type(sys)("reach")
 reach.__file__ = _rp
 with open(_rp) as _fh:
     exec(compile(_fh.read(), _rp, "exec"), reach.__dict__)
-print("[s7b] " + reach.summary())
+print("[s5b_beckon] " + reach.summary())
 
-S7A_HOLD_OUT_F = 14   # generate_s7_found.py HOLD_OUT_S * FPS
+S7A_HOLD_OUT_F = 14   # generate_s5a_found.py HOLD_OUT_S * FPS
 if HOLD_OBJ_F < S7A_HOLD_OUT_F:
     raise RuntimeError(
-        f"HOLD_OBJ_F {HOLD_OBJ_F} is shorter than S7a's closing hold "
+        f"HOLD_OBJ_F {HOLD_OBJ_F} is shorter than S5A_FOUND's closing hold "
         f"{S7A_HOLD_OUT_F}. The loop would speed up the moment it is entered, "
         f"which reads as the robot losing interest in what it just showed you.")
 if FALL_F <= RISE_F:
@@ -263,9 +263,9 @@ if BOB_N < 2:
         "is a train of accents rather than a hold; one accent is neither.")
 if LEAN_DEG != -12.0:
     raise RuntimeError(
-        f"LEAN_DEG is {LEAN_DEG:+.1f} here but generate_s7_found.py authors "
-        f"-12.0. S7b opens on S7a's last frame; if these differ the loop jumps "
-        f"the moment it is entered -- and both must equal S5b's HOLD_TILT, or "
+        f"LEAN_DEG is {LEAN_DEG:+.1f} here but generate_s5a_found.py authors "
+        f"-12.0. S5B_BECKON opens on S5A_FOUND's last frame; if these differ the loop jumps "
+        f"the moment it is entered -- and both must equal S4b's HOLD_TILT, or "
         f"the storyboard cuts between watching and reporting.")
 
 
@@ -426,7 +426,7 @@ bpy.context.scene.frame_start = 1
 bpy.context.scene.frame_end = END_F
 
 _pk = BOB_DEG / (RISE_F / float(FPS)) * _FAC
-msg = (f"S7b insist v5: pan HELD at {OBJECT_PAN:+.0f}; {BOB_N} pushes of "
+msg = (f"S5B_BECKON insist v5: pan HELD at {OBJECT_PAN:+.0f}; {BOB_N} pushes of "
        f"{BOB_DEG:.0f} deg into the lean ({LEAN_DEG:+.0f} -> "
        f"{LEAN_DEG - BOB_DEG:+.0f}), gaze locked at {OBJECT_ELEV:+.0f}; "
        f"{CYCLES}x{CYCLE_F}f = {END_F}f ({END_F / FPS:.2f}s), peak {_pk:.0f} deg/s; "
@@ -438,10 +438,10 @@ def draw(self, context):
     self.layout.label(text=msg)
     self.layout.label(text=f"PAN NEVER MOVES. Opens+closes on pan {OBJECT_PAN:.0f} / "
                            f"tilt {LEAN_DEG:.0f} / nod {OBJECT_NOD:.0f}")
-    self.layout.label(text="= S7a's last frame. Keep both files in sync.")
+    self.layout.label(text="= S5A_FOUND's last frame. Keep both files in sync.")
     self.layout.label(text="v5: no user leg -- placement is arbitrary, so the")
     self.layout.label(text="robot only points at what it can actually locate.")
     self.layout.label(text="Then: save, run export_clip.py")
 
 
-bpy.context.window_manager.popup_menu(draw, title="S7b insist v5", icon='INFO')
+bpy.context.window_manager.popup_menu(draw, title="S5B_BECKON insist v5", icon='INFO')

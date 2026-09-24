@@ -20,7 +20,7 @@ THE TWO ANGLES, because the rig's names do not mean what they look like:
     nod   the HEAD's pitch RELATIVE TO THE NECK. Positive lifts the gaze.
 
 so the head's absolute angle is `tilt + nod`, and that is what a viewer reads as
-"where it is looking". S7b is the case that makes it matter: tilt -24 with nod
+"where it is looking". S5B_BECKON is the case that makes it matter: tilt -24 with nod
 +24 is a neck craned 24 degrees forward while the gaze stays level -- the
 epistemic lean, and it is a different gesture from simply looking down, which is
 what a figure drawn from `tilt` alone would show.
@@ -115,7 +115,7 @@ def robot(cx, cy, tilt, nod, ghost=False, scale=1.0, lamp=None):
     """One silhouette, in Cassie's own line. cy is the ground line.
 
     THE BODY IS HERS AND THE ANGLES ARE THE CLIPS'. Her drawing is one pose --
-    S1_IDLE, bowed -- so every state is that drawing with the neck and the head
+    S0_IDLE, bowed -- so every state is that drawing with the neck and the head
     turned by the DIFFERENCE between this pose and hers. Drawing the shapes in
     code instead, which is what this did first, produced a figure of a robot
     that does not exist.
@@ -299,8 +299,8 @@ def arc(x, y, r, a0, a1, w=2.0, dash=None, head=True):
 # what each cell says. The numbers come from the CSV; the framing is authored.
 # --------------------------------------------------------------------------- #
 def cells():
-    C = {n: load(n) for n in ("S1_IDLE S2_LISTEN S3_ACK S4_PLAN S5A_SETTLE "
-                              "S5B_TRACK S6_FINETUNE S7a S7b S8_ERROR".split())}
+    C = {n: load(n) for n in ("S0_IDLE S1_ATTEND S2_ACKNOWLEDGE S3_SCAN S4A_SETTLE "
+                              "S4B_WATCH S6_CORRECT S5A_FOUND S5B_BECKON S7_ERROR".split())}
 
     def dur(n):
         return C[n]["t"][-1] / 1000.0
@@ -312,8 +312,8 @@ def cells():
     out = []
 
     # --- IDLE -------------------------------------------------------------
-    t, d, p = pose("S1_IDLE", 0)
-    lo, hi = min(C["S1_IDLE"]["led"]), max(C["S1_IDLE"]["led"])
+    t, d, p = pose("S0_IDLE", 0)
+    lo, hi = min(C["S0_IDLE"]["led"]), max(C["S0_IDLE"]["led"])
     out.append(dict(
         key="S1", name="Idle", sub="asleep",
         ghost=None, solid=(t, d), lamp=LAMP,
@@ -324,37 +324,37 @@ def cells():
         glyphs=[("breathe", None)]))
 
     # --- ATTEND -----------------------------------------------------------
-    a, b = pose("S2_LISTEN", 0), pose("S2_LISTEN", -1)
+    a, b = pose("S1_ATTEND", 0), pose("S1_ATTEND", -1)
     out.append(dict(
         key="S2", name="Attend", sub="lifts out of the bow",
         ghost=(a[0], a[1]), solid=(b[0], b[1]), lamp=None,
         pan=dict(lo=min(a[2], b[2]), hi=max(a[2], b[2]), end=b[2],
                  label=f"pan {a[2]:+.0f}° → {b[2]:+.0f}°"),
         note=f"head {a[0]+a[1]:+.0f}° → {b[0]+b[1]:+.0f}° in "
-             f"{dur('S2_LISTEN'):.1f} s",
+             f"{dur('S1_ATTEND'):.1f} s",
         why="the gaze rises through 75 degrees. Nod and tilt start ~300 ms "
             "before pan, so it is looking up before it is turning.",
         glyphs=[("up", None)]))
 
     # --- ACKNOWLEDGE ------------------------------------------------------
-    tp = turns(C["S3_ACK"]["nod"], C["S3_ACK"]["t"])
+    tp = turns(C["S2_ACKNOWLEDGE"]["nod"], C["S2_ACKNOWLEDGE"]["t"])
     first = abs(tp[1][1] - tp[0][1])
     second = abs(tp[3][1] - tp[2][1])
-    a = pose("S3_ACK", 0)
+    a = pose("S2_ACKNOWLEDGE", 0)
     low = tp[1][1]                      # the bottom of the first nod
     out.append(dict(
         key="S3", name="Acknowledge", sub="two nods, the second smaller",
         ghost=(a[0], low), solid=(a[0], a[1]), lamp=None,
         pan=None,
         note=f"nod {first:.0f}° then {second:.0f}° "
-             f"({second/first:.2f}×) · {dur('S3_ACK'):.1f} s",
+             f"({second/first:.2f}×) · {dur('S2_ACKNOWLEDGE'):.1f} s",
         why="a decaying pair. One nod reads as a twitch; two equal ones read "
             "as a machine repeating itself.",
         glyphs=[("nod2", None)]))
 
     # --- SCAN -------------------------------------------------------------
-    pans = C["S4_PLAN"]["pan"]
-    a, b = pose("S4_PLAN", 0), pose("S4_PLAN", -1)
+    pans = C["S3_SCAN"]["pan"]
+    a, b = pose("S3_SCAN", 0), pose("S3_SCAN", -1)
     out.append(dict(
         key="S4", name="Scan", sub="five stations, then back to the pick",
         ghost=(a[0], a[1]), solid=(b[0], b[1]), lamp=None,
@@ -362,30 +362,30 @@ def cells():
                  marks=(-60, -30, 0, 30, 60),
                  label=f"pan {min(pans):+.0f}° ↔ {max(pans):+.0f}°"),
         note=f"{max(pans)-min(pans):.0f}° of sweep · "
-             f"{dur('S4_PLAN'):.1f} s",
+             f"{dur('S3_SCAN'):.1f} s",
         why="the only clip that crosses the room. Head level throughout: it is "
             "surveying, not addressing anyone.",
         glyphs=[]))
 
     # --- SETTLE -----------------------------------------------------------
-    tt = turns(C["S5A_SETTLE"]["tilt"], C["S5A_SETTLE"]["t"])
+    tt = turns(C["S4A_SETTLE"]["tilt"], C["S4A_SETTLE"]["t"])
     over = abs(tt[1][1] - tt[-1][1])
-    a, b = pose("S5A_SETTLE", 0), pose("S5A_SETTLE", -1)
-    mid = (tt[1][1], turns(C["S5A_SETTLE"]["nod"], C["S5A_SETTLE"]["t"])[1][1])
+    a, b = pose("S4A_SETTLE", 0), pose("S4A_SETTLE", -1)
+    mid = (tt[1][1], turns(C["S4A_SETTLE"]["nod"], C["S4A_SETTLE"]["t"])[1][1])
     out.append(dict(
-        key="S5a", name="Settle", sub="arrives, and overshoots once",
+        key="S4a", name="Settle", sub="arrives, and overshoots once",
         ghost=mid, solid=(b[0], b[1]), lamp=None,
         pan=None,
         note=f"{over:.0f}° overshoot, one rebound · "
-             f"{dur('S5A_SETTLE'):.1f} s",
+             f"{dur('S4A_SETTLE'):.1f} s",
         why="on tilt and nod only — pan is held. A body that arrives "
             "exactly reads as a machine; one that has to settle reads as mass.",
         glyphs=[("rebound", None)]))
 
     # --- WATCH ------------------------------------------------------------
-    a = pose("S5B_TRACK", 0)
+    a = pose("S4B_WATCH", 0)
     out.append(dict(
-        key="S5b", name="Watch", sub="holds",
+        key="S4b", name="Watch", sub="holds",
         ghost=None, solid=(a[0], a[1]), lamp=None,
         pan=None,
         note=f"held: neck {a[0]:+.0f}°, head {a[0]+a[1]:+.0f}°, "
@@ -395,64 +395,64 @@ def cells():
         glyphs=[("hold", None)]))
 
     # --- CORRECT ----------------------------------------------------------
-    tp = turns(C["S6_FINETUNE"]["pan"], C["S6_FINETUNE"]["t"])
+    tp = turns(C["S6_CORRECT"]["pan"], C["S6_CORRECT"]["t"])
     base = tp[0][1]
     amps = [abs(v - base) for _t, v in tp[1:-1]]
-    a, b = pose("S6_FINETUNE", 0), pose("S6_FINETUNE", -1)
+    a, b = pose("S6_CORRECT", 0), pose("S6_CORRECT", -1)
     out.append(dict(
         key="S6", name="Correct", sub="a shake that decays, then looks up",
         ghost=(a[0], a[1]), solid=(b[0], b[1]), lamp=None,
-        pan=dict(lo=min(C["S6_FINETUNE"]["pan"]), hi=max(C["S6_FINETUNE"]["pan"]),
+        pan=dict(lo=min(C["S6_CORRECT"]["pan"]), hi=max(C["S6_CORRECT"]["pan"]),
                  end=b[2],
                  label=f"shake ±{amps[0]:.0f}° → "
                        f"±{amps[2]:.0f}°"),
         note=f"then neck {a[0]:+.0f}° → {b[0]:+.0f}°, head comes up "
-             f"· {dur('S6_FINETUNE'):.1f} s",
+             f"· {dur('S6_CORRECT'):.1f} s",
         why="'not that one', then it comes back up to be told where instead. "
             "The decay is what stops a shake reading as a fault.",
         glyphs=[("shake", None)]))
 
     # --- CALL, arrival ----------------------------------------------------
-    a = pose("S7a", 0)
-    tt = turns(C["S7a"]["tilt"], C["S7a"]["t"])
+    a = pose("S5A_FOUND", 0)
+    tt = turns(C["S5A_FOUND"]["tilt"], C["S5A_FOUND"]["t"])
     lean = abs(tt[1][1] - tt[0][1])
     out.append(dict(
-        key="S7a", name="Call", sub="leans in — the bid",
-        ghost=(a[0], a[1]), solid=(tt[1][1], turns(C["S7a"]["nod"], C["S7a"]["t"])[1][1]),
+        key="S5A_FOUND", name="Call", sub="leans in — the bid",
+        ghost=(a[0], a[1]), solid=(tt[1][1], turns(C["S5A_FOUND"]["nod"], C["S5A_FOUND"]["t"])[1][1]),
         lamp=None, pan=None,
         note=f"neck {lean:.0f}° forward, gaze stays level · "
-             f"{dur('S7a'):.1f} s",
+             f"{dur('S5A_FOUND'):.1f} s",
         why="neck and head move by the SAME amount in opposite senses, so it "
             "cranes toward what it found without turning to face her.",
         glyphs=[("neck", (a[0], tt[1][1], f"{lean:.0f}°"))]))
 
     # --- CALL, holding ----------------------------------------------------
-    tt = turns(C["S7b"]["tilt"], C["S7b"]["t"])
+    tt = turns(C["S5B_BECKON"]["tilt"], C["S5B_BECKON"]["t"])
     cycles = max(1, (len(tt) - 1) // 2)
-    a = pose("S7b", 0)
+    a = pose("S5B_BECKON", 0)
     out.append(dict(
-        key="S7b", name="Call", sub="repeats, then holds",
+        key="S5B_BECKON", name="Call", sub="repeats, then holds",
         ghost=(a[0], a[1]),
-        solid=(tt[1][1], turns(C['S7b']['nod'], C['S7b']['t'])[1][1]),
+        solid=(tt[1][1], turns(C['S5B_BECKON']['nod'], C['S5B_BECKON']['t'])[1][1]),
         lamp=None, pan=None,
         note=f"{cycles} lean cycles, pan held at {a[2]:+.0f}° · "
-             f"{dur('S7b'):.1f} s",
+             f"{dur('S5B_BECKON'):.1f} s",
         why="it asks three times and then waits. Pan never moves: the bid is "
             "about the thing, not about her.",
         glyphs=[("neck3", (a[0], tt[1][1],
                             f"{abs(tt[1][1]-a[0]):.0f}° × {cycles}"))]))
 
     # --- ERROR ------------------------------------------------------------
-    tp = turns(C["S8_ERROR"]["pan"], C["S8_ERROR"]["t"])
-    a = pose("S8_ERROR", 0)
-    pans = C["S8_ERROR"]["pan"]
+    tp = turns(C["S7_ERROR"]["pan"], C["S7_ERROR"]["t"])
+    a = pose("S7_ERROR", 0)
+    pans = C["S7_ERROR"]["pan"]
     out.append(dict(
         key="S8", name="Error", sub="a slow, aimless wander",
         ghost=None, solid=(a[0], a[1]), lamp=None,
         pan=dict(lo=min(pans), hi=max(pans), end=a[2],
                  label=f"pan {min(pans):+.0f}° ↔ {max(pans):+.0f}°"),
         note=f"head {a[0]+a[1]:+.0f}°, lowered · "
-             f"{dur('S8_ERROR'):.1f} s",
+             f"{dur('S7_ERROR'):.1f} s",
         why="the head stays down and the pan drifts without settling. Looking "
             "for something it is not going to find.",
         glyphs=[("wander", None)]))

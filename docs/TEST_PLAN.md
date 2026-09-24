@@ -59,14 +59,14 @@ python3 robot/clip_player.py                       # walks the designed CYCLE
 | dropped frames | **0** | a drop means the bus cannot sustain 30 fps; fix by lowering export fps in Blender, never in the player |
 | max lag | **< 20 ms** | above this the ease curves are being re-timed, which is the thing the clips exist to preserve |
 | `did not arrive` warnings | none | a joint that cannot reach its target is jammed, unpowered, or over-loaded |
-| audible strain at any pose | none | check against `calibration.py` margins; S7b nod and S7a pan are the tight ones |
+| audible strain at any pose | none | check against `calibration.py` margins; S5B_BECKON nod and S5A_FOUND pan are the tight ones |
 
-Then test the override: while `S5_TRACK` or `S8_ERROR` is looping, request
+Then test the override: while `S5_TRACK` or `S7_ERROR` is looping, request
 another state. It must take effect **within one frame (~33 ms)**, not at the end
 of the loop. A player that finishes the clip first is unusable in a session.
 
-`ST.CYCLE` deliberately excludes `S8_ERROR` — it is not part of the designed
-cycle. Test it on its own: `python3 robot/clip_player.py S8_ERROR`.
+`ST.CYCLE` deliberately excludes `S7_ERROR` — it is not part of the designed
+cycle. Test it on its own: `python3 robot/clip_player.py S7_ERROR`.
 
 ---
 
@@ -74,7 +74,7 @@ cycle. Test it on its own: `python3 robot/clip_player.py S8_ERROR`.
 
 **The LED belongs to this stage, not to the CoreS3 stage.** Part of it is
 authored *against the motion*: S4's shutter flash fires once the head has settled
-at a station, S7b's peak lands on the top of the toss. Firmware cannot know when
+at a station, S5B_BECKON's peak lands on the top of the toss. Firmware cannot know when
 those moments are, so the level travels in the clip's `led` column and the player
 streams it. Verifying that needs the servos and the CoreS3 — but no camera.
 
@@ -106,8 +106,8 @@ python3 robot/clip_player.py --cores3
 Then watch the three places the sync actually matters:
 
 - **S4** — five flashes, each *after* the head stops, not during the move
-- **S7a** — a beat on each of turn / crane / head-up
-- **S7b** — the peak on the *upward* stroke; dark on the way down
+- **S5A_FOUND** — a beat on each of turn / crane / head-up
+- **S5B_BECKON** — the peak on the *upward* stroke; dark on the way down
 
 A constant `led` column is treated as "nobody authored an envelope for this clip"
 and is not streamed. That is deliberate: the firmware only falls back to its own
@@ -149,7 +149,7 @@ tests it.
 python3 noticebot_loop.py --cam 0
 ```
 
-Press `4` for `S4_PLAN` and watch the overlay.
+Press `4` for `S3_SCAN` and watch the overlay.
 
 **Pass:**
 
@@ -162,7 +162,7 @@ Press `4` for `S4_PLAN` and watch the overlay.
 
 Failure here is architectural, not a bug: it means either the camera needs a
 shorter exposure, or `SETTLE_MS` in `noticebot_loop.py` needs to move, or the
-station dwell in `generate_s4_sweep.py` needs lengthening.
+station dwell in `generate_s3_scan.py` needs lengthening.
 
 ### Use the existing web UI instead of the cv2 window
 
@@ -186,7 +186,7 @@ second machine or a phone — and leaves the robot to speak for itself.
 
 The browser's context box is also a free wizard channel: typing a sentence posts
 to `/context`, which the loop reads and uses to enter the designed cycle at
-`S2_LISTEN`. During a session, type what the participant actually asked.
+`S1_ATTEND`. During a session, type what the participant actually asked.
 
 ---
 
@@ -217,7 +217,7 @@ Both `--cores3` and the servo port auto-detect; `--cam` still needs its index.
 **Pass:**
 
 - `c` enters the designed cycle and it runs `S2 → S3 → S4 → S5` unattended.
-- Body tap during `S5` switches to `S6_FINETUNE` and returns to `S5`.
+- Body tap during `S5` switches to `S6_CORRECT` and returns to `S5`.
 - Keys `1`–`8` still override instantly with all three devices live.
 - LED colour follows `states.py` (`warm` in S1/S7, `cool` in S2–S6, `alarm` in
   S8) while the *level* still follows the clip.
@@ -287,11 +287,11 @@ breaking and re-forming it fires again.
 
 ## Stage 9 — judge / VLM
 
-`judge.judge(jpeg, graph, taste)` on the S5 frame that fired, before `S7a`.
+`judge.judge(jpeg, graph, taste)` on the S5 frame that fired, before `S5A_FOUND`.
 Needs `GEMINI_API_KEY`. Test `SECONDATTN_OFFLINE=1` first so the plumbing is proven
 without the model in the loop.
 
-**Pass:** a confirmed report reaches `S7a` within a latency you are willing to
+**Pass:** a confirmed report reaches `S5A_FOUND` within a latency you are willing to
 have a participant sit through. Measure it — if it is seconds, the state machine
 needs something to say while it waits, and that is a design question, not an
 engineering one.
@@ -304,7 +304,7 @@ engineering one.
    should require a keypress.
 2. **Pilot with one colleague.** The thing to watch is not whether it works but
    whether the states are *read* the way they were designed — particularly
-   `S6` as negation and `S7b` as a summons rather than a nod, since those two
+   `S6` as negation and `S5B_BECKON` as a summons rather than a nod, since those two
    are the grammar claims.
 3. **Session protocol.** Fix `SETTLE_MS`, cooldowns and the S4 station count
    before the first real participant; changing them mid-study makes the sessions

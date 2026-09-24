@@ -59,9 +59,9 @@ DEFAULT = {
 # The pose each drawing is IN, so every other pose is a delta from it. Without
 # this the rig would treat her drawing as the zero pose and be wrong by exactly
 # that much in every state. Both are read straight off the clips rather than
-# eyeballed: the left figure is S1_IDLE's held pose, the right is the pose
-# S2_LISTEN ends in.
-REF = {"left":  ("S1_IDLE", 0), "right": ("S2_LISTEN", -1)}
+# eyeballed: the left figure is S0_IDLE's held pose, the right is the pose
+# S1_ATTEND ends in.
+REF = {"left":  ("S0_IDLE", 0), "right": ("S1_ATTEND", -1)}
 
 
 def body_mask(sub):

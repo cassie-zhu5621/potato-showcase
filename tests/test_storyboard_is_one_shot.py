@@ -4,12 +4,12 @@ Reported 2026-08-08: "the storyboard's viewpoint keeps changing, sometimes quite
 a lot."
 
 The camera is on the head, so a panel is framed by wherever the neck happens to
-be. A story opens while S5b watches at tilt -12 and its later panels are taken
+be. A story opens while S4b watches at tilt -12 and its later panels are taken
 during S7's rests at tilt -22 -- ten degrees, about a third of the vertical
 field. The strip cuts between its first panel and all the others.
 
 The existing `settled` gate could not catch this: it asks whether the head has
-STOPPED, and during S7b's four-second rest it certainly has. The question is not
+STOPPED, and during S5B_BECKON's four-second rest it certainly has. The question is not
 whether the head is still but whether it is still THERE, and only the pose
 answers that. A pixel difference cannot: a room that changed and a head that
 moved look the same.
@@ -17,12 +17,12 @@ moved look the same.
 TWO THINGS FOLLOW FROM SKIPPING, and the second is what makes it work.
 
 Skipping the panels alone would leave the story to expire during the
-performance -- `linger` is 6 s and S7a+S7b is about 8 -- so every long event
+performance -- `linger` is 6 s and S5A_FOUND+S5B_BECKON is about 8 -- so every long event
 would be recorded as its opening frame and nothing else. So the clock is held
 too: while the shot is wrong, nothing is photographed AND nothing ages. The
 follow-through is still there to be caught when the robot returns to watching.
 
-MAX_STORY_S is the ceiling on that. S7b loops until OK or 30 s, so a pause of
+MAX_STORY_S is the ceiling on that. S5B_BECKON loops until OK or 30 s, so a pause of
 half a minute is legitimate; longer means the robot has been re-aimed somewhere
 else and the story is about a place it is no longer looking at.
 """
@@ -39,8 +39,8 @@ sys.path.insert(0, ROOT)
 import noticebot_loop  # noqa: F401
 import session.storyboard as SB
 
-WATCH = {"pan": -25.0, "tilt": -12.0, "nod": 12.0}     # S5b
-S7 = {"pan": -25.0, "tilt": -22.0, "nod": 12.0}        # S7a/S7b rest
+WATCH = {"pan": -25.0, "tilt": -12.0, "nod": 12.0}     # S4b
+S7 = {"pan": -25.0, "tilt": -22.0, "nod": 12.0}        # S5A_FOUND/S5B_BECKON rest
 NUDGE = {"pan": -25.0, "tilt": -14.0, "nod": 12.0}     # within tolerance
 
 
@@ -120,7 +120,7 @@ def test_a_head_that_never_comes_back_still_publishes():
 
 
 def test_the_cap_outlasts_a_whole_ignored_s7():
-    """S7b loops until OK or S7_IGNORED_TIMEOUT_S. A cap shorter than that would
+    """S5B_BECKON loops until OK or S7_IGNORED_TIMEOUT_S. A cap shorter than that would
     cut off stories during ordinary, correct behaviour."""
     from robot import states as ST
     assert SB.Storyboard.MAX_STORY_S > ST.S7_IGNORED_TIMEOUT_S + 6.0

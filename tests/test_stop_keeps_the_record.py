@@ -9,7 +9,7 @@ carries `request` and `plan_generation`, stamped so that "a session where the
 participant asks twice" does not collapse into one undifferentiated list
 (Storyboard.__init__) -- provenance that is only meaningful if records from
 different requests coexist. On disk they did; on the page they never could. Nor
-was the wipe escapable: PTT is accepted only from S1_IDLE and STOP is the only
+was the wipe escapable: PTT is accepted only from S0_IDLE and STOP is the only
 transition into it, so ASKING A SECOND QUESTION REQUIRED DESTROYING THE ANSWER TO
 THE FIRST.
 
@@ -39,12 +39,12 @@ from session.session_flow import SessionFlow
 
 # ----------------------------------------------------------- the flow half ---
 def _to_s7():
-    """Drive a real SessionFlow to S7b with one finding on the board."""
+    """Drive a real SessionFlow to S5B_BECKON with one finding on the board."""
     clock = [0.0]
     f = SessionFlow(now=lambda: clock[0])
     for e in ("ptt_down", "ptt_up", "transcript:watch the desk", "planned",
-              "arrived:S4_PLAN", "arrived:S5A_SETTLE", "arrived:S5B_TRACK",
-              "finding:someone at the desk", "arrived:S7a", "arrived:S7b"):
+              "arrived:S3_SCAN", "arrived:S4A_SETTLE", "arrived:S4B_WATCH",
+              "finding:someone at the desk", "arrived:S5A_FOUND", "arrived:S5B_BECKON"):
         f.feed(e)
     return f
 
@@ -68,7 +68,7 @@ def test_ok_clears_the_board_but_not_in_front_of_them():
     assert f.noticed == 1, "the count was wiped while they were still looking at it"
     assert not any(k == "noticed" for k, _ in out)
 
-    out = f.feed("arrived:S5B_TRACK")
+    out = f.feed("arrived:S4B_WATCH")
     assert f.noticed == 0
     assert ("noticed", 0) in out, "the board is not told, so it keeps the number"
 
@@ -83,16 +83,16 @@ def test_ok_does_not_abandon_the_task():
     """The difference between the two buttons, and the reason OK must not take
     STOP's clean-up path: OK goes back to watching, so nothing is void.
 
-    It nods on the way. S7 v6 rests exactly where S5b watches from, so returning
+    It nods on the way. S7 v6 rests exactly where S4b watches from, so returning
     is no longer a visible movement and the acknowledgement had nothing left to
     carry it -- the board beeped and the robot did nothing. What matters here is
     unchanged: the task survives."""
     f = _to_s7()
     out = f.feed("ok")
-    assert f.state == "S3_ACK"
-    assert ("ack_then", "S5B_TRACK") in out, "the nod must be armed to land on watching"
-    f.feed("arrived:S5B_TRACK")
-    assert f.state == "S5B_TRACK"
+    assert f.state == "S2_ACKNOWLEDGE"
+    assert ("ack_then", "S4B_WATCH") in out, "the nod must be armed to land on watching"
+    f.feed("arrived:S4B_WATCH")
+    assert f.state == "S4B_WATCH"
     assert not any(k == "idle" for k, _ in out), (
         "OK emitted `idle`, which tears down the executor and cancels stories "
         "still collecting -- for a task that is still running.")
@@ -101,7 +101,7 @@ def test_ok_does_not_abandon_the_task():
 def test_stop_does_abandon_it():
     f = _to_s7()
     out = f.feed("stop")
-    assert f.state == "S1_IDLE" and ("idle", True) in out
+    assert f.state == "S0_IDLE" and ("idle", True) in out
 
 
 # ------------------------------------------------------------ the UI half ---

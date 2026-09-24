@@ -132,7 +132,7 @@ is isolation.
 | key | does |
 |---|---|
 | `1`…`8`, `0` | force a state (1 Idle · 2 Attend · 3 Acknowledge · 4 Scan · 5 Watch · 0 Settle · 6 Correct · 7 Call · 8 Error) |
-| `g` | S2_LISTEN — lifts the head without the button, for testing |
+| `g` | S1_ATTEND — lifts the head without the button, for testing |
 | `f` | force a finding — the keyboard twin of **notice this NOW** |
 | `r` | torque off (press a state key to re-engage) |
 | `q` | quit |

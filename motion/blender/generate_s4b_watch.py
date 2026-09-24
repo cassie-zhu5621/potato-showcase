@@ -1,10 +1,10 @@
-# Auto-generates S5b TRACK (3-DOF + LED). Run inside S5B_TRACK.blend after
+# Auto-generates S4b TRACK (3-DOF + LED). Run inside S4B_WATCH.blend after
 # repair_rig.py + add_nod_joint.py. OVERWRITES all keys.
 # Design rationale: ../../../robot_motion/S4_S5_DESIGN.md (local, not in this repo).
 #
-# S5b is a LOOP: the robot is watching the thing S5a settled onto.
+# S4b is a LOOP: the robot is watching the thing S4a settled onto.
 #
-# S5b IS MOTIONLESS, AND THAT IS THE THIRD TIME THE SAME WALL DECIDED IT.
+# S4b IS MOTIONLESS, AND THAT IS THE THIRD TIME THE SAME WALL DECIDED IT.
 #
 #   A vigilance re-fixation was built here and REJECTED. The argument for it was
 #   good ethology -- watching in animals is stillness punctuated by discrete
@@ -36,9 +36,9 @@
 #
 #   S1  breath sway          slow enough to be ambient -> under the 8.8 deg/s
 #                            smoothness floor, steps instead of moving
-#   S5b body breath          smooth enough to clear it -> 10 deg peak-to-peak,
+#   S4b body breath          smooth enough to clear it -> 10 deg peak-to-peak,
 #                            84% of the whole lean, which is rocking
-#   S5b re-fixation          fast enough to be smooth -> 25 deg/s, over the
+#   S4b re-fixation          fast enough to be smooth -> 25 deg/s, over the
 #                            5.4 deg/s ambient salience ceiling, i.e. startling
 #
 #   THERE IS NO MOTION ON THIS BUILD THAT IS BOTH SMOOTH AND UNOBTRUSIVE. The
@@ -90,13 +90,13 @@
 #   layer (the "face"). A watching state must say nothing to anyone, so the head
 #   stays silent and the body does the looking. Moving nod here would borrow the
 #   communication layer's morpheme for an ambient job -- the same error that made
-#   S5a read as "looking up at you for a response".
+#   S4a read as "looking up at you for a response".
 #
 # THE COST, STATED RATHER THAN HIDDEN.
 #
 #   4 deg in 0.3 s peaks near 25 deg/s, well over the 5.4 deg/s ambient salience
 #   ceiling. It WILL be noticed occasionally. That is acceptable here and was not
-#   in S1: idle must ask for nothing, whereas S5b is working on the person's
+#   in S1: idle must ask for nothing, whereas S4b is working on the person's
 #   behalf, and a colleague shifting at their desk is noticed without being an
 #   interruption. It stays far below S7, which is green, large and fast.
 #
@@ -106,10 +106,10 @@
 import bpy
 import math
 
-# ---- pose: keep in sync with generate_s4_sweep.py and generate_s5a_settle.py ----
+# ---- pose: keep in sync with generate_s3_scan.py and generate_s4a_settle.py ----
 HOLD_PAN = 25.0        # = S4 RICHEST_DEG. The re-fixations are relative to this.
-HOLD_TILT = -12.0      # = S4 / S5a LEAN_TILT (neck craned forward at the target)
-HOLD_NOD = 12.0        # = S4 / S5a LEAN_NOD. EXACTLY cancels the lean, so the
+HOLD_TILT = -12.0      # = S4 / S4a LEAN_TILT (neck craned forward at the target)
+HOLD_NOD = 12.0        # = S4 / S4a LEAN_NOD. EXACTLY cancels the lean, so the
                        # held gaze is LEVEL: -12 + 12 = 0. Was 15 (+3) and paired
                        # with a trailing lift, which read as looking up for a
                        # response rather than as settling.
@@ -153,7 +153,7 @@ BREATH_S = 3.6         # one full LED breath. Slower than a resting human (~4 s)
                        # them drift apart is what stops the pair reading as one
                        # mechanism ticking.
 LED_LO = 0.8           # trough. Never 0 -- it should not look switched off.
-LED_HI = 3.0           # crest. Matches S4's and S5a's level so the handovers have
+LED_HI = 3.0           # crest. Matches S4's and S4a's level so the handovers have
                        # no brightness step.
 LED_COOL = (0.38, 0.72, 1.00, 1.0)
 
@@ -189,7 +189,7 @@ REACH_PATH = ""
 def _find_up(rel, starts, levels=8):
     """Walk up, and look one step down into each level's subdirectories -- the
     .blend files live in the local design folder and the generators in the repo,
-    which makes them siblings. See generate_s2_listen.py."""
+    which makes them siblings. See generate_s1_attend.py."""
     for s in starts:
         if not s:
             continue
@@ -294,7 +294,7 @@ def key_led(frame, value):
 
 
 def ease(t):
-    """minjerk -- Flash & Hogan 1985. See generate_s2_listen.py."""
+    """minjerk -- Flash & Hogan 1985. See generate_s1_attend.py."""
     t = max(0.0, min(1.0, t))
     return t * t * t * (10.0 + t * (-15.0 + 6.0 * t))
 
@@ -340,7 +340,7 @@ bpy.context.scene.frame_end = END_F
 _motion = ("STILL -- pose and hue carry it" if not FIX_DEG else
            f"{N_FIX} x {FIX_DEG:.0f} deg re-fixations, peak {_pk:.0f} deg/s "
            f"(REJECTED VARIANT)")
-msg = (f"S5b track: hold {HOLD_PAN:.0f}/{HOLD_TILT:.0f}/{HOLD_NOD:.0f}, gaze level; "
+msg = (f"S4b track: hold {HOLD_PAN:.0f}/{HOLD_TILT:.0f}/{HOLD_NOD:.0f}, gaze level; "
        f"{_motion}; LED breath {BREATH_F / FPS:.2f}s; "
        f"{END_F}f ({END_F / FPS:.1f}s loop)")
 print(msg)
@@ -356,4 +356,4 @@ def draw(self, context):
     self.layout.label(text="FIX_DEG=4.0 renders the rejected vigilance variant.")
 
 
-bpy.context.window_manager.popup_menu(draw, title="S5b track", icon='INFO')
+bpy.context.window_manager.popup_menu(draw, title="S4b track", icon='INFO')

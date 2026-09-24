@@ -11,9 +11,9 @@ USB does not power it.
 
 Usage:
   python3 play_on_hardware.py --center
-  python3 play_on_hardware.py ../../motion/clips/S1_IDLE.csv
-  python3 play_on_hardware.py ../../motion/clips/S1_IDLE.csv --rate 0.5    # half speed, DIAGNOSIS ONLY
-  python3 play_on_hardware.py ../../motion/clips/S1_IDLE.csv --dry-run     # no hardware, just check the CSV
+  python3 play_on_hardware.py ../../motion/clips/S0_IDLE.csv
+  python3 play_on_hardware.py ../../motion/clips/S0_IDLE.csv --rate 0.5    # half speed, DIAGNOSIS ONLY
+  python3 play_on_hardware.py ../../motion/clips/S0_IDLE.csv --dry-run     # no hardware, just check the CSV
 
 CSV columns: t_ms, pan_deg, tilt_deg, [nod_deg,] pan_unit, tilt_unit, [nod_unit]
 The current export/*.csv are 2-DOF (no nod) -- nod is held at centre and you

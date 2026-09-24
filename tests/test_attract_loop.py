@@ -43,8 +43,8 @@ def test_error_is_last():
     """It belongs in the loop -- it is part of the vocabulary -- but the stand
     should not spend its most visible seconds looking broken."""
     order = [s for s, _h, _w in attract.BEATS]
-    assert order[-1] == "S8_ERROR"
-    assert order[0] == "S1_IDLE"
+    assert order[-1] == "S7_ERROR"
+    assert order[0] == "S0_IDLE"
 
 
 def test_a_beat_waits_for_its_clip_before_holding():
@@ -62,10 +62,10 @@ def test_clip_lengths_are_measured_not_declared():
     """A hand-kept table of durations goes stale the first time anything is
     re-exported from Blender."""
     lens = attract._clip_seconds(os.path.join(ROOT, "motion", "clips"))
-    assert lens["S3_ACK"] > 1.0
-    assert lens["S4_PLAN"] > 5.0
+    assert lens["S2_ACKNOWLEDGE"] > 1.0
+    assert lens["S3_SCAN"] > 5.0
     # loop clips have no end of their own and are excluded
-    for looping in ("S1_IDLE", "S5B_TRACK", "S8_ERROR"):
+    for looping in ("S0_IDLE", "S4B_WATCH", "S7_ERROR"):
         assert looping not in lens, looping
 
 

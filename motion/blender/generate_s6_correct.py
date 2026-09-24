@@ -7,17 +7,17 @@
 #
 # IT HAPPENS WHERE THE WRONG THING IS.
 #
-#   The old clip opened and closed at 0/0/0 while S5b holds 25/-12/+12, so
+#   The old clip opened and closed at 0/0/0 while S4b holds 25/-12/+12, so
 #   entering it meant an unauthored 25 deg pan swing plus an un-crane -- about
 #   0.6 s of travel nobody designed. The actual sequence was:
 #
 #     tap -> [turn 25 deg away and straighten] -> startle -> droop
-#         -> shake "not that" -> perk -> [turn 25 deg back] -> S5b
+#         -> shake "not that" -> perk -> [turn 25 deg back] -> S4b
 #
 #   THE NEGATION WAS PERFORMED POINTING AT NOTHING. Not at the wrong object, not
 #   at the person -- and the robot abandoned the wrong target BEFORE being told
 #   anything, then went back to it. "Not THAT one" needs its referent still in
-#   view, so this clip now opens and closes on S5b's held pose and shakes there.
+#   view, so this clip now opens and closes on S4b's held pose and shakes there.
 #
 #   Same class of error as S3's absolute NOD_DIP: a pose written as an absolute
 #   target loses its meaning the moment a neighbouring state moves.
@@ -57,7 +57,7 @@
 #
 # THE NECK COMES OUT OF THE LEAN FIRST, AND THAT IS THE POINT.
 #
-#   S5b's forward lean is EPISTEMIC -- it is not a posture, it is the act of
+#   S4b's forward lean is EPISTEMIC -- it is not a posture, it is the act of
 #   attending to that object (S7_DESIGN sec 2). Refusing the object therefore has
 #   to begin by LEAVING THAT POSTURE. Shaking while still craned at the thing is
 #   a contradiction between posture and gesture: the body says "I am studying
@@ -68,11 +68,11 @@
 #     pan  HOLDS at the target   -> the referent stays indicated: "not THAT one"
 #     tilt COMES UP and back     -> disengaged from it, no longer peering
 #
-#   And it settles the ending. S6 closes UPRIGHT, not back on S5b's craned hold.
+#   And it settles the ending. S6 closes UPRIGHT, not back on S4b's craned hold.
 #   Re-craning onto the object it has just refused would contradict the refusal;
 #   upright-and-level is the posture of waiting to be told, which is exactly what
 #   the state does (states.py then=None, waiting for a direction). If no direction
-#   arrives, REAIM_TIMEOUT_S sends it back to S5b and the re-crane is an ordinary
+#   arrives, REAIM_TIMEOUT_S sends it back to S4b and the re-crane is an ordinary
 #   transition -- "nobody told me, back to what I was doing."
 #
 # THE SHAKE IS ON PAN, WHICH BREAKS THE TWO-LAYER AXIS ON PURPOSE.
@@ -94,8 +94,8 @@
 import bpy
 import math
 
-# ---- the pose it inherits AND returns to (match generate_s5b_track.py) ----
-# S6 is entered from S5b and exits back to it, so both ends are S5b's hold. The
+# ---- the pose it inherits AND returns to (match generate_s4b_watch.py) ----
+# S6 is entered from S4b and exits back to it, so both ends are S4b's hold. The
 # shake is performed AT the wrong target, which is what makes it "not THAT one".
 HOLD_PAN = 25.0
 HOLD_TILT = -12.0
@@ -177,7 +177,7 @@ LED_DROOP = 1.0        # deflates WITH the droop and stays down through the
                        # "I'm fine now" while the head was saying "no".
 LED_FLASH = 6.0        # on each shake extreme. This is the "no".
 
-EASE_MODE = "minjerk"  # Flash & Hogan 1985 -- see generate_s2_listen.py
+EASE_MODE = "minjerk"  # Flash & Hogan 1985 -- see generate_s1_attend.py
 FPS = 30
 SAMPLE_F = 1           # EVERY frame. At SAMPLE_F=2 the shake's extremes fell on
                        # odd offsets and were never sampled: the pan amplitude
@@ -209,7 +209,7 @@ REACH_PATH = ""
 def _find_up(rel, starts, levels=8):
     """Walk up, and look one step down into each level's subdirectories -- the
     .blend files live in the local design folder and the generators in the repo,
-    which makes them siblings. See generate_s2_listen.py."""
+    which makes them siblings. See generate_s1_attend.py."""
     for s in starts:
         if not s:
             continue
@@ -254,7 +254,7 @@ print("[s6] " + reach.summary())
 if abs(HOLD_TILT + HOLD_NOD) > 0.01:
     raise RuntimeError(f"the inherited gaze is not level: tilt+nod = "
                        f"{HOLD_TILT + HOLD_NOD:+.1f}. S6 opens and closes on "
-                       f"S5b's hold, so these must match generate_s5b_track.py.")
+                       f"S4b's hold, so these must match generate_s4b_watch.py.")
 for _j, _v, _w in (("pan", HOLD_PAN + SHAKE_DEG, "shake +"),
                    ("pan", HOLD_PAN - SHAKE_DEG, "shake -"),
                    ("tilt", HOLD_TILT, "inherited lean"),
@@ -395,17 +395,17 @@ msg = (f"S6: release the lean into a droop (tilt {HOLD_TILT:+.0f}->{DROOP_TILT:+
        f"{N_SHAKE} shake cycles {SHAKE_DEG:.0f}/{SHAKE2:.1f} deg at {SHAKE_HZ:.1f} Hz "
        f"-> perk UPRIGHT; {END_F}f ({END_F / FPS:.2f}s), shake peak {_shake_pk:.0f} deg/s")
 print(msg)
-print(f"[s6] set states.py S6_FINETUNE sfx_at = {SFX_AT:.2f}")
+print(f"[s6] set states.py S6_CORRECT sfx_at = {SFX_AT:.2f}")
 
 
 def draw(self, context):
     self.layout.label(text=msg)
-    self.layout.label(text="Opens AND closes on S5b's hold, so the shake happens")
+    self.layout.label(text="Opens AND closes on S4b's hold, so the shake happens")
     self.layout.label(text="AT the wrong target: 'not THAT one'.")
     self.layout.label(text="Droop = apology (Lee et al. 2010: raises trust AND")
     self.layout.label(text="intention to use). Perk = intention to rectify.")
     self.layout.label(text="Ends UPRIGHT: refused, waiting to be told.")
-    self.layout.label(text=f"SET states.py S6_FINETUNE sfx_at = {SFX_AT:.2f}")
+    self.layout.label(text=f"SET states.py S6_CORRECT sfx_at = {SFX_AT:.2f}")
 
 
 bpy.context.window_manager.popup_menu(draw, title="S6 fine-tune", icon='INFO')

@@ -10,7 +10,7 @@ corrected it" without standing in front of the robot triggering them by hand.
 
   events in : "ptt_down" "ptt_up" "ok" "stop" "tap" "transcript:<text>"
               "reject" "finding" "tick"
-  out       : a list of (kind, value) -- ("state", "S4_PLAN"), ("ui", "waiting"),
+  out       : a list of (kind, value) -- ("state", "S3_SCAN"), ("ui", "waiting"),
               ("noticed", 3), ("say", "..."), ("log", "...")
 
 The full spec, and why each rule is what it is, is in
@@ -83,13 +83,13 @@ def transcript_usable(text, no_speech_prob=0.0, avg_logprob=0.0):
 class SessionFlow:
     def __init__(self, now=time.monotonic):
         self.now = now
-        self.state = "S1_IDLE"
+        self.state = "S0_IDLE"
         self.screen = "idle"
         self.noticed = 0
         self.transcript = None
         self._ptt_up_at = None       # waiting for a transcript since (busy resets it)
         self._ptt_up_first_at = None # ...and when the wait FIRST began (busy cannot)
-        self._s7_at = None           # in S7b since
+        self._s7_at = None           # in S5B_BECKON since
         self._reaim_at = None        # in S6 awaiting a direction since
         self.stt_busy = False        # set by the loop while Whisper is running
         self.judge_busy = False      # set by the loop while a candidate is being judged
@@ -112,17 +112,17 @@ class SessionFlow:
         self._emit("ui", self.screen)
         if why:
             self._emit("log", f"{state}: {why}")
-        self._s7_at = self.now() if state == "S7b" else None
+        self._s7_at = self.now() if state == "S5B_BECKON" else None
         # The idle clock is per-ANGLE, not per-session: it asks "has this aim
         # produced anything", so it restarts every time watching is (re-)entered
         # and stops whenever the robot is doing something else.
-        self._watch_since = self.now() if state == "S5B_TRACK" else None
-        self._s8_at = self.now() if state == "S8_ERROR" else None
+        self._watch_since = self.now() if state == "S4B_WATCH" else None
+        self._s8_at = self.now() if state == "S7_ERROR" else None
 
     def _replan(self, why):
         """Re-fire S4 on the request already on record.
 
-        NOT via S3_ACK. S3 is "I heard you", and nobody has said anything -- the
+        NOT via S2_ACKNOWLEDGE. S3 is "I heard you", and nobody has said anything -- the
         robot would be acknowledging a sentence that was never spoken. This is the
         robot deciding on its own to go and look again, so it goes straight to the
         sweep. `plan` re-arms the sweep loop-side and bumps plan_generation.
@@ -133,7 +133,7 @@ class SessionFlow:
         self._plan_at = self.now()
         self._planned_at = None
         self._emit("plan", self.transcript)
-        self._go("S4_PLAN", why)
+        self._go("S3_SCAN", why)
 
     def _ui(self, screen):
         self.screen = screen
@@ -157,7 +157,7 @@ class SessionFlow:
             # normally increments it so CoreS3 and the browser stay in sync.
             self.noticed = 0
             self._emit("noticed", 0)
-            self._go("S1_IDLE", "STOP -- task discarded, waiting for a new request")
+            self._go("S0_IDLE", "STOP -- task discarded, waiting for a new request")
             # Discarding the task has to reach PERCEPTION as well, not just the
             # motion. A robot that has visibly stopped while its watch-spec keeps
             # evaluating is not stopped; it is stopped-looking.
@@ -165,17 +165,17 @@ class SessionFlow:
             return self.out
 
         if ev == "ptt_down":
-            if self.state != "S1_IDLE":
+            if self.state != "S0_IDLE":
                 self._emit("log", f"PTT ignored in {self.state}")
             else:
                 self.transcript = None
-                self._go("S2_LISTEN", "PTT pressed")
+                self._go("S1_ATTEND", "PTT pressed")
                 self._ui("recording")
                 self._emit("rec", "start")
             return self.out
 
         if ev == "ptt_up":
-            if self.state == "S2_LISTEN":
+            if self.state == "S1_ATTEND":
                 self._emit("rec", "stop")
                 self._ptt_up_at = self._ptt_up_first_at = self.now()
                 # The robot holds, facing the person. It does NOT nod yet: the nod
@@ -189,7 +189,7 @@ class SessionFlow:
         #   transcript: -- from Whisper, i.e. from the participant's own turn
         #   typed:      -- from the researcher's web UI box
         # They now differ only in WHERE they may arrive from. Whisper speaks only
-        # during S2; typed text is accepted from every state, including S1_IDLE,
+        # during S2; typed text is accepted from every state, including S0_IDLE,
         # and always re-plans. Nonsense from either one goes to S8, because what
         # a participant can see is the robot, not the keyboard.
         if ev in ("transcript", "typed"):
@@ -200,7 +200,7 @@ class SessionFlow:
             # before the state machine every typed line re-planned on the next
             # frame. Making it conditional on state made the control feel dead --
             # you type, and nothing happens, with the reason buried in a log.
-            if not manual and self.state != "S2_LISTEN":
+            if not manual and self.state != "S1_ATTEND":
                 self._emit("log", f"transcript arrived in {self.state}, ignored")
                 return self.out
             ok, why = transcript_usable(arg)
@@ -210,7 +210,7 @@ class SessionFlow:
                 self.plan_pending = True
                 self._plan_at = self.now()
                 self._emit("plan", self.transcript)
-                self._go("S3_ACK", f"{'typed' if manual else 'heard'} "
+                self._go("S2_ACKNOWLEDGE", f"{'typed' if manual else 'heard'} "
                                    f"{self.transcript!r}")
             else:
                 # BOTH sources error, whatever the text came in on. An earlier
@@ -221,14 +221,14 @@ class SessionFlow:
                 # has to be legible from where they are sitting. If the words are
                 # not a request, the robot says so -- the same way, every time.
                 src = "typed" if manual else "heard"
-                self._go("S8_ERROR", f"unusable request ({src}): {why}")
+                self._go("S7_ERROR", f"unusable request ({src}): {why}")
             return self.out
 
         if ev == "tap":
             # "not that one". Only meaningful while watching; a tap during the
             # scan would be rejecting a choice that has not been made yet.
-            if self.state == "S5B_TRACK":
-                self._go("S6_FINETUNE", "body tap -- wrong direction")
+            if self.state == "S4B_WATCH":
+                self._go("S6_CORRECT", "body tap -- wrong direction")
                 self._reaim_at = self.now()
                 self._emit("await_reaim", True)
             else:
@@ -241,18 +241,18 @@ class SessionFlow:
             # are the same act: change where it looks, keep what it is looking
             # for. Restricting it to S6 made a late click do nothing at all, with
             # no feedback about why.
-            if self.state in ("S6_FINETUNE", "S5B_TRACK"):
+            if self.state in ("S6_CORRECT", "S4B_WATCH"):
                 self._emit("pan", float(arg))
                 self._reaim_at = None
-                if self.state == "S6_FINETUNE":
-                    # S5A, not S5B. The direction CHANGED and a person changed
+                if self.state == "S6_CORRECT":
+                    # S4A, not S4B. The direction CHANGED and a person changed
                     # it, so the arrival is a result and the crane onto it is an
-                    # authored beat. The timeout path below goes to S5B instead,
+                    # authored beat. The timeout path below goes to S4B instead,
                     # because there the aim did NOT change -- and that makes
                     # giving up visibly quieter than being answered, which is
                     # right: nothing was decided, so nothing is performed.
                     # See S4_S5_DESIGN.md sec 9.4.
-                    self._go("S5A_SETTLE", f"re-aimed to pan {arg} -- same "
+                    self._go("S4A_SETTLE", f"re-aimed to pan {arg} -- same "
                                            f"watch-spec, new direction")
                 else:
                     self._emit("log", f"re-aimed to pan {arg} while watching")
@@ -270,23 +270,23 @@ class SessionFlow:
             # Only from watching. Firing it during S4 would put a second sweep
             # inside the one already running; from S1 there is no request yet and
             # `_replan` would return silently, which reads as a dead button.
-            if self.state in ("S5A_SETTLE", "S5B_TRACK") and not self.plan_pending:
+            if self.state in ("S4A_SETTLE", "S4B_WATCH") and not self.plan_pending:
                 self._replan("re-sweep asked for by hand")
             else:
                 self._emit("log", f"resweep ignored in {self.state}")
             return self.out
 
         if ev == "finding":
-            if self.state in ("S5B_TRACK",):
+            if self.state in ("S4B_WATCH",):
                 self.noticed += 1
                 self._emit("noticed", self.noticed)
-                self._go("S7a", "a confirmed finding")
+                self._go("S5A_FOUND", "a confirmed finding")
             else:
                 self._emit("log", f"finding ignored in {self.state}")
             return self.out
 
         if ev == "ok":
-            if self.state == "S8_ERROR":
+            if self.state == "S7_ERROR":
                 # THE ERROR SCREEN'S BUTTON IS OK, NOT STOP (firmware uiLayout).
                 # Getting out of S8 is an affirmative act -- "I have seen that it
                 # failed" -- and there is nothing to cancel: S8 is reached when a
@@ -303,9 +303,9 @@ class SessionFlow:
                 self._s8_at = None
                 self.plan_pending = False
                 self._plan_at = self._ptt_up_at = self._ptt_up_first_at = None
-                self._go("S1_IDLE", "OK -- error acknowledged, back to idle")
+                self._go("S0_IDLE", "OK -- error acknowledged, back to idle")
                 return self.out
-            if self.state in ("S7a", "S7b"):
+            if self.state in ("S5A_FOUND", "S5B_BECKON"):
                 # THE BOARD'S COUNT IS AN INBOX, NOT A SCORE. It says how much is
                 # waiting for the person, so acknowledging clears it for the same
                 # reason STOP does: both end the state of having something
@@ -329,23 +329,23 @@ class SessionFlow:
                 # S7 used to rest ten degrees below the watching pose, so OK
                 # produced a visible lift and that lift was the acknowledgement.
                 # S7 v6 moved the ten degrees into the push and rests exactly
-                # where S5b watches from -- which is what lets a storyboard span
+                # where S4b watches from -- which is what lets a storyboard span
                 # both as one shot, and which leaves OK with no motion at all:
-                # measured 0.0 difference in tilt and nod between S7b's last
-                # frame and S5b's first. The board beeps; the robot does nothing.
+                # measured 0.0 difference in tilt and nod between S5B_BECKON's last
+                # frame and S4b's first. The board beeps; the robot does nothing.
                 #
-                # S3_ACK is the affirmation nod -- "got it". Reused here for the
+                # S2_ACKNOWLEDGE is the affirmation nod -- "got it". Reused here for the
                 # same act one turn later: you have seen what I showed you.
-                # `ack_then` arms the landing FIRST, because S3_ACK's own `then`
-                # is S4_PLAN and requesting the clip bare would walk into a sweep.
+                # `ack_then` arms the landing FIRST, because S2_ACKNOWLEDGE's own `then`
+                # is S3_SCAN and requesting the clip bare would walk into a sweep.
                 # _go FIRST, ack_then SECOND. The loop turns ("state", X) into
                 # player.request(X), and request() clears any pending arm_next --
                 # so an arming emitted before it is wiped a microsecond after it
-                # is made, S3_ACK falls back to its own `then` (S4_PLAN), and the
+                # is made, S2_ACKNOWLEDGE falls back to its own `then` (S3_SCAN), and the
                 # robot re-scans instead of returning to watching. Reported
                 # 2026-08-18 as "OK still goes back to scan".
-                self._go("S3_ACK", "OK -- seen; nodding, then back to watching")
-                self._emit("ack_then", "S5B_TRACK")
+                self._go("S2_ACKNOWLEDGE", "OK -- seen; nodding, then back to watching")
+                self._emit("ack_then", "S4B_WATCH")
             return self.out
 
         if ev == "planned":
@@ -353,12 +353,12 @@ class SessionFlow:
             self.plan_pending = False
             self._plan_at = None
             self._planned_at = self.now()
-            # The idle clock starts when there is something to watch FOR. S5b is
+            # The idle clock starts when there is something to watch FOR. S4b is
             # usually already entered by now -- S4's clip ends before the VLM
             # does -- so _go's reset happened while the spec was still in flight,
             # and 30 s of "seeing nothing" would have been counted against an
             # angle the robot had no criteria for yet.
-            if self.state == "S5B_TRACK":
+            if self.state == "S4B_WATCH":
                 self._watch_since = self.now()
                 self._ui("tracking")
             return self.out
@@ -369,7 +369,7 @@ class SessionFlow:
             # permanent "planning..." screen: make the failure explicit.
             self.plan_pending = False
             self._plan_at = None
-            self._go("S8_ERROR", f"planner failed: {arg}")
+            self._go("S7_ERROR", f"planner failed: {arg}")
             return self.out
 
         if ev == "arrived":
@@ -384,15 +384,15 @@ class SessionFlow:
                 # "tracking..." while the answer is still in flight is a claim
                 # about the robot's state that is simply untrue, and a participant
                 # has no way to tell it apart from the real thing.
-                if arg == "S5B_TRACK" and self.plan_pending:
+                if arg == "S4B_WATCH" and self.plan_pending:
                     screen = "planning"
-                if arg == "S5B_TRACK" and self._clear_board_on_land:
+                if arg == "S4B_WATCH" and self._clear_board_on_land:
                     self._clear_board_on_land = False
                     self.noticed = 0
                     self._emit("noticed", 0)
                 self._ui(screen)
-                self._s7_at = self.now() if arg == "S7b" else None
-                self._s8_at = self.now() if arg == "S8_ERROR" else None
+                self._s7_at = self.now() if arg == "S5B_BECKON" else None
+                self._s8_at = self.now() if arg == "S7_ERROR" else None
             return self.out
 
         if ev == "tick":
@@ -417,16 +417,16 @@ class SessionFlow:
                     and t - self._plan_at > ST.PLAN_TIMEOUT_S):
                 self.plan_pending = False
                 self._plan_at = None
-                self._go("S8_ERROR", "no plan within "
+                self._go("S7_ERROR", "no plan within "
                                      f"{ST.PLAN_TIMEOUT_S:.0f}s -- the VLM never "
                                      f"answered")
                 return self.out
             if self._ptt_up_at is not None and (
                     hard or t - self._ptt_up_at > ST.STT_TIMEOUT_S):
                 self._ptt_up_at = self._ptt_up_first_at = None
-                self._go("S8_ERROR", "no transcript within "
+                self._go("S7_ERROR", "no transcript within "
                                      f"{ST.STT_TIMEOUT_S:.0f}s")
-            elif (self._reaim_at is not None and self.state == "S6_FINETUNE"
+            elif (self._reaim_at is not None and self.state == "S6_CORRECT"
                     and t - self._reaim_at > ST.REAIM_TIMEOUT_S):
                 self._reaim_at = None
                 # NOT the same spot. The tap said "wrong direction"; going back to
@@ -434,15 +434,15 @@ class SessionFlow:
                 # human answer, pick the next-best angle the sweep scored -- the
                 # loop owns that data, so it is asked rather than told.
                 self._emit("pan_next", True)
-                self._go("S5B_TRACK", f"no direction within "
+                self._go("S4B_WATCH", f"no direction within "
                                      f"{ST.REAIM_TIMEOUT_S:.0f}s -- moving on to "
                                      f"the next-best angle from the sweep")
-            elif (self._s7_at is not None and self.state == "S7b"
+            elif (self._s7_at is not None and self.state == "S5B_BECKON"
                     and t - self._s7_at > ST.S7_IGNORED_TIMEOUT_S):
                 # Being ignored is a normal outcome, not a failure: the person is
                 # busy, which is the premise. The finding is already in the feed,
                 # so go back to watching instead of escalating.
-                self._go("S5B_TRACK", f"ignored for "
+                self._go("S4B_WATCH", f"ignored for "
                                      f"{ST.S7_IGNORED_TIMEOUT_S:.0f}s -- "
                                      f"already in the feed, back to watching")
             # ---- S8 gives up on its own. `exit: STOP only` assumed a reader
@@ -451,7 +451,7 @@ class SessionFlow:
             # -- S1 is "present, not attending", which is the truthful state
             # after a failure the robot has stopped trying to fix. The reason is
             # already in the log and on the researcher's screen.
-            elif (self.state == "S8_ERROR"
+            elif (self.state == "S7_ERROR"
                     and getattr(ST, "S8_RECOVER_S", 0)
                     and self._s8_at is not None
                     and t - self._s8_at > ST.S8_RECOVER_S):
@@ -461,7 +461,7 @@ class SessionFlow:
                 # visibly ended -- the person watched it give up.
                 self.plan_pending = False
                 self._plan_at = self._ptt_up_at = self._ptt_up_first_at = None
-                self._go("S1_IDLE", f"gave up after {ST.S8_RECOVER_S:.0f}s in "
+                self._go("S0_IDLE", f"gave up after {ST.S8_RECOVER_S:.0f}s in "
                                     f"S8 -- back to idle, ready to be asked again")
             # ---- S4 re-fires. states.py has documented these two since the
             # state table was written and NOTHING READ THEM: the constants were
@@ -470,7 +470,7 @@ class SessionFlow:
             # it, which is exactly what was observed -- 30 s passes, 5 min
             # passes, and it keeps looking at the same wall.
             #
-            # Only from S5B_TRACK. S6 is a correction in progress and S7 is a
+            # Only from S4B_WATCH. S6 is a correction in progress and S7 is a
             # report being delivered; interrupting either to go and sweep would
             # abandon a turn the person is part of. Not while plan_pending
             # either -- one sweep is already out.
@@ -478,7 +478,7 @@ class SessionFlow:
             # PERIOD IS CHECKED FIRST. If both are due the structural reason is
             # the stronger one: "the room may have changed" subsumes "this angle
             # is quiet", and logging it as the idle case would misreport why.
-            elif self.judge_busy and self.state == "S5B_TRACK":
+            elif self.judge_busy and self.state == "S4B_WATCH":
                 # A JUDGE IN FLIGHT IS NOT AN EMPTY ANGLE. The idle clock asks
                 # "has this aim produced anything"; a candidate under judgement
                 # is something it produced, still waiting on a verdict. Letting
@@ -497,7 +497,7 @@ class SessionFlow:
                 # Postponed, not cancelled -- the same shape as stt_busy above:
                 # busy may push the deadline out, it may not remove it.
                 self._watch_since = t
-            elif (self.state == "S5B_TRACK" and not self.plan_pending
+            elif (self.state == "S4B_WATCH" and not self.plan_pending
                     and self.transcript):
                 per = getattr(ST, "REPLAN_PERIOD_S", 0) or 0
                 idle = getattr(ST, "REPLAN_IDLE_S", 0) or 0

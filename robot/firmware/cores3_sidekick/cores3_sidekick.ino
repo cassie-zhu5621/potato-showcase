@@ -140,7 +140,7 @@ static const int SCREEN_W = 320, SCREEN_H = 240;
   }
   void setAntennaHue(int r, int g, int b) { aR = r; aG = g; aB = b; }
   void setAntennaLevel(int v) { aExt = constrain(v, 0, 255); aExtAt = millis(); }
-  // The fallback breath must BE S1_IDLE's envelope, not a second, louder one.
+  // The fallback breath must BE S0_IDLE's envelope, not a second, louder one.
   // It stands in for the idle state, so anything else makes the handover between
   // "laptop streaming" and "board on its own" visible -- and it was: the old
   // fallback ran 0.25..0.80 (64..204 of 255) while S1's authored envelope is
@@ -149,7 +149,7 @@ static const int SCREEN_W = 320, SCREEN_H = 240;
   // moment a clip took over the antenna got DIMMER. It read as the authored
   // envelope not working at all.
   //
-  // These two numbers are tied to generate_s1_idle.py's LED_LO / LED_HI and
+  // These two numbers are tied to generate_s0_idle.py's LED_LO / LED_HI and
   // export_clip.py's LED_FULL = 8.0:  0.8/8 = 0.10,  2.5/8 = 0.31.
   // If S1's LED range changes, change these with it.
   static const float FB_LO = 0.0375f;         // = S1 LED_LO 0.30 / LED_FULL 8.0
@@ -223,7 +223,7 @@ void checkTap() {
 //   ack      falls   affirmation, same downward accent as the nod (S3)
 //   shutter  click   one capture, fired off the LED flash so they cannot drift (S4)
 //   puzzled  ends up an unresolved question (S6)
-//   excited  rises   calling you over from across the desk (S7a)
+//   excited  rises   calling you over from across the desk (S5A_FOUND)
 //   lost     wanders odd intervals, drifting down, unresolved (S8)
 const int SFX_MAX = 10;
 Note sfxSeq[SFX_MAX];
@@ -476,7 +476,7 @@ void uiDraw() {
     // rather than appearing whole -- which is the difference between a robot
     // saying its name and a screen displaying it.
     //
-    // 800 ms against S3_ACK's two nods at 0.83 s each: the name lands on the
+    // 800 ms against S2_ACKNOWLEDGE's two nods at 0.83 s each: the name lands on the
     // first one. Slide rather than flash -- a flash is what S8 uses for a fault,
     // and a robot that blinks at you on meeting is saying the wrong thing.
     //
@@ -563,7 +563,7 @@ bool uiHit(const UiBtn& b, int x, int y) {
 // screen. It used to be: press PTT on `idle` -> the laptop answers with
 // `EVT UI recording` -> uiSet() clears uiDown and uiLayout() leaves the recording
 // screen with ZERO buttons -> the finger lifts, and `wasReleased() && uiDown >= 0`
-// is false, so IN PTT_UP was never sent. The laptop then sat in S2_LISTEN with
+// is false, so IN PTT_UP was never sent. The laptop then sat in S1_ATTEND with
 // nothing to time out (the STT deadline is armed BY ptt_up), the recorder was
 // never stopped, and the session hung on the bar forever.
 //
@@ -573,7 +573,7 @@ bool pttHeld = false;
 
 // ---- STOP IS HOLD-TO-STOP; A TAP MEANS OK ------------------------------------
 //
-// STOP is a CANCEL: the laptop discards the watch-spec and returns to S1_IDLE
+// STOP is a CANCEL: the laptop discards the watch-spec and returns to S0_IDLE
 // (states.py STOP_DISCARDS_TASK). During the study's fifteen-minute work phase
 // the participant sits alone with this screen having been told to do whatever
 // feels natural, and the red button is next to the green one. One brush of it
@@ -592,7 +592,7 @@ bool pttHeld = false;
 //                                       So a mis-touch costs nothing anywhere.
 //   hold  (>= STOP_HOLD_MS) -> IN STOP  unchanged, and still available from every
 //                                       screen. §4 needs it: PTT is accepted only
-//                                       from S1_IDLE and STOP is the only route
+//                                       from S0_IDLE and STOP is the only route
 //                                       there, so taking a second brief depends
 //                                       on it.
 //
@@ -740,7 +740,7 @@ void handleLine(String line) {
     // on Loffler's "sadness is blue", and is amber again -- dim.
     //
     // THE COLOUR WAS NEVER THE DEFECT. S8 was reported as an alarm because it
-    // ran at 143 (brighter than S5B_TRACK's 96, i.e. being stuck outshone
+    // ran at 143 (brighter than S4B_WATCH's 96, i.e. being stuck outshone
     // working) and because its envelope re-inflated LO->HI every four seconds,
     // which is an alarm's rhythm. Both are fixed in the clip: 13..51, decaying.
     // Changing the hue as well was an over-correction of a brightness problem.

@@ -1,4 +1,4 @@
-# Auto-generates the S1 IDLE loop (3-DOF + LED). Run inside S1_IDLE.blend after
+# Auto-generates the S1 IDLE loop (3-DOF + LED). Run inside S0_IDLE.blend after
 # repair_rig.py + add_nod_joint.py. OVERWRITES all keys.
 # Design rationale: ../../../robot_motion/S1_DESIGN.md (local, not in this repo).
 # Comments here are operational -- what a value must not break. The

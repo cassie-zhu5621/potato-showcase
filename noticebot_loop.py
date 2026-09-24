@@ -255,12 +255,12 @@ def list_cams(n=6):
 def perceive(frame, snap, ctx):
     """Called with a SETTLED frame. Return an EVENT NAME, or None.
 
-    An event, not a state -- "finding", not "S7a". The rules for what an event
+    An event, not a state -- "finding", not "S5A_FOUND". The rules for what an event
     means live in session_flow.py, which is the design contribution; perception
     reports, the flow decides. The events it may emit are the same vocabulary
     every other device uses:
 
-        "finding"          a watch entry was satisfied  -> S7a, counter, story
+        "finding"          a watch entry was satisfied  -> S5A_FOUND, counter, story
         "tap"              the body was touched         -> S6 (already wired)
         "transcript:<txt>" (STT owns this one)
 
@@ -284,7 +284,7 @@ def perceive(frame, snap, ctx):
     return-to-richest is where that choice becomes visible.
     """
     ctx["frames_seen"] = ctx.get("frames_seen", 0) + 1
-    if snap["state"] == "S4_PLAN" and snap["settled_ms"] > 400:
+    if snap["state"] == "S3_SCAN" and snap["settled_ms"] > 400:
         ctx.setdefault("stations", []).append(snap["pose"]["pan"])
     return None
 
@@ -302,7 +302,7 @@ def main():
                     help="the exported motion CSVs. These are BUILD ARTEFACTS: "
                          "to change a movement, edit the .blend in motion/src "
                          "and re-export -- never hand-edit a CSV.")
-    ap.add_argument("--start", default="S1_IDLE")
+    ap.add_argument("--start", default="S0_IDLE")
     ap.add_argument("--no-view", action="store_true", help="no preview window")
     ap.add_argument("--serve", action="store_true",
                     help="reuse attention_ui.py's web UI: live stream + panel + "
@@ -661,24 +661,24 @@ def main():
             # S7 deliberately clears the S5 pan override while it performs its
             # person <-> finding gesture. Returning to S5 must restore the plan's
             # bearing, not fall back to the clip's authored +25-degree template.
-            if val == "S5B_TRACK" and ctxd.get("aimed_pan") is not None:
+            if val == "S4B_WATCH" and ctxd.get("aimed_pan") is not None:
                 player.arm_pan_deg(float(ctxd["aimed_pan"]))
             player.request(val)
         elif kind == "ack_then":
-            # Arm the landing before the clip is requested. S3_ACK's `then` is
-            # S4_PLAN, so a bare request walks into a sweep -- and both users of
+            # Arm the landing before the clip is requested. S2_ACKNOWLEDGE's `then` is
+            # S3_SCAN, so a bare request walks into a sweep -- and both users of
             # this nod (the greeting, and OK) want it to land somewhere else.
             #
             # AND ARM THE BEARING WITH IT. The landing is reached by the PLAYER's
             # own `then`, which never passes through the ("state", ...) branch
-            # above -- so the pan restore that lives there is skipped, and S5B
+            # above -- so the pan restore that lives there is skipped, and S4B
             # comes back at its authored +25 instead of where the plan is aimed.
             # The head swings out and back, which reads as the robot losing the
             # thing it was watching at the exact moment you told it you had seen
             # the last one.
-            if val == "S5B_TRACK" and ctxd.get("aimed_pan") is not None:
+            if val == "S4B_WATCH" and ctxd.get("aimed_pan") is not None:
                 player.arm_pan_deg(float(ctxd["aimed_pan"]))
-            # ARMING ONLY. The flow emits ("state", "S3_ACK") AFTER this one,
+            # ARMING ONLY. The flow emits ("state", "S2_ACKNOWLEDGE") AFTER this one,
             # and that is what requests the clip -- request() clears any pending
             # override, so this must land on the far side of it. See
             # ClipPlayer.request and the emission order in session_flow.
@@ -687,9 +687,9 @@ def main():
             # non-sequitur here. Held back for the length of the nod; see below.
             ctxd["hush_heard_until"] = time.time() + 1.9
         elif kind == "ui":
-            # A BORROWED NOD KEEPS ITS MOTION, NOT ITS SCREEN. S3_ACK is the nod,
+            # A BORROWED NOD KEEPS ITS MOTION, NOT ITS SCREEN. S2_ACKNOWLEDGE is the nod,
             # and its screen is "I heard you." -- true when it follows a request,
-            # S3_ACK is the affirmation nod and its screen is "I heard you." --
+            # S2_ACKNOWLEDGE is the affirmation nod and its screen is "I heard you." --
             # true when it follows a request, a non-sequitur when the robot is
             # introducing itself or acknowledging that you looked at a report.
             # The flow sets the screen from the state, so without this the hello
@@ -717,7 +717,7 @@ def main():
                 # only means anything if records from different requests coexist.
                 # On disk they did; on the page they never could.
                 #
-                # Nor was the wipe escapable: PTT is accepted only from S1_IDLE
+                # Nor was the wipe escapable: PTT is accepted only from S0_IDLE
                 # and STOP is the only route there, so asking a second question
                 # REQUIRED destroying the answer to the first. Observed on
                 # 2026-08-08 -- a finding confirmed, spoken, and written to
@@ -947,13 +947,13 @@ def main():
                 # look, CV takes over there and stays.
                 print(f"[aim] richest pan {meta['richest_pan']:+d} "
                       f"(score {meta['richest_score']}) -- taking over there")
-                # DID THE TARGET CHANGE? That is the whole question S5a exists
+                # DID THE TARGET CHANGE? That is the whole question S4a exists
                 # to answer, and only the planner can answer it -- the sweep is
                 # additive, so most re-plans re-choose what was already watched.
                 # The planner starts only AFTER S4 has entered its S5 hold, so a
                 # late arm_next() would be consumed by the next unrelated
-                # one-shot (in practice S7a), hijacking S7a -> S7b. Changed aims
-                # therefore request S5A now; unchanged aims simply retarget S5B.
+                # one-shot (in practice S5A_FOUND), hijacking S5A_FOUND -> S5B_BECKON. Changed aims
+                # therefore request S4A now; unchanged aims simply retarget S4B.
                 #
                 # Same joints, same endpoints, two different claims -- and what
                 # separates them is only whether anybody authored the move. See
@@ -962,10 +962,10 @@ def main():
                 prev = ctxd.get("aimed_pan")
                 if prev is None or abs(new_pan - prev) > ST.AIM_CHANGED_DEG:
                     player.arm_pan_deg(new_pan)
-                    player.request("S5A_SETTLE")
+                    player.request("S4A_SETTLE")
                     print(f"[aim] target CHANGED "
                           f"({'first' if prev is None else f'{prev:+.0f}'}"
-                          f" -> {new_pan:+.0f}) -- S5a will announce the arrival")
+                          f" -> {new_pan:+.0f}) -- S4a will announce the arrival")
                 else:
                     player.set_pan_deg(new_pan)
                 ctxd["aimed_pan"] = new_pan
@@ -1287,7 +1287,7 @@ def main():
                 # wakes up and says it back. Starting the loop is a researcher
                 # action and there is nobody to greet yet.
                 #
-                # arm_next before request, because S3_ACK's `then` is S4_PLAN --
+                # arm_next before request, because S2_ACKNOWLEDGE's `then` is S3_SCAN --
                 # asking for the clip alone would walk straight into a sweep with
                 # no request to plan for. That override exists for exactly this:
                 # a tool that knows where a one-shot should land before it ends.
@@ -1295,12 +1295,12 @@ def main():
                     ctxd["bot_name"] = new_name
                     link.name(new_name)
                     print(f"[name] it is called {new_name!r} -- greeting")
-                    # S3_ACK is 1.67 s; hold the screen a little past it so the
+                    # S2_ACKNOWLEDGE is 1.67 s; hold the screen a little past it so the
                     # nod finishes on `hello` and only then falls to `idle`.
                     ctxd["hush_heard_until"] = time.time() + 1.9
                     link.ui("hello")
-                    player.request("S3_ACK")
-                    player.arm_next("S1_IDLE")
+                    player.request("S2_ACKNOWLEDGE")
+                    player.arm_next("S0_IDLE")
                 # ---- THE TWO EMERGENCY CONTROLS ------------------------------
                 #
                 # A session is one shot. When the actor plays the scene and the
@@ -1308,7 +1308,7 @@ def main():
                 # researcher taking over, and the second is worth having.
                 #
                 # `finding` is the flow's own event -- the same one the `f` key
-                # sends -- so it takes the ordinary path: S7a performs the
+                # sends -- so it takes the ordinary path: S5A_FOUND performs the
                 # notice, `noticed` opens a story, the keyframe rule collects the
                 # panels and the narration judge writes the sentence into the
                 # feed. What it skips is the trigger and the CONFIRMATION judge,
@@ -1391,7 +1391,7 @@ def main():
             #
             # The light was not frozen before this: the firmware breathes on its
             # own after 500 ms of silence. But that fallback was tuned to be
-            # S1_IDLE's envelope, so the wait said `cool` in colour and `idle` in
+            # S0_IDLE's envelope, so the wait said `cool` in colour and `idle` in
             # rhythm. Same colour, quicker rhythm -- see ST.PLAN_BREATH.
             if link and getattr(flow, "plan_pending", False):
                 _pb, _t = ST.PLAN_BREATH, time.time()
@@ -1415,15 +1415,15 @@ def main():
                 # which is exactly why it looked like a screen bug and not a
                 # missing event.
                 ui_events.append("arrived:" + snap["state"])
-                if last_state == "S4_PLAN" and sweep.active:
+                if last_state == "S3_SCAN" and sweep.active:
                     # left S4 -> the sweep is complete. Plan off-thread: the call
                     # is seconds and the loop still owes the LED a heartbeat.
                     threading.Thread(target=run_planner,
                                      args=(ctxd.get("request", ""),
                                            ctxd.get("plan_generation", 0)),
                                      daemon=True).start()
-                if (snap["state"] == "S5B_TRACK"
-                        and last_state in ("S7a", "S7b")):
+                if (snap["state"] == "S4B_WATCH"
+                        and last_state in ("S5A_FOUND", "S5B_BECKON")):
                     candidate_gate["busy"] = False
                     candidate_gate["winner"] = None
                 last_state = snap["state"]
@@ -1522,7 +1522,7 @@ def main():
             frame = None
             fired = []
             # From states.py, NOT a literal: this list had "S5_TRACK" in it,
-            # which is the CLIP name. The state is S5B_TRACK, so the test was
+            # which is the CLIP name. The state is S4B_WATCH, so the test was
             # false forever and CV never ran in the state whose whole job is
             # watching. Nothing raised -- a wrong string is just never equal.
             watching = snap["state"] in ST.WATCHING
@@ -1532,7 +1532,7 @@ def main():
                 frame = cam.latest
                 now = time.time()
                 settled = snap["settled_ms"] > SETTLE_MS
-                if frame is not None and settled and snap["state"] == "S4_PLAN":
+                if frame is not None and settled and snap["state"] == "S3_SCAN":
                     if sweep.offer(frame, snap["pose_deg"]["pan"]):
                         # Arm S5 to hold RIGHT HERE. Until the VLM answers, the
                         # last angle swept is the best available guess, and it is
@@ -1889,7 +1889,7 @@ def main():
             elif k == ord("f"):
                 ui_events.append("finding")     # stand-in until the judge is wired
             elif k == ord("g"):
-                player.request("S2_LISTEN")      # enters the designed cycle
+                player.request("S1_ATTEND")      # enters the designed cycle
             elif k == ord("r"):
                 for sid in IDS.values():
                     bus.torque(sid, False)

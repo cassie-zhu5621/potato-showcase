@@ -174,7 +174,7 @@ preview window first.
 | key | does |
 |---|---|
 | `1`…`8`, `0` | force a state (1 Idle · 2 Attend · 3 Acknowledge · 4 Scan · 5 Watch · 0 Settle · 6 Correct · 7 Call · 8 Error) |
-| `g` | S2_LISTEN — the same lift the head tap produces, for testing without the sensor |
+| `g` | S1_ATTEND — the same lift the head tap produces, for testing without the sensor |
 | `f` | force a finding — the keyboard twin of **notice this NOW** |
 | `r` | torque off (press a state key to re-engage) |
 | `q` | quit |

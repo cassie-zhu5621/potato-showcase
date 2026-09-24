@@ -1,16 +1,16 @@
-# Auto-generates S7a FOUND (one-shot, 3-DOF + LED). Run inside S7a.blend after
+# Auto-generates S5A_FOUND FOUND (one-shot, 3-DOF + LED). Run inside S5A_FOUND.blend after
 # repair_rig.py + add_nod_joint.py. OVERWRITES all keys.
 # Design rationale: ../../../robot_motion/S7_DESIGN.md (local, not in this repo).
 #
 # Sequence: NOTICE (lean deeper onto the finding) -> ATTENTION-GET (turn to the
 # user, eye contact, no lean) -> DIRECT (turn back to the finding, crane at IT)
-# -> HOLD. Beats 1-2 of Mundy's initiating-joint-attention triple; S7b carries 3.
+# -> HOLD. Beats 1-2 of Mundy's initiating-joint-attention triple; S5B_BECKON carries 3.
 #
 # v4 (2026-08-03). Two structural changes.
 #
 # 1. THE CLIP NOW STARTS WHERE THE ROBOT ACTUALLY IS.
 #
-#    v3 opened at 0/0/0 while S5b holds pan/-12/+12. Two consequences, and the
+#    v3 opened at 0/0/0 while S4b holds pan/-12/+12. Two consequences, and the
 #    second is a design failure rather than a defect:
 #
 #      - ~0.2 s of UNAUTHORED travel at the top of the announcement, and 25 deg
@@ -19,7 +19,7 @@
 #      - THE ANTICIPATION BEAT WAS INVERTED. Beat 1 is the detection registering
 #        before the body acts on it, and its comment said "the head is still on
 #        the watched region -- S5 left it there." It was not. The crouch ran
-#        tilt 0 -> -8 while S5b had already been at -12, so the dip was a NET
+#        tilt 0 -> -8 while S4b had already been at -12, so the dip was a NET
 #        RISE OF 4 DEG: the beat that means "I saw that" was performed as
 #        straightening up away from the thing seen.
 #
@@ -32,34 +32,34 @@
 #    The neck leans FURTHER IN and the head does NOT compensate, so the gaze
 #    drops from the watched region onto the object itself. Leaning in without
 #    levelling is "looking closer" -- and it is exactly one contrast away from
-#    S5a, where the two pitch joints run in exact opposition so the gaze does not
+#    S4a, where the two pitch joints run in exact opposition so the gaze does not
 #    move at all. Same joints, opposite compensation, two different claims:
 #
-#      S5a  lean + cancel  ->  gaze fixed  ->  ARRIVING at a region
-#      S7a  lean, no cancel ->  gaze drops  ->  LOCKING ON to a thing in it
+#      S4a  lean + cancel  ->  gaze fixed  ->  ARRIVING at a region
+#      S5A_FOUND  lean, no cancel ->  gaze drops  ->  LOCKING ON to a thing in it
 #
 #    It is also the right layer. The notice is EPISTEMIC -- the robot registering
 #    something about the world, addressed to nobody -- so by the two-layer rule
 #    the body moves and the head is passive. The social beat starts afterwards,
 #    with the turn, and that one moves the gaze. The two are not confusable.
 #
-# THE OBJECT'S BEARING AND S5b's HELD PAN ARE THE SAME QUANTITY.
+# THE OBJECT'S BEARING AND S4b's HELD PAN ARE THE SAME QUANTITY.
 #
 #    Not two numbers that happen to agree: the finding was found in the region
-#    the robot was watching. OBJECT_PAN is therefore the pan S5b was holding, and
+#    the robot was watching. OBJECT_PAN is therefore the pan S4b was holding, and
 #    the clip opens there. Both are templates -- the runtime remap supplies the
 #    truth -- but they must be remapped TOGETHER or the clip will turn away from
 #    the object in order to announce it.
 #
 # ! STILL OPEN, AND IT IS THE BIG ONE: the two-point remap that S7_DESIGN.md
 #   Sec.5 specifies IS NOT IMPLEMENTED. clip_player clears _pan_override on
-#   entering S7a and nothing supplies one, so on hardware this clip plays at the
+#   entering S5A_FOUND and nothing supplies one, so on hardware this clip plays at the
 #   TEMPLATE angles no matter where the person or the finding is. The remove-it
 #   test that v3 applied to v2 -- "delete the object and the robot performs
 #   exactly the same sequence" -- still passes at runtime. Authoring cannot fix
 #   this; it is a player change.
 #
-# The final pose IS S7b's frame 1. Both files hold the object leg; keep them in
+# The final pose IS S5B_BECKON's frame 1. Both files hold the object leg; keep them in
 # sync or the loop will jump on entry.
 #
 # SIGN CONVENTION: BLENDER positive nod = head UP; on the bus a higher unit is
@@ -68,25 +68,25 @@
 import bpy
 import math
 
-# ---- inherited from S5b (its held pose) ----
-HOLD_TILT = -12.0     # = generate_s5b_track.py HOLD_TILT
-HOLD_NOD = 12.0       # = generate_s5b_track.py HOLD_NOD. Cancels exactly, so the
+# ---- inherited from S4b (its held pose) ----
+HOLD_TILT = -12.0     # = generate_s4b_watch.py HOLD_TILT
+HOLD_NOD = 12.0       # = generate_s4b_watch.py HOLD_NOD. Cancels exactly, so the
                       # inherited gaze is LEVEL: watching a region, not a thing.
 
-# ---- keep in sync with generate_s7_beckon.py ----
-OBJECT_PAN = -25.0    # == the pan S5b was holding. A TEMPLATE: the player
+# ---- keep in sync with generate_s5b_beckon.py ----
+OBJECT_PAN = -25.0    # == the pan S4b was holding. A TEMPLATE: the player
                       # translates the whole clip onto the real finding angle.
 
 # ---- the finding ----
 OBJECT_ELEV = 0.0     # WAS -10, and that number was never measured -- it was
                       # authored as "a desk is below". The finding fires INSIDE
-                      # S5b's own view, so it sits at S5b's gaze, which is level.
+                      # S4b's own view, so it sits at S4b's gaze, which is level.
                       # The -10 put S7's whole resting posture ten degrees below
                       # the watching one, and since the camera rides on the head
                       # that is a third of the vertical frame: the storyboard cut
                       # between its opening panel and every panel taken during
                       # S7's rests. Reported 2026-08-08.
-LEAN_DEG = -12.0      # = S5b's HOLD_TILT. THE REST POSE OF S7 IS THE WATCHING
+LEAN_DEG = -12.0      # = S4b's HOLD_TILT. THE REST POSE OF S7 IS THE WATCHING
                       # POSE, so the viewpoint never changes between noticing
                       # and reporting, and the strip is one continuous shot.
                       #
@@ -96,20 +96,20 @@ LEAN_DEG = -12.0      # = S5b's HOLD_TILT. THE REST POSE OF S7 IS THE WATCHING
                       # is now the PUSH, a transient toward the finding, rather
                       # than a posture held while the camera is trying to record
                       # what it found. Admoni HRI'13 already argued the same way
-                      # for S7b's train of accents over a single held stare; this
-                      # applies it to S7a as well, so the whole of S7 is one
+                      # for S5B_BECKON's train of accents over a single held stare; this
+                      # applies it to S5A_FOUND as well, so the whole of S7 is one
                       # gesture repeated rather than a posture plus a gesture.
                       #
                       # THE COST, NAMED: a still photograph of S7 between pushes
-                      # is indistinguishable from S5b watching. The difference
+                      # is indistinguishable from S4b watching. The difference
                       # lives in motion, in the LED (summon), and in the sound.
 OBJECT_NOD = OBJECT_ELEV - LEAN_DEG   # cancel the lean's pitch, THEN aim.
 
 # ---- v5: THE ATTENTION-GET IS GONE ----
 #
 # Beat 2 used to turn 89 degrees to USER_PAN, hold eye contact, and come back.
-# It is removed for the same reason S7b's alternation was (see
-# generate_s7_beckon.py), and for one more that only showed up on hardware.
+# It is removed for the same reason S5B_BECKON's alternation was (see
+# generate_s5b_beckon.py), and for one more that only showed up on hardware.
 #
 # THE PREMISE WAS NEVER TRUE. The participant places the robot anywhere on the
 # desk and nothing measures where they then sit, so the turn went to an authored
@@ -117,13 +117,13 @@ OBJECT_NOD = OBJECT_ELEV - LEAN_DEG   # cancel the lean's pitch, THEN aim.
 # entire job is to be believed.
 #
 # AND THE CAMERA IS ON THE HEAD. That turn took the eye off the event for 3.4 of
-# S7a's 4.6 s, at exactly the moment the storyboard opens. Measured on a saved
+# S5A_FOUND's 4.6 s, at exactly the moment the storyboard opens. Measured on a saved
 # strip (e2e_20260805_155419): panel 1 blurred mid-turn, panel 2 the participant
 # looking into the lens BECAUSE THE ROBOT HAD TURNED TO HER, panel 3 a wall. The
 # narration was then written from panel 2 -- "a woman looking towards the
 # camera" -- so the record of what the robot noticed had become a record of
 # someone reacting to the robot. With pan held, the finding stays in frame
-# through S7a and S7b, and the story can keep watching while the robot performs.
+# through S5A_FOUND and S5B_BECKON, and the story can keep watching while the robot performs.
 #
 # WHAT IS GIVEN UP, plainly: the robot no longer addresses the person at any
 # point in S7. Beats 1-2 of Mundy's initiating-joint-attention triple are now
@@ -134,25 +134,25 @@ OBJECT_NOD = OBJECT_ELEV - LEAN_DEG   # cancel the lean's pitch, THEN aim.
 # no amount of authoring does.
 #
 # The clip is short on purpose. It says "I have seen something" and hands over;
-# S7b, which loops, is where the insisting happens. A long preamble in front of
+# S5B_BECKON, which loops, is where the insisting happens. A long preamble in front of
 # a loop is time the loop then has to fill.
 
-# ---- the notice: ONE PUSH, the same one S7b then repeats ----
+# ---- the notice: ONE PUSH, the same one S5B_BECKON then repeats ----
 #
-# v6. The notice used to be a CHANGE OF RESTING POSTURE -- sink from S5b's -12
+# v6. The notice used to be a CHANGE OF RESTING POSTURE -- sink from S4b's -12
 # to -22 and stay there. That posture is what the storyboard then photographed
 # for the rest of the loop, ten degrees below its own opening panel, and the
 # strip cut between them.
 #
 # So the escalation moved from the posture to the MOTION. The clip rests where
-# S5b rests, pushes once toward the finding, and comes back. S7b then repeats
+# S4b rests, pushes once toward the finding, and comes back. S5B_BECKON then repeats
 # that push three times per loop, so the whole of S7 is one gesture said once
 # and then insisted on -- rather than a posture plus a different gesture.
 #
-# Same depth and the same rhythm as S7b's pushes, deliberately: the first push
+# Same depth and the same rhythm as S5B_BECKON's pushes, deliberately: the first push
 # and the ones that follow it are the same word, and authoring them from two
 # sets of numbers is how they would drift into two.
-PUSH_DEG = 12.0       # = generate_s7_beckon.BOB_DEG. -12 -> -24.
+PUSH_DEG = 12.0       # = generate_s5b_beckon.BOB_DEG. -12 -> -24.
 PUSH_S = 0.23         # sharp: this is the accent
 BOTTOM_S = 0.13       # "see, feel, react" -- Invisible Strings P4. Acting
                       # without first being seen to have seen reads as
@@ -162,24 +162,24 @@ RETURN_S = 0.50       # slow, eased. Quick out and slow back is what separates
                       # reads as agreement.
 
 # ---- boundaries ----
-HOLD_IN_S = 0.20      # S5b's pose, held so the push has something to leave FROM.
-HOLD_OUT_S = 0.67     # the held fixation that ends the clip, continued by S7b's
+HOLD_IN_S = 0.20      # S4b's pose, held so the push has something to leave FROM.
+HOLD_OUT_S = 0.67     # the held fixation that ends the clip, continued by S5B_BECKON's
                       # opening hold -- the same pose, so the two run together.
 
 # ---- LED ----
-LED_ENTER = 2.0       # = S5b's breath midpoint, so the entry does not jump
+LED_ENTER = 2.0       # = S4b's breath midpoint, so the entry does not jump
 LED_CALL = 8.0        # 255 -- on the bottom of the dive. This accent used to
                       # sit on the eye contact; with no eye contact it belongs
                       # on the only event left, which is the lock-on.
-LED_HOLD = 4.0        # 127/255 -- lit, not an event. MUST equal S7b's opening
+LED_HOLD = 4.0        # 127/255 -- lit, not an event. MUST equal S5B_BECKON's opening
                       # value or the handover blinks.
 LED_EDGE_S = 0.13
-LED_COLOR = (1.00, 0.75, 0.00, 1.0)   # = SUMMON (45/100/100), matching S7b.
+LED_COLOR = (1.00, 0.75, 0.00, 1.0)   # = SUMMON (45/100/100), matching S5B_BECKON.
 
 # ---- speed ----
 PEAK_DPS = 120.0
 PEAK_FACTOR = 1.875
-EASE_MODE = "minjerk"  # Flash & Hogan 1985 -- see generate_s2_listen.py.
+EASE_MODE = "minjerk"  # Flash & Hogan 1985 -- see generate_s1_attend.py.
 FPS = 30
 SAMPLE_F = 1
 
@@ -193,7 +193,7 @@ REACH_PATH = ""
 def _find_up(rel, starts, levels=8):
     """Walk up, and look one step down into each level's subdirectories -- the
     .blend files live in the local design folder and the generators in the repo,
-    which makes them siblings. See generate_s2_listen.py."""
+    which makes them siblings. See generate_s1_attend.py."""
     for s in starts:
         if not s:
             continue
@@ -233,16 +233,16 @@ reach = type(sys)("reach")
 reach.__file__ = _rp
 with open(_rp) as _fh:
     exec(compile(_fh.read(), _rp, "exec"), reach.__dict__)
-print("[s7a] " + reach.summary())
+print("[s5a_found] " + reach.summary())
 
 # --- structural assertions: the things that silently stop meaning anything ---
 if abs(HOLD_TILT + HOLD_NOD) > 0.01:
     raise RuntimeError(
         f"the inherited gaze is not level: tilt+nod = {HOLD_TILT + HOLD_NOD:+.1f}. "
-        f"S7a opens on S5b's hold, so these must match generate_s5b_track.py.")
+        f"S5A_FOUND opens on S4b's hold, so these must match generate_s4b_watch.py.")
 if abs(LEAN_DEG - HOLD_TILT) > 0.01 or abs(OBJECT_NOD - HOLD_NOD) > 0.01:
     raise RuntimeError(
-        f"S7's rest pose ({LEAN_DEG:+.1f}/{OBJECT_NOD:+.1f}) is not S5b's "
+        f"S7's rest pose ({LEAN_DEG:+.1f}/{OBJECT_NOD:+.1f}) is not S4b's "
         f"({HOLD_TILT:+.1f}/{HOLD_NOD:+.1f}).\n"
         f"  THE v4 RULE HERE WAS THE OPPOSITE: it required the crane to be "
         f"VISIBLY DEEPER than the watching posture, because that difference was "
@@ -276,12 +276,12 @@ LED_EDGE_F = int(round(LED_EDGE_S * FPS))
 F_IN = 1 + HOLD_IN_F                   # the push starts
 F_DEEP = F_IN + PUSH_F                 # deepest point
 F_BOTTOM = F_DEEP + BOTTOM_F           # the beat held there
-F_BACK = F_BOTTOM + RETURN_F           # home, on S5b's pose again
+F_BACK = F_BOTTOM + RETURN_F           # home, on S4b's pose again
 END_F = F_BACK + HOLD_OUT_F
 
 if abs(LEAN_DEG - HOLD_TILT) > 0.01:
     raise RuntimeError(
-        f"the rest pose is {LEAN_DEG:+.1f} but S5b holds {HOLD_TILT:+.1f}. THE "
+        f"the rest pose is {LEAN_DEG:+.1f} but S4b holds {HOLD_TILT:+.1f}. THE "
         f"WHOLE POINT OF v6 is that they are the same: the camera is on the "
         f"head, so any difference is a cut in the middle of the storyboard's "
         f"own strip.")
@@ -295,14 +295,14 @@ if abs((LEAN_DEG + OBJECT_NOD) - OBJECT_ELEV) > 0.01:
         f"vs OBJECT_ELEV {OBJECT_ELEV:+.1f}.")
 if HOLD_OUT_F < 14:
     raise RuntimeError(
-        f"HOLD_OUT_F {HOLD_OUT_F} < S7b's opening hold (14 f). The two run "
+        f"HOLD_OUT_F {HOLD_OUT_F} < S5B_BECKON's opening hold (14 f). The two run "
         f"together as one fixation; if this end is the shorter the handover "
         f"reads as the robot losing interest in what it just found.")
 
 for _j, _v, _w in (("pan", OBJECT_PAN, "held all clip"),
-                   ("tilt", LEAN_DEG, "the rest pose = S5b's"),
+                   ("tilt", LEAN_DEG, "the rest pose = S4b's"),
                    ("tilt", LEAN_DEG - PUSH_DEG, "the bottom of the push"),
-                   ("nod", OBJECT_NOD, "the rest pose = S5b's"),
+                   ("nod", OBJECT_NOD, "the rest pose = S4b's"),
                    ("nod", OBJECT_NOD + PUSH_DEG, "counter-rotated at the bottom")):
     reach.check(_j, _v, _w)
 for _j, _d, _w in (("tilt", PUSH_DEG, "the push, neck"),
@@ -386,13 +386,13 @@ def track(points, f):
 # whole of the retargeting is a translation onto the real finding angle.
 PAN = [(1, OBJECT_PAN), (END_F, OBJECT_PAN)]
 
-TILT = [(1, LEAN_DEG), (F_IN, LEAN_DEG),                         # = S5b's pose
+TILT = [(1, LEAN_DEG), (F_IN, LEAN_DEG),                         # = S4b's pose
         (F_DEEP, LEAN_DEG - PUSH_DEG),                           # push at it
         (F_BOTTOM, LEAN_DEG - PUSH_DEG),                         # the beat
         (F_BACK, LEAN_DEG), (END_F, LEAN_DEG)]                   # home, held
 
 # EQUAL AND OPPOSITE, so tilt+nod holds at OBJECT_ELEV for the whole push: the
-# creature lunges, the look does not leave the finding. Identical to S7b's
+# creature lunges, the look does not leave the finding. Identical to S5B_BECKON's
 # pushes -- the same word, said once here and repeated there.
 NOD = [(1, OBJECT_NOD), (F_IN, OBJECT_NOD),
        (F_DEEP, OBJECT_NOD + PUSH_DEG), (F_BOTTOM, OBJECT_NOD + PUSH_DEG),
@@ -401,7 +401,7 @@ NOD = [(1, OBJECT_NOD), (F_IN, OBJECT_NOD),
 LED = [(1, LED_ENTER), (F_IN, LED_ENTER),
        (F_DEEP, LED_CALL), (F_BOTTOM, LED_CALL),                 # on the bottom
        (F_BOTTOM + LED_EDGE_F, LED_HOLD),
-       (F_BACK, LED_HOLD), (END_F, LED_HOLD)]                    # = S7b's open
+       (F_BACK, LED_HOLD), (END_F, LED_HOLD)]                    # = S5B_BECKON's open
 
 for f in range(1, END_F + 1, SAMPLE_F):
     key(pan, "z", f, track(PAN, f))
@@ -424,7 +424,7 @@ _pk = PUSH_DEG / (PUSH_F / float(FPS)) * _FAC
 # work than it used to -- it is the one channel that reaches someone reading a
 # comic without asking them to already be looking -- so it stays at frame 1,
 # ahead of the dive it announces.
-msg = (f"S7a found v6: pan HELD at {OBJECT_PAN:+.0f}; RESTS ON S5b's POSE "
+msg = (f"S5A_FOUND found v6: pan HELD at {OBJECT_PAN:+.0f}; RESTS ON S4b's POSE "
        f"({LEAN_DEG:+.0f}/{OBJECT_NOD:+.0f}), ONE push of {PUSH_DEG:.0f} deg "
        f"to {LEAN_DEG - PUSH_DEG:+.0f}, gaze locked at {OBJECT_ELEV:+.0f}, home "
        f"-> holds {HOLD_OUT_F}f; {END_F}f ({END_F / FPS:.2f}s), peak "
@@ -440,8 +440,8 @@ def draw(self, context):
     self.layout.label(text="off the event for 3.4s while the story was opening.")
     self.layout.label(text=f"ENDS on pan {OBJECT_PAN:.0f} / tilt {LEAN_DEG:.0f} "
                            f"/ nod {OBJECT_NOD:.0f}")
-    self.layout.label(text="S7b must OPEN on that exact pose.")
+    self.layout.label(text="S5B_BECKON must OPEN on that exact pose.")
     self.layout.label(text="Then: save, run export_clip.py")
 
 
-bpy.context.window_manager.popup_menu(draw, title="S7a found v5", icon='INFO')
+bpy.context.window_manager.popup_menu(draw, title="S5A_FOUND found v5", icon='INFO')

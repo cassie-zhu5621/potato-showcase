@@ -164,7 +164,7 @@ def main():
           f"({'audio stripped' if a.mute else 'audio KEPT -- sfx are stimulus'})")
     print("Before locking: LISTEN to every clip -- designed sfx audible, NO "
           "marker beep leaked at either end; check the LED reads on a laptop "
-          "AND a phone (S1/S5B carry their state in the light alone); pick the "
+          "AND a phone (S1/S4B carry their state in the light alone); pick the "
           "cleanest pass per state; rename to neutral codes (no state names in "
           "filenames/URLs); for loops trim to whole cycles if desired: "
           f"{meta.get('led_cycles')}")

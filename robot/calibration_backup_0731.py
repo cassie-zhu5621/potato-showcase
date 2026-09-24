@@ -29,10 +29,10 @@ OFFSET = {
     "nod": 48,
 }
 INVERT = {
-    # confirmed against renders/statemachine_full_demo.mp4 (S2_LISTEN): the
+    # confirmed against renders/statemachine_full_demo.mp4 (S1_ATTEND): the
     # shape of the motion matched, only the direction was mirrored.
     "pan": True,
-    # S3_ACK played as a head-LIFT instead of a head-dip -- mirrored too.
+    # S2_ACKNOWLEDGE played as a head-LIFT instead of a head-dip -- mirrored too.
     "tilt": True,
     # Higher servo unit tips the head DOWN (measured by jogging), but in the
     # Blender rig positive nod renders as head UP (checked in the viewport).

@@ -37,9 +37,9 @@ def test_the_phase_follows_the_robot_not_the_tablet():
     # visitor's question in both is which way it is looking, and the grid
     # answers that continuously; "tracking..." over an empty page said nothing
     # the robot standing in front of them was not already saying.
-    cases = [("S1_IDLE", "sleep"), ("S3_ACK", "room"), ("S4_PLAN", "room"),
-             ("S5A_SETTLE", "room"), ("S5B_TRACK", "room"),
-             ("S6_FINETUNE", "room"), ("S7a", "notice"), ("S7b", "notice")]
+    cases = [("S0_IDLE", "sleep"), ("S2_ACKNOWLEDGE", "room"), ("S3_SCAN", "room"),
+             ("S4A_SETTLE", "room"), ("S4B_WATCH", "room"),
+             ("S6_CORRECT", "room"), ("S5A_FOUND", "notice"), ("S5B_BECKON", "notice")]
     for state, phase in cases:
         assert booth_state(_st(flow_state=state), [], None)["phase"] == phase, state
 
@@ -48,7 +48,7 @@ def test_the_wait_after_the_sweep_is_not_a_second_choice():
     """The head finishes S4 and moves on while the VLM is still out -- 5 to 20 s
     of it. Falling back to `choose` there would offer the visitor a second
     choice while the first is still being compiled."""
-    s = booth_state(_st(flow_state="S5A_SETTLE", plan_pending=True), [], None)
+    s = booth_state(_st(flow_state="S4A_SETTLE", plan_pending=True), [], None)
     assert s["phase"] == "room"
 
 
@@ -60,12 +60,12 @@ def test_the_red_frame_follows_the_aim_so_a_tap_has_an_answer():
             "shots": [{"pan": p, "file": f"p{p}.jpg", "dets": []}
                       for p in (-60, -30, 0, 30, 60)]}
     # mid-sweep: no aim yet, so the sweep's own pick stands in
-    assert booth_state(_st(flow_state="S4_PLAN"), [], meta)["chosen_pan"] == -60
+    assert booth_state(_st(flow_state="S3_SCAN"), [], meta)["chosen_pan"] == -60
     # watching where the plan aimed it
-    assert booth_state(_st(flow_state="S5B_TRACK", aimed_pan=-58.0),
+    assert booth_state(_st(flow_state="S4B_WATCH", aimed_pan=-58.0),
                        [], meta)["chosen_pan"] == -60
     # tapped, re-aimed: the frame moves with it
-    assert booth_state(_st(flow_state="S6_FINETUNE", aimed_pan=28.0),
+    assert booth_state(_st(flow_state="S6_CORRECT", aimed_pan=28.0),
                        [], meta)["chosen_pan"] == 30
 
 
@@ -80,19 +80,19 @@ def test_asleep_is_a_face_and_it_says_where_the_way_in_is():
     it asks for is the one thing that differs, so this only checks that a line
     is there and that S2 leaves the sleep screen at all."""
     from webui.booth import PAGE
-    assert booth_state(_st(flow_state="S1_IDLE"), [], None)["phase"] == "sleep"
+    assert booth_state(_st(flow_state="S0_IDLE"), [], None)["phase"] == "sleep"
     assert booth_state(_st(flow_state=""), [], None)["phase"] == "sleep"
-    assert booth_state(_st(flow_state="S2_LISTEN"), [], None)["phase"] != "sleep"
+    assert booth_state(_st(flow_state="S1_ATTEND"), [], None)["phase"] != "sleep"
     assert "class=sface" in PAGE and "class=stap" in PAGE
 
 
 def test_the_strip_says_the_state_instead():
     """A state change is worth a glance, not a screen."""
     from webui.booth import FACES, face_key
-    s = booth_state(_st(flow_state="S2_LISTEN"), [], None)
-    assert s["face"] == "S2_LISTEN"
+    s = booth_state(_st(flow_state="S1_ATTEND"), [], None)
+    assert s["face"] == "S1_ATTEND"
     assert s["phase"] == "listen", "the strip changes, the page does not"
-    assert [f[0] for f in s["faces"]][0] == "S1_IDLE"
+    assert [f[0] for f in s["faces"]][0] == "S0_IDLE"
 
 
 def test_the_faces_are_the_robots_own():
@@ -103,7 +103,7 @@ def test_the_faces_are_the_robots_own():
     ino = open(os.path.join(ROOT, "robot", "firmware", "cores3_sidekick",
                             "cores3_sidekick.ino")).read()
     for state, face, _label in FACES:
-        if state == "S4_PLAN":
+        if state == "S3_SCAN":
             continue          # planning wears no face on the robot, by design
         # The .ino is C: a backslash in the face is written doubled there. What
         # has to match is what the two screens DISPLAY, not how each language
@@ -115,8 +115,8 @@ def test_the_faces_are_the_robots_own():
 def test_every_state_lights_exactly_one_lamp():
     from webui.booth import FACES, face_key
     keys = {k for k, _f, _l in FACES}
-    for state in ("S1_IDLE", "S2_LISTEN", "S3_ACK", "S4_PLAN", "S5A_SETTLE",
-                  "S5B_TRACK", "S6_FINETUNE", "S7a", "S7b", "S8_ERROR", ""):
+    for state in ("S0_IDLE", "S1_ATTEND", "S2_ACKNOWLEDGE", "S3_SCAN", "S4A_SETTLE",
+                  "S4B_WATCH", "S6_CORRECT", "S5A_FOUND", "S5B_BECKON", "S7_ERROR", ""):
         assert face_key(state) in keys, state
 
 
@@ -164,13 +164,13 @@ def test_an_override_belongs_to_the_clip_that_was_playing_when_it_was_armed():
     """Both directions of this were bugs on 2026-08-18, and they pull opposite
     ways -- which is why the rule is about ORDER, not about interruption.
 
-    Stale override left alive: the head tap arms S1_IDLE and plays S2, the
+    Stale override left alive: the head tap arms S0_IDLE and plays S2, the
     visitor picks a task while S2 is still running, S2 is cut short, and
-    S3_ACK's `then` (S4_PLAN) is replaced by S1_IDLE. Nod, sleep, no sweep.
+    S2_ACKNOWLEDGE's `then` (S3_SCAN) is replaced by S0_IDLE. Nod, sleep, no sweep.
 
-    Cleared on the interrupt instead: OK arms S5B_TRACK and requests S3_ACK,
-    that request interrupts S7b, and the arming meant for S3_ACK is wiped a
-    microsecond after it was made -- S3_ACK falls back to S4_PLAN and the robot
+    Cleared on the interrupt instead: OK arms S4B_WATCH and requests S2_ACKNOWLEDGE,
+    that request interrupts S5B_BECKON, and the arming meant for S2_ACKNOWLEDGE is wiped a
+    microsecond after it was made -- S2_ACKNOWLEDGE falls back to S3_SCAN and the robot
     re-scans. Reported as "OK still goes back to scan".
 
     Only the caller knows which clip an override was for, and it says so by
@@ -188,10 +188,10 @@ def test_an_override_belongs_to_the_clip_that_was_playing_when_it_was_armed():
 
 def test_every_caller_requests_first_and_arms_second():
     src = open(os.path.join(ROOT, "noticebot_loop.py")).read()
-    # The S2_LISTEN pair belonged to the exhibition build's wake tap, which this
-    # branch does not have. S3_ACK is the one that broke in BOTH directions on
+    # The S1_ATTEND pair belonged to the exhibition build's wake tap, which this
+    # branch does not have. S2_ACKNOWLEDGE is the one that broke in BOTH directions on
     # 2026-08-18 and it is the one worth guarding.
-    for a, b in [('player.request("S3_ACK")', 'player.arm_next("S1_IDLE")')]:
+    for a, b in [('player.request("S2_ACKNOWLEDGE")', 'player.arm_next("S0_IDLE")')]:
         i = src.index(a)
         assert b in src[i:i + 200], f"{a} must be followed by {b}"
 
@@ -201,7 +201,7 @@ def test_ok_emits_the_state_before_the_arming():
     pending override -- so the arming has to be emitted on the far side of it."""
     import session.session_flow as F
     f = F.SessionFlow(now=lambda: 0.0)
-    f.state, f.transcript = "S7b", "x"
+    f.state, f.transcript = "S5B_BECKON", "x"
     kinds = [k for k, _ in f.feed("ok")]
     assert kinds.index("state") < kinds.index("ack_then")
 
@@ -212,14 +212,14 @@ def test_the_chosen_station_is_marked_and_the_rest_are_not():
             "shots": [{"pan": p, "file": f"pan_{p:+04d}.jpg",
                        "dets": [{"tier": "focus"}] if p == -60 else []}
                       for p in (-60, -30, 0, 30, 60)]}
-    s = booth_state(_st(flow_state="S4_PLAN"), [], meta)
+    s = booth_state(_st(flow_state="S3_SCAN"), [], meta)
     assert len(s["shots"]) == 5
     assert s["chosen_pan"] == -60
     assert [sh["dir"] for sh in s["shots"]] == ["20260817_181729"] * 5
 
 
 def test_no_sweep_yet_is_empty_not_broken():
-    s = booth_state(_st(flow_state="S4_PLAN"), [], None)
+    s = booth_state(_st(flow_state="S3_SCAN"), [], None)
     assert s["shots"] == [] and s["chosen_pan"] is None
 
 
@@ -230,7 +230,7 @@ def test_the_sixth_cell_shows_the_rule_in_the_developer_pages_words():
     one that does not."""
     from webui.booth import REL_NAMES
     import webui.server as WS
-    st = _st(flow_state="S5B_TRACK", status=[{
+    st = _st(flow_state="S4B_WATCH", status=[{
         "label": "touching the bag", "onobj": "bag",
         "all": [9], "any": [], "not": [], "then": [],
         "sat": True, "cool": False, "on": {"9": True}}])
@@ -245,10 +245,10 @@ def test_the_sixth_cell_shows_the_rule_in_the_developer_pages_words():
 
 def test_the_nod_does_not_get_a_screen_of_its_own():
     """1.7 s. A page that appears and vanishes inside two seconds is a flash,
-    not information -- and S3_ACK happens in two different places (after a
+    not information -- and S2_ACKNOWLEDGE happens in two different places (after a
     choice, after OK), so any one screen would be wrong in one of them."""
     from webui.booth import PAGE
-    assert booth_state(_st(flow_state="S3_ACK"), [], None)["phase"] == "room"
+    assert booth_state(_st(flow_state="S2_ACKNOWLEDGE"), [], None)["phase"] == "room"
     assert "phase==='ack'" not in PAGE
 
 
@@ -337,7 +337,7 @@ def test_ok_is_never_answered_by_a_blank_screen():
     """The strip takes another 6-45 s to close, but the judge's sentence was
     written from five frames BEFORE S7 played -- so it is already here at the
     moment the visitor is asked to press OK."""
-    s = booth_state(_st(flow_state="S7b", describe="Someone reached for the bag."),
+    s = booth_state(_st(flow_state="S5B_BECKON", describe="Someone reached for the bag."),
                     [], None)
     assert s["phase"] == "notice"
     assert s["describe"] == "Someone reached for the bag."
@@ -346,7 +346,7 @@ def test_ok_is_never_answered_by_a_blank_screen():
 def test_the_wall_shows_the_most_recent_first():
     recs = [{"note": f"n{i}", "thumb": f"t{i}.jpg", "time": "12:00"}
             for i in range(9)]
-    s = booth_state(_st(flow_state="S5B_TRACK"), recs, None)
+    s = booth_state(_st(flow_state="S4B_WATCH"), recs, None)
     assert [r["note"] for r in s["stories"]][:3] == ["n8", "n7", "n6"]
     assert s["n_stories"] == 9
 
@@ -355,8 +355,8 @@ def test_the_count_is_what_tells_the_tablet_a_report_has_landed():
     """After OK the tablet stops following the robot and waits. It cannot know a
     story has been written without a number that changes -- the robot has
     already gone back to watching, so its state says nothing about the report."""
-    before = booth_state(_st(flow_state="S7b"), [{"note": "a"}], None)
-    after = booth_state(_st(flow_state="S5B_TRACK"),
+    before = booth_state(_st(flow_state="S5B_BECKON"), [{"note": "a"}], None)
+    after = booth_state(_st(flow_state="S4B_WATCH"),
                         [{"note": "a"}, {"note": "b"}], None)
     assert after["n_stories"] > before["n_stories"]
     assert after["stories"][0]["note"] == "b", "newest first"
@@ -510,6 +510,6 @@ def test_the_tap_only_ever_means_not_that_one():
     src = open(os.path.join(ROOT, "noticebot_loop.py")).read()
     i = src.index('elif "BODYTAP" in line:')
     block = src[i:i + 1800]
-    assert 'flow.state == "S1_IDLE"' not in block
-    assert 'player.request("S2_LISTEN")' not in block
+    assert 'flow.state == "S0_IDLE"' not in block
+    assert 'player.request("S1_ATTEND")' not in block
     assert 'events.append("tap")' in block

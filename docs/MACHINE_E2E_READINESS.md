@@ -100,7 +100,7 @@ python noticebot_loop.py ... --offline
 但当前主循环中，CV finding 会发出 `finding` event，并进入：
 
 ```text
-S7a found motion → S7b beckon loop
+S5A_FOUND found motion → S5B_BECKON beckon loop
 ```
 
 这与当前目标不一致，也是首次上电的机械风险。真机自动 E2E 前需要一个明确开关：
@@ -113,7 +113,7 @@ S7a found motion → S7b beckon loop
 
 - 可以记录 event/feed。
 - 可以在终端打印一行反馈。
-- 不请求 S7a/S7b。
+- 不请求 S5A_FOUND/S5B_BECKON。
 - 不发 CoreS3 sound/LED feedback。
 - 人工按 `7` 测动作仍然保留，便于单独验收机械动作。
 

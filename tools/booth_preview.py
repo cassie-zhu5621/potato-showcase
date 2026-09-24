@@ -62,37 +62,37 @@ FAKE_STORY = {
 
 SCREENS = [
     ("1-sleep", "idle, nothing asked of the tablet",
-     {"flow_state": "S1_IDLE"}, None),
+     {"flow_state": "S0_IDLE"}, None),
     ("2-listen-waiting", "button held, nothing said yet",
-     {"flow_state": "S2_LISTEN", "heard": "", "heard_ok": True}, None),
+     {"flow_state": "S1_ATTEND", "heard": "", "heard_ok": True}, None),
     ("3-listen-heard", "Whisper returned a usable sentence",
-     {"flow_state": "S2_LISTEN", "heard_ok": True,
+     {"flow_state": "S1_ATTEND", "heard_ok": True,
       "heard": "tell me if someone touches my bag"}, None),
     ("4-listen-misread", "rejected -- shown, so it can be said again",
-     {"flow_state": "S2_LISTEN", "heard": "beep beep beep",
+     {"flow_state": "S1_ATTEND", "heard": "beep beep beep",
       "heard_ok": False}, None),
     ("5-scanning", "five directions taken, the VLM still out",
-     {"flow_state": "S4_PLAN", "plan_pending": True,
+     {"flow_state": "S3_SCAN", "plan_pending": True,
       "request": "tell me if someone touches my bag"}, "half"),
     ("6-watching", "the plan landed; the red cell is the live camera",
-     {"flow_state": "S5B_TRACK", "aimed_pan": 30, "status": FAKE_WATCH,
+     {"flow_state": "S4B_WATCH", "aimed_pan": 30, "status": FAKE_WATCH,
       "request": "tell me if someone touches my bag"}, "full"),
     ("7-corrected", "after a head tap -- the red frame moved with it",
-     {"flow_state": "S6_FINETUNE", "aimed_pan": -60, "status": FAKE_WATCH,
+     {"flow_state": "S6_CORRECT", "aimed_pan": -60, "status": FAKE_WATCH,
       "request": "tell me if someone touches my bag"}, "full"),
     ("8-notice", "the prompt, on both screens at once",
-     {"flow_state": "S7b", "aimed_pan": 30, "status": FAKE_WATCH,
+     {"flow_state": "S5B_BECKON", "aimed_pan": 30, "status": FAKE_WATCH,
       "request": "tell me if someone touches my bag",
       "describe": "Someone reached across the desk and picked up your bag."},
      "full"),
     ("9-report-waiting", "after OK: the robot went back, the tablet waits",
-     {"flow_state": "S5B_TRACK", "aimed_pan": 30,
+     {"flow_state": "S4B_WATCH", "aimed_pan": 30,
       "request": "tell me if someone touches my bag"}, "full"),
     ("10-report", "the story, at full height, swiped sideways",
-     {"flow_state": "S5B_TRACK", "aimed_pan": 30,
+     {"flow_state": "S4B_WATCH", "aimed_pan": 30,
       "request": "tell me if someone touches my bag"}, "full"),
     ("11-wall", "the session's stories",
-     {"flow_state": "S1_IDLE"}, None),
+     {"flow_state": "S0_IDLE"}, None),
 ]
 
 # MODE is the page's own override -- report and wall are not flow states, they
@@ -118,7 +118,7 @@ def build(name, state, sweep):
     if mode:
         boot += "MODE=%s;WAIT_FROM=%d;" % (json.dumps(mode), wait_from)
     boot += "render();place();"
-    if state.get("flow_state") in ("S7a", "S7b"):
+    if state.get("flow_state") in ("S5A_FOUND", "S5B_BECKON"):
         boot += ("document.getElementById('pd').textContent=S.describe||'';"
                  "document.getElementById('veil').classList.add('on');")
     return booth.PAGE.replace("setInterval(poll,200); poll();", boot)

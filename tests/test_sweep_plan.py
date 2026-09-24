@@ -5,7 +5,7 @@ from robot.clip_player import DEFAULT_CLIPS, load_clip, trim_s4_return
 
 
 def test_s4_player_holds_the_final_shutter_direction_until_planner():
-    frames, _, _, _ = load_clip(f"{DEFAULT_CLIPS}/S4_PLAN.csv")
+    frames, _, _, _ = load_clip(f"{DEFAULT_CLIPS}/S3_SCAN.csv")
     held = trim_s4_return(frames)
     assert len(held) < len(frames)
     final_shutter_pan = [f["pan"] for f in frames if f["led"] == 223][-1]

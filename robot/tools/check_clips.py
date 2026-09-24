@@ -14,7 +14,7 @@ Checks per clip:
 
 And across clips:
   * handover poses match, so state transitions do not jump
-    (S4 -> S5, S7a -> S7b)
+    (S4 -> S5, S5A_FOUND -> S5B_BECKON)
 
 Clamping is the quiet failure: playback does not error, the joint just stops
 short and the motion loses its shape. It is much cheaper to find here.
@@ -28,12 +28,12 @@ from robot import calibration as cal
 
 AXES = ("pan", "tilt", "nod")
 UNITS_PER_DEG = 1023 / 300.0
-LOOP_CLIPS = {"S1_IDLE", "S5B_TRACK", "S8_ERROR"}
+LOOP_CLIPS = {"S0_IDLE", "S4B_WATCH", "S7_ERROR"}
 # clip -> clip: the first must end where the second begins
-HANDOVERS = [("S1_IDLE", "S2_LISTEN"), ("S2_LISTEN", "S3_ACK"),
-             ("S3_ACK", "S4_PLAN"), ("S4_PLAN", "S5B_TRACK"),
-             ("S5B_TRACK", "S6_FINETUNE"), ("S6_FINETUNE", "S5B_TRACK"),
-             ("S5B_TRACK", "S7a"), ("S7a", "S7b")]
+HANDOVERS = [("S0_IDLE", "S1_ATTEND"), ("S1_ATTEND", "S2_ACKNOWLEDGE"),
+             ("S2_ACKNOWLEDGE", "S3_SCAN"), ("S3_SCAN", "S4B_WATCH"),
+             ("S4B_WATCH", "S6_CORRECT"), ("S6_CORRECT", "S4B_WATCH"),
+             ("S4B_WATCH", "S5A_FOUND"), ("S5A_FOUND", "S5B_BECKON")]
 
 # Not every pair needs to match: the state machine eases between states. What
 # matters is how FAR it has to ease, because a fixed transition time turns a
@@ -175,7 +175,7 @@ def main():
     ap.add_argument("folder")
     ap.add_argument("--extra", nargs="*", default=[],
                     help="extra clip files from outside the folder, e.g. the "
-                         "older 2-DOF ../../motion/clips/S1_IDLE.csv")
+                         "older 2-DOF ../../motion/clips/S0_IDLE.csv")
     ap.add_argument("--ceiling", type=float, default=200.0,
                     help="peak deg/s to flag. 200 is the authoring limit at 6V; "
                          "on batteries something lower is honest.")

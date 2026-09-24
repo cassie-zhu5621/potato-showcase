@@ -1,4 +1,4 @@
-# Auto-generates the S8 ERROR loop (3-DOF + LED). Run inside S8_ERROR.blend after
+# Auto-generates the S8 ERROR loop (3-DOF + LED). Run inside S7_ERROR.blend after
 # repair_rig.py + add_nod_joint.py. OVERWRITES all keys.
 # Design rationale: ../../../robot_motion/S8_DESIGN.md (local, not in this repo).
 #
@@ -30,8 +30,8 @@
 #    contradicts the clip.
 #
 #    But it is still the most expressive thing S8 does, so its TIMING is chosen:
-#    pose.COLLAPSE_DPS, applied by clip_player when S8_ERROR is entered. Same
-#    mechanism and same argument as the re-aim into S5a (pose.REAIM_DPS): an
+#    pose.COLLAPSE_DPS, applied by clip_player when S7_ERROR is entered. Same
+#    mechanism and same argument as the re-aim into S4a (pose.REAIM_DPS): an
 #    eased curve authored for one distance cannot be stretched to another, and
 #    the distance here is unknown until runtime -- so author a speed, which
 #    travels any distance correctly.
@@ -46,7 +46,7 @@
 # ~106 deg/s and reads as a shaken head saying no; S8 peaks at ~44 and reads as a
 # slow, searching sway with nowhere to land. Same axis, same amplitude order,
 # opposite meaning -- decided by which stroke is quick. (The same rule that makes
-# S7b a summons rather than a nod.)
+# S5B_BECKON a summons rather than a nod.)
 #
 # That separation is this design's load-bearing claim, so it is now GUARDED
 # against S6's real numbers instead of a hardcoded threshold: v1 checked
@@ -72,7 +72,7 @@ SWING_FRAMES = [19, 35, 20, 45]   # frames per pass, also measured: the swing
 # ---- the held pose ----
 DROOP_TILT = -5.0      # neck sunk. HELD for the whole loop now, not performed.
                        # DELIBERATELY SHALLOW, and the 2026-08-08 deepening did
-                       # NOT go here. S7a and S7b hold tilt -22; taking this to
+                       # NOT go here. S5A_FOUND and S5B_BECKON hold tilt -22; taking this to
                        # -20 would put "I have found something" and "I have run
                        # out of ideas" two degrees apart on the joint that
                        # carries the strongest signal in the grammar. The body
@@ -88,7 +88,7 @@ DROOP_NOD = -23.0      # head down -- "at a loss". WAS -8; deepened 15 deg on
                        # creature sinking.
                        #
                        # Gaze now sits at -28, which stays clear of both
-                       # neighbours on that axis: S1_IDLE's sleep pose is -50,
+                       # neighbours on that axis: S0_IDLE's sleep pose is -50,
                        # S7's aimed crane is -10 (and reaches it with a deep
                        # lean, so the postures do not resemble each other even
                        # where the gaze angles approach). Nod itself is between
@@ -109,16 +109,16 @@ DROOP_NOD = -23.0      # head down -- "at a loss". WAS -8; deepened 15 deg on
 # meaning "I have run out of ideas" must not say.
 #
 # AND IT WAS THE BRIGHTEST THING IN THE LIBRARY AFTER S7. Measured out of the
-# exports: S8 peaked at 143 while S5B_TRACK -- the robot working normally --
+# exports: S8 peaked at 143 while S4B_WATCH -- the robot working normally --
 # peaks at 96. Being stuck outshone being useful.
 #
 # The beats stay: tying them to the swing extremes is right, and the argument
 # below (the light is the same effort as the movement) is the reason. What
-# changes is the CEILING. The whole envelope now sits under S5b's, so the light
+# changes is the CEILING. The whole envelope now sits under S4b's, so the light
 # still fades with each swing but never climbs back to a level that competes
 # with working. Embers, not a beacon.
 LED_LO = 0.4           # 13/255. Was 0.9 (29), then 0.6 (19).
-LED_HI = 1.6           # 51/255. WAS 4.5 = 143, i.e. 1.5x S5B_TRACK's peak of 96.
+LED_HI = 1.6           # 51/255. WAS 4.5 = 143, i.e. 1.5x S4B_WATCH's peak of 96.
                        #
                        # 2.2 (70) was the first cut and it was not enough: S1's
                        # breath runs 10..80, so at 19..70 the two states covered
@@ -142,12 +142,12 @@ LED_TAIL_F = 5
 LED_AMBER = (0.70, 0.75, 1.00, 1.0)   # = SPENT, for the render only
 
 # ---- the S6 separation, guarded ----
-S6_SHAKE_HZ = 2.4      # = generate_s6_finetune.py SHAKE_HZ
-S6_SHAKE_DEG = 7.0     # = generate_s6_finetune.py SHAKE_DEG
+S6_SHAKE_HZ = 2.4      # = generate_s6_correct.py SHAKE_HZ
+S6_SHAKE_DEG = 7.0     # = generate_s6_correct.py SHAKE_DEG
 S6_PEAK = 2.0 * math.pi * S6_SHAKE_HZ * S6_SHAKE_DEG   # sine, exact
 MIN_SEPARATION = 2.0   # S8 must be at least this many times slower than S6
 
-EASE_MODE = "minjerk"  # Flash & Hogan 1985 -- see generate_s2_listen.py. v1 set
+EASE_MODE = "minjerk"  # Flash & Hogan 1985 -- see generate_s1_attend.py. v1 set
                        # sparse keys and let Blender's DEFAULT BEZIER fill the
                        # gaps, so the exported curves were not authored at all.
 FPS = 30
@@ -163,7 +163,7 @@ REACH_PATH = ""
 def _find_up(rel, starts, levels=8):
     """Walk up, and look one step down into each level's subdirectories -- the
     .blend files live in the local design folder and the generators in the repo,
-    which makes them siblings. See generate_s2_listen.py."""
+    which makes them siblings. See generate_s1_attend.py."""
     for s in starts:
         if not s:
             continue
@@ -326,7 +326,7 @@ msg = (f"S8 error v2: droop {DROOP_TILT:+.0f}/{DROOP_NOD:+.0f} HELD (gaze "
        f"over {END_F}f ({END_F / FPS:.2f}s loop), peak {_peak:.0f} deg/s = "
        f"{S6_PEAK / _peak:.1f}x slower than S6")
 print(msg)
-print(f"[s8] set states.py S8_ERROR sfx_at = {SFX_AT:.2f}")
+print(f"[s8] set states.py S7_ERROR sfx_at = {SFX_AT:.2f}")
 
 
 def draw(self, context):
@@ -334,7 +334,7 @@ def draw(self, context):
     self.layout.label(text="Droop is HELD -- v1 recovered to level every pass,")
     self.layout.label(text="i.e. picked its head up 15 times a minute.")
     self.layout.label(text="Entry collapse = pose.COLLAPSE_DPS, not a beat here.")
-    self.layout.label(text=f"SET states.py S8_ERROR sfx_at = {SFX_AT:.2f}")
+    self.layout.label(text=f"SET states.py S7_ERROR sfx_at = {SFX_AT:.2f}")
     self.layout.label(text="Then: save, run export_clip.py")
 
 

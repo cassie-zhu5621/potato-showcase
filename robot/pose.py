@@ -23,7 +23,7 @@ SAFE_DPS = 120.0
 MIN_MOVE_MS = 220               # floor, so tiny moves still read as movement
 
 # ONE transition is not a transition: the turn to a direction the person has just
-# pointed out (S6 -> S5a). There is no clip around it, so that travel IS the whole
+# pointed out (S6 -> S4a). There is no clip around it, so that travel IS the whole
 # event -- the robot's answer to "look over there" -- and a move that carries a
 # result may not be left at a default. It runs at S4's own travel speed, so the
 # body moves at the SAME rate whether it chose the direction or was told it.
@@ -32,7 +32,7 @@ MIN_MOVE_MS = 220               # floor, so tiny moves still read as movement
 # If it varied, every turn in the library would mean something and would have to
 # be defended. Fixed, it means nothing, which is exactly what lets the authored
 # beats -- the crane, the shake, the droop -- carry all of it.
-REAIM_DPS = 75.0                # = generate_s4_sweep.STATION_SPEED
+REAIM_DPS = 75.0                # = generate_s3_scan.STATION_SPEED
 
 # And one more, for the same reason and the opposite feeling: the collapse into
 # S8. S8 is entered from anywhere -- an unusable transcript in S2, a failed plan
@@ -43,7 +43,7 @@ REAIM_DPS = 75.0                # = generate_s4_sweep.STATION_SPEED
 # the arrival contradicts the thing it arrives at. Sprinting into a posture that
 # means "I have run out of ideas" would undo it before it is held. So this is
 # S8's own swing peak: the robot deflates at the speed it then sways at.
-COLLAPSE_DPS = 47.0             # = generate_s8_error.py's swing peak, measured
+COLLAPSE_DPS = 47.0             # = generate_s7_error.py's swing peak, measured
 
 
 def reach_deg(name):

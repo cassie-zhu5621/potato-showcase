@@ -1,9 +1,9 @@
-# Auto-generates S4 PLAN (3-DOF + LED). Run inside S4_PLAN.blend after
+# Auto-generates S4 PLAN (3-DOF + LED). Run inside S3_SCAN.blend after
 # repair_rig.py + add_nod_joint.py. OVERWRITES all keys.
 # Design rationale: ../../../robot_motion/S4_S5_DESIGN.md (local, not in this repo).
 #
 # S4 goes and looks: it sweeps the forward field and captures one frame per
-# station. IT DOES NOTHING ELSE. Arriving at the chosen thing belongs to S5a.
+# station. IT DOES NOTHING ELSE. Arriving at the chosen thing belongs to S4a.
 #
 # ONE JOB, AND THE REASON IS THE PROJECT'S OWN LIMIT CASE.
 #
@@ -28,10 +28,10 @@
 #
 #   Rather than branch inside this clip, the arrival was made its own state:
 #
-#     target CHANGED  ->  S4 -> S5a -> S5b.  S5a is the arrival, AUTHORED: the
+#     target CHANGED  ->  S4 -> S4a -> S4b.  S4a is the arrival, AUTHORED: the
 #                         crane with the head lift trailing it. "I have come to
 #                         this one, and now I am looking at it."
-#     target SAME     ->  S4 -> S5b.         The re-crane is a TRANSITION -- the
+#     target SAME     ->  S4 -> S4b.         The re-crane is a TRANSITION -- the
 #                         player travels between two held poses, carrying no
 #                         expressive content. Nothing is authored because nothing
 #                         happened.
@@ -72,15 +72,15 @@ N_STATIONS = 5         # COVERAGE constraint, not taste: the step must stay unde
                        # Beyond coverage it buys how deliberate the scan LOOKS,
                        # and how finely "richest position" resolves (= one step).
 RICHEST_DEG = -25.0     # demo value; at runtime from the VLM's richest_frame_index.
-                       # ALSO S5B_TRACK's HOLD_PAN -- S4 hands straight into S5.
+                       # ALSO S4B_WATCH's HOLD_PAN -- S4 hands straight into S5.
 
 # ---- pose ----
 SWEEP_TILT = 0.0       # neck VERTICAL for the whole sweep. The lean is what makes
                        # the ending read as a change of posture; leaning
                        # throughout would spend that signal on nothing.
-LEAN_TILT = -12.0      # = S5B_TRACK HOLD_TILT
-LEAN_NOD = 12.0        # = S5B_TRACK HOLD_NOD. EXACTLY cancels the lean: the
-                       # gaze is level at -12 + 12 = 0. S5b holds this for
+LEAN_TILT = -12.0      # = S4B_WATCH HOLD_TILT
+LEAN_NOD = 12.0        # = S4B_WATCH HOLD_NOD. EXACTLY cancels the lean: the
+                       # gaze is level at -12 + 12 = 0. S4b holds this for
                        # minutes, so the camera frame has to be right.
 
 # ---- timing ----
@@ -91,7 +91,7 @@ SETTLE_F = 8           # frames standing still after arriving, BEFORE the shutte
 DWELL_F = 18           # total frames parked at each station
 RETURN_SPEED = 75.0    # deg/s back to the chosen station. SAME as the sweep:
                        # this is travel, not a decision. The decision, if there
-                       # was one, is S5a's.
+                       # was one, is S4a's.
 HOLD_IN_S = 0.20       # the library's boundary holds -- an event boundary, a
 HOLD_OUT_S = 0.20      # moving hold, and a guard against colliding with the
                        # neighbouring clip. Newtson 1973; Zacks et al. 2007.
@@ -102,7 +102,7 @@ LED_SHUTTER = 7.0      # short and bright, AFTER the head has stopped. The
                        # clearest movement <=> result instance in the library --
                        # it marks a frame actually being captured, and nothing
                        # else in S4 flashes.
-LED_END = 0.8          # back to S5b's breath TROUGH. No closing rise: S4 has
+LED_END = 0.8          # back to S4b's breath TROUGH. No closing rise: S4 has
                        # captured, not chosen, and the light announces results.
 
 FPS = 30
@@ -125,7 +125,7 @@ REACH_PATH = ""        # set if the .blend lives outside the repo
 def _find_up(rel, starts, levels=8):
     """Walk up, and look one step down into each level's subdirectories -- the
     .blend files live in the local design folder and the generators in the repo,
-    which makes them siblings. See generate_s2_listen.py."""
+    which makes them siblings. See generate_s1_attend.py."""
     for s in starts:
         if not s:
             continue
@@ -286,7 +286,7 @@ f -= MOVE_F                                   # no travel after the last station
 key(nod, "x", f, 0.0)
 key(tilt, "x", f, SWEEP_TILT)
 
-# --- return to the chosen station, LEVEL. No crane: that is S5a's, if it runs.
+# --- return to the chosen station, LEVEL. No crane: that is S4a's, if it runs.
 RETURN_F = check_speed(end_deg - RICHEST_DEG,
                        max(8, round(abs(end_deg - RICHEST_DEG) / RETURN_SPEED * FPS)),
                        "return")
@@ -296,7 +296,7 @@ key(tilt, "x", f_ret, SWEEP_TILT)
 key(nod, "x", f_ret, 0.0)
 key_led(f_ret, LED_END)
 
-# Closing hold. S4 hands to S5a (authored arrival) or straight to S5b (a plain
+# Closing hold. S4 hands to S4a (authored arrival) or straight to S4b (a plain
 # transition) -- both start from this level pose at the chosen pan.
 end = f_ret + HOLD_OUT_F
 key(pan, "z", end, RICHEST_DEG)
@@ -316,8 +316,8 @@ print(msg)
 
 def draw(self, context):
     self.layout.label(text=msg)
-    self.layout.label(text="S4 only ACQUIRES. Arriving at the thing is S5a,")
-    self.layout.label(text="and S5a only runs if the target actually changed.")
+    self.layout.label(text="S4 only ACQUIRES. Arriving at the thing is S4a,")
+    self.layout.label(text="and S4a only runs if the target actually changed.")
     self.layout.label(text=f"Covers {covered:.0f} deg = the forward 180.")
     self.layout.label(text="Ends LEVEL at the chosen pan. Then: save, export_clip.py")
 

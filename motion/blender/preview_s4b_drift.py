@@ -1,14 +1,14 @@
-# PREVIEW ONLY -- NOT A SHIPPED CLIP. Run inside S5B_TRACK.blend (or a copy) to
-# look at the slow settling drift; then re-run generate_s5b_track.py to put the
+# PREVIEW ONLY -- NOT A SHIPPED CLIP. Run inside S4B_WATCH.blend (or a copy) to
+# look at the slow settling drift; then re-run generate_s4b_watch.py to put the
 # real loop back.
 # Design rationale: ../../../robot_motion/S4_S5_DESIGN.md (local, not in this repo).
 #
 # WHY THIS IS A PREVIEW AND NOT A CLIP
 #
 #   The drift spans a whole watch -- up to REPLAN_PERIOD_S, five minutes -- and
-#   S5b is a 57.6 s LOOP. A drift cannot live in a loop; it would snap back every
+#   S4b is a 57.6 s LOOP. A drift cannot live in a loop; it would snap back every
 #   time round. So on the robot it belongs to clip_player, as a slow offset added
-#   to the held pose from however long S5b has been running, exactly like the pan
+#   to the held pose from however long S4b has been running, exactly like the pan
 #   retargeting. This file only bakes it out so it can be looked at.
 #
 # THE IDEA, AND WHY IT ESCAPES THE WALL THAT KILLED THE OTHER THREE
@@ -60,7 +60,7 @@
 import bpy
 import math
 
-# ---- the held pose (must match generate_s5b_track.py) ----
+# ---- the held pose (must match generate_s4b_watch.py) ----
 HOLD_PAN = 25.0
 HOLD_TILT = -12.0
 HOLD_NOD = 12.0        # exactly cancels the lean: gaze level
@@ -127,7 +127,7 @@ _rp = REACH_PATH or (_find_up(os.path.join("motion", "blender", "reach.py"), _st
                      or _find_up("reach.py", _starts))
 if not _rp or not os.path.exists(_rp):
     raise RuntimeError("Cannot find motion/blender/reach.py -- see "
-                       "generate_s2_listen.py. bpy.data.filepath="
+                       "generate_s1_attend.py. bpy.data.filepath="
                        + repr(bpy.data.filepath))
 reach = type(sys)("reach")
 reach.__file__ = _rp
@@ -205,7 +205,7 @@ bpy.context.scene.frame_start = 1
 bpy.context.scene.frame_end = END_F
 
 step_s = 1.0 / (RATE * UPD)
-lines = ["PREVIEW ONLY -- re-run generate_s5b_track.py afterwards",
+lines = ["PREVIEW ONLY -- re-run generate_s4b_watch.py afterwards",
          f"drift {DRIFT_DEG:.0f} deg over {WATCH_S:.0f} s = {RATE:.3f} deg/s",
          f"one servo unit every {step_s:.0f} s; one unit moves the head "
          f"{NECK_MM * math.radians(1.0 / UPD):.2f} mm",
@@ -227,4 +227,4 @@ def draw(self, context):
     self.layout.label(text="or as tiring? That is the one thing that can be wrong.")
 
 
-bpy.context.window_manager.popup_menu(draw, title="S5b drift PREVIEW", icon='INFO')
+bpy.context.window_manager.popup_menu(draw, title="S4b drift PREVIEW", icon='INFO')

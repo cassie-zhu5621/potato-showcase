@@ -41,8 +41,8 @@ control flow scattered through a loop.
           the grammar collapsed into one. Magenta keeps the blue channel, which
           every common deficiency leaves intact.
   sfx   : the state's sound, or None for silence. Silence is a choice, and there
-          are four of them: S1 and S5 must not compete for attention, S7b would
-          be talking over S7a, and S2's turn is already legible without help.
+          are four of them: S1 and S5 must not compete for attention, S5B_BECKON would
+          be talking over S5A_FOUND, and S2's turn is already legible without help.
           The vocabulary mirrors the motion rather than decorating it --
           `ack` falls, like the nod it accompanies; `excited` rises; `lost` uses
           intervals that never resolve.
@@ -81,30 +81,30 @@ open (transcript source, who owns the noticed counter, STOP = cancel or pause).
 """
 
 STATES = {
-    "S1_IDLE": dict(
-        clip="S1_IDLE", loop=True, then=None, hue="warm",
+    "S0_IDLE": dict(
+        clip="S0_IDLE", loop=True, then=None, hue="warm",
         sfx=None, sfx_at=0.0, sfx_flash=None, sfx_loop=False,
         screen="idle", enter="stop, or S7 timeout", exit="PTT pressed",
         note="present, not attending. The resting state between everything."),
 
-    "S2_LISTEN": dict(
+    "S1_ATTEND": dict(
         # then=None: after the turn, S2 HOLDS -- facing the person, screen on
         # `waiting` -- until the transcript is confirmed. S3 is not entered early.
         # The nod and the words "I heard you." are one act of acknowledgement, so
         # performing the nod before the words exist would be claiming to have
         # understood something not yet read. (Earlier version gated inside S3 and
         # nodded first; this is the correction.)
-        clip="S2_LISTEN", loop=False, then=None, hue="cool",
+        clip="S1_ATTEND", loop=False, then=None, hue="cool",
         sfx=None, sfx_at=0.0, sfx_flash=None, sfx_loop=False,
         screen="recording", enter="PTT pressed",
         exit="PTT released -> `waiting`; then a usable transcript -> S3, "
              "unusable or timeout -> S8",
         note="turning toward you because you spoke; taking the request in."),
 
-    "S3_ACK": dict(
+    "S2_ACKNOWLEDGE": dict(
         # Entered only once there IS a transcript, so nothing here waits: the nod
         # and the words land together.
-        clip="S3_ACK", loop=False, then="S4_PLAN", hue="cool",
+        clip="S2_ACKNOWLEDGE", loop=False, then="S3_SCAN", hue="cool",
         sfx="ack", sfx_at=0.24, sfx_flash=None, sfx_loop=False,
         # 0.24 = the bottom of the FIRST cycle (f12 of 50). Recomputed: the old
         # 0.21 was measured against a 35-frame clip that no longer exists. The
@@ -114,99 +114,99 @@ STATES = {
         screen="heard", enter="a usable transcript exists", exit="auto",
         note="a nod of assent -- got it. The downward accent is the affirmation."),
 
-    "S4_PLAN": dict(
+    "S3_SCAN": dict(
         # S4 ONLY ACQUIRES. It sweeps, captures, and ends LEVEL at the final
         # shutter pan. ClipPlayer trims the authored return to the +25-degree
         # template: that direction has no basis while the VLM is still deciding.
-        # Arriving at the selected thing is S5A_SETTLE, and S5A ONLY RUNS IF THE
+        # Arriving at the selected thing is S4A_SETTLE, and S4A ONLY RUNS IF THE
         # TARGET CHANGED. The periodic sweep is additive, so it often changes
         # nothing, and a robot that performed "I have chosen" every five minutes
         # about the object it was already watching would be making a movement
         # whose result did not change. That limit case is expressed by NOT
         # ENTERING A STATE -- when the target is unchanged S4 hands straight to
-        # S5B and the re-crane is an ordinary transition.
+        # S4B and the re-crane is an ordinary transition.
         # `then` MUST be a state name -- it is what the player requests. This
-        # field held the prose "S5A_SETTLE if the target changed, else
-        # S5B_TRACK", which made validate() fail and ClipPlayer refuse to
+        # field held the prose "S4A_SETTLE if the target changed, else
+        # S4B_WATCH", which made validate() fail and ClipPlayer refuse to
         # construct at all. The conditional now lives where the information is:
         # the planner knows whether the target changed. Planning runs after this
         # clip has reached its S5 hold, so a changed result explicitly requests
-        # S5A; an unchanged result keeps S5B and only restores its runtime pan.
-        clip="S4_PLAN", loop=False, then="S5B_TRACK", hue="cool",
+        # S4A; an unchanged result keeps S4B and only restores its runtime pan.
+        clip="S3_SCAN", loop=False, then="S4B_WATCH", hue="cool",
         sfx=None, sfx_at=0.0, sfx_flash="shutter", sfx_loop=False,
         screen="planning", enter="auto", exit="auto -- NO human confirm; S6 is the correction path",
         note="scanning the forward 180 deg, one capture per station, then "
              "committing to the richest one and craning in to look."),
 
-    "S5A_SETTLE": dict(
+    "S4A_SETTLE": dict(
         # The arrival: crane onto the thing, head lift trailing. Entered ONLY
         # when S4 chose a different target.
         #
         # A BEAT THAT IS LOSSLESS IF MISSED. It fires autonomously, potentially
         # every few minutes, and a state that demanded attention on that schedule
-        # would be intolerable. Whatever S5a says, S5b's held pose says too --
+        # would be intolerable. Whatever S4a says, S4b's held pose says too --
         # the direction it settles into is the direction it then holds. So no LED
         # accent and no overshoot: available, not addressed. Compare S7, which
         # exists precisely to demand attention.
-        clip="S5A_SETTLE", loop=False, then="S5B_TRACK", hue="cool",
+        clip="S4A_SETTLE", loop=False, then="S4B_WATCH", hue="cool",
         sfx=None, sfx_at=0.0, sfx_flash=None, sfx_loop=False,
         screen="tracking", enter="S4 chose a NEW target", exit="auto",
         note="epistemic lean -- toward a thing in order to see it, not into a "
              "person's space."),
 
-    "S5B_TRACK": dict(
-        # Clip renamed S5_TRACK -> S5B_TRACK. It was the last file whose name
+    "S4B_WATCH": dict(
+        # Clip renamed S5_TRACK -> S4B_WATCH. It was the last file whose name
         # differed from its state's, and that difference is exactly what three
         # comparisons got wrong today -- `snap["state"] in ("S5_TRACK", ...)` is
         # merely never true. Every clip is now named after its state.
-        clip="S5B_TRACK", loop=True, then=None, hue="cool",
+        clip="S4B_WATCH", loop=True, then=None, hue="cool",
         sfx=None, sfx_at=0.0, sfx_flash=None, sfx_loop=False,
         screen="tracking", enter="auto", exit="body tap -> S6, or a finding -> S7",
         note="watching the chosen thing. Deliberately motionless -- the light "
              "carries 'still here', motion is saved for events."),
 
-    "S6_FINETUNE": dict(
+    "S6_CORRECT": dict(
         # then=None: S6 HOLDS after the shake, waiting for a direction. Letting it
         # auto-advance made the re-aim a race -- the clip is 2.3 s and a researcher
         # clicking a button is not, so half the time the correction arrived after
         # the robot had already gone back to watching the same wrong thing.
-        clip="S6_FINETUNE", loop=False, then=None, hue="red",
+        clip="S6_CORRECT", loop=False, then=None, hue="red",
         sfx="puzzled", sfx_at=0.46, sfx_flash=None, sfx_loop=False,
         # 0.46 = the FIRST shake extreme, the moment the refusal becomes
         # legible. The old 0.20 was authored against a droop that has since
         # moved; it now fires during the hold-in, before anything happens.
         screen="notthat", enter="body tap",
-        # The two exits go to DIFFERENT states, by S5a's own rule -- the crane is
+        # The two exits go to DIFFERENT states, by S4a's own rule -- the crane is
         # an authored beat when the target changed and a bare transition when it
         # did not:
-        #   a direction is given -> S5A_SETTLE  (arm_pan_deg first; the turn to it
+        #   a direction is given -> S4A_SETTLE  (arm_pan_deg first; the turn to it
         #                                        is the answer, at REAIM_DPS)
-        #   REAIM_TIMEOUT_S, none -> S5B_TRACK  (same aim as before, so there is
+        #   REAIM_TIMEOUT_S, none -> S4B_WATCH  (same aim as before, so there is
         #                                        no arrival to announce)
         # Which also makes giving up visibly quieter than being answered. Nothing
         # was decided, so nothing is performed.
-        exit="a direction -> S5A_SETTLE; or REAIM_TIMEOUT_S with none -> S5B_TRACK",
+        exit="a direction -> S4A_SETTLE; or REAIM_TIMEOUT_S with none -> S4B_WATCH",
         note="horizontal shake = 'not that one'. The only negation in the "
              "grammar; nothing else shakes horizontally."),
 
-    "S7a": dict(
-        clip="S7a", loop=False, then="S7b", hue="summon",
+    "S5A_FOUND": dict(
+        clip="S5A_FOUND", loop=False, then="S5B_BECKON", hue="summon",
         sfx="excited", sfx_at=0.0, sfx_flash=None, sfx_loop=False,
         # 0.0: this one IS the announcement -- it should arrive with the
         # turn, calling you before the robot has finished arriving
-        screen="noticed", enter="a confirmed finding", exit="auto -> S7b",
+        screen="noticed", enter="a confirmed finding", exit="auto -> S5B_BECKON",
         note="found it: attention-get (turn to you) then DIRECT (turn to the "
              "finding, crane toward it, hold). Ends on the object."),
 
-    "S7b": dict(
-        clip="S7b", loop=True, then=None, hue="summon",
+    "S5B_BECKON": dict(
+        clip="S5B_BECKON", loop=True, then=None, hue="summon",
         sfx=None, sfx_at=0.0, sfx_flash=None, sfx_loop=False,
         screen="noticed", enter="auto", exit="OK pressed, or 30 s ignored -> S5",
         note="ensure -- alternating you <-> the finding: 'come' (toss at you) / "
              "'there' (hold on it). The alternation is the confirmation."),
 
-    "S8_ERROR": dict(
-        clip="S8_ERROR", loop=True, then=None, hue="spent",
+    "S7_ERROR": dict(
+        clip="S7_ERROR", loop=True, then=None, hue="spent",
         sfx="lost", sfx_at=0.16, sfx_flash=None, sfx_loop=True, sfx_every=4,
         # 0.16 = the first swing extreme, where the LED also peaks. The old 0.0
         # pointed at frame 1, which since v2 holds the droop and is not a beat.
@@ -217,41 +217,41 @@ STATES = {
 }
 
 # The designed cycle, for reference and for the runner's --demo sweep.
-CYCLE = ["S1_IDLE", "S2_LISTEN", "S3_ACK", "S4_PLAN", "S5A_SETTLE",
-         "S5B_TRACK", "S6_FINETUNE", "S7a", "S7b"]
+CYCLE = ["S0_IDLE", "S1_ATTEND", "S2_ACKNOWLEDGE", "S3_SCAN", "S4A_SETTLE",
+         "S4B_WATCH", "S6_CORRECT", "S5A_FOUND", "S5B_BECKON"]
 
 # Keyboard shortcuts for the researcher taking over mid-session.
-KEYS = {"1": "S1_IDLE", "2": "S2_LISTEN", "3": "S3_ACK", "4": "S4_PLAN",
-        "5": "S5B_TRACK", "0": "S5A_SETTLE", "6": "S6_FINETUNE", "7": "S7a",
-        "8": "S8_ERROR"}
+KEYS = {"1": "S0_IDLE", "2": "S1_ATTEND", "3": "S2_ACKNOWLEDGE", "4": "S3_SCAN",
+        "5": "S4B_WATCH", "0": "S4A_SETTLE", "6": "S6_CORRECT", "7": "S5A_FOUND",
+        "8": "S7_ERROR"}
 
 # States a participant-visible run should never sit in silently for long.
-NEEDS_ATTENTION = {"S8_ERROR"}
+NEEDS_ATTENTION = {"S7_ERROR"}
 
 # ---------------------------------------------------------------------------
 # Two sets that code outside this file branches on. They live here because they
 # are STATE names, and three places had been comparing against CLIP names
-# instead -- `S5_TRACK` is the clip; the state is `S5B_TRACK`. Every one of those
+# instead -- `S5_TRACK` is the clip; the state is `S4B_WATCH`. Every one of those
 # comparisons was silently false forever:
 #
 #   * the pan override was cleared on entering the watching state, so the re-aim
 #     and S4's "take over at the richest angle" handover never applied;
 #   * the in-clip override never fired either, so even a fixed entry would have
 #     been overwritten frame by frame with the clip's template;
-#   * `watching` excluded S5B, so CV NEVER RAN IN THE STATE WHOSE ENTIRE JOB IS
+#   * `watching` excluded S4B, so CV NEVER RAN IN THE STATE WHOSE ENTIRE JOB IS
 #     WATCHING.
 #
 # Nothing raised, because "state name that is not a state" is a string that is
 # merely never equal to anything. validate() now checks both sets, so the same
 # mistake fails loudly at construction.
 
-# The pan angles S7a and S7b are AUTHORED at. Both clips are templates: the
-# object leg is wherever S5b was actually watching, and the user leg is wherever
+# The pan angles S5A_FOUND and S5B_BECKON are AUTHORED at. Both clips are templates: the
+# object leg is wherever S4b was actually watching, and the user leg is wherever
 # the person actually is. At runtime ClipPlayer maps the authored pair onto the
 # real pair -- see ClipPlayer.set_share_pan and S7_DESIGN.md sec 5.
 #
 # Declared here rather than re-derived from the CSV, because the clip's extremes
-# are NOT the plateaus: S7a overshoots to +64 past the user before settling, and
+# are NOT the plateaus: S5A_FOUND overshoots to +64 past the user before settling, and
 # reading min/max would silently adopt the overshoot as the endpoint and shrink
 # every gesture by 4 degrees.
 SHARE_TEMPLATE = {"user": 60.0, "object": -25.0}
@@ -266,34 +266,34 @@ SHARE_TEMPLATE = {"user": 60.0, "object": -25.0}
 # That +60 is a TEMPLATE POSITION INSIDE THE S7 CLIPS, which `remap_share_pan`
 # rewrites at runtime; it is a coordinate in the authored file, not a claim about
 # the room. This one is a claim about the room.
-USER_PAN_AUTHORED = -30.0     # = generate_s2_listen.py / generate_s3_ack.py
+USER_PAN_AUTHORED = -30.0     # = generate_s1_attend.py / generate_s2_acknowledge.py
 
 # Clips that ADDRESS THE PERSON and must therefore be played facing them, not at
 # whatever angle they happen to have been authored at. S6 is the whole list: it
 # is the robot being corrected, which is a thing said TO someone.
 #
-# S6 was authored at +25 -- S5b's template watching angle -- because it was drawn
+# S6 was authored at +25 -- S4b's template watching angle -- because it was drawn
 # as a continuation of watching. It is not: the tap is the person interrupting,
 # and answering an interruption while facing 55 degrees away from the person who
 # made it reads as the robot shaking its head at the wall.
-USER_FACING = ("S6_FINETUNE",)
+USER_FACING = ("S6_CORRECT",)
 
 # CV perceives here. Not S4 -- during the sweep the VLM is the only eye, because
 # annotating a frame before the model reads it feeds our guesses back as its
 # judgement.
-WATCHING = ("S5B_TRACK", "S6_FINETUNE", "S7a", "S7b")
+WATCHING = ("S4B_WATCH", "S6_CORRECT", "S5A_FOUND", "S5B_BECKON")
 
 # Clips whose pan channel is a CONSTANT, so the angle can simply be replaced: a
 # constant has no authored timing to damage. S4 is deliberately absent -- its
 # return is an eased curve authored for one distance, and stretching it would
 # rewrite the very thing the clip exists to carry.
-PAN_RETARGETABLE = ("S5B_TRACK", "S5A_SETTLE")
+PAN_RETARGETABLE = ("S4B_WATCH", "S4A_SETTLE")
 
 # S7 returns to watching if nobody responds. Being ignored is a NORMAL outcome --
 # the person is busy, which is the premise of notice delegation. The finding is
 # already in the feed, so the robot goes back to watching instead of escalating.
 # That is the difference between a colleague and an alarm.
-S8_RECOVER_S = 16.0      # S8 gives up and returns to S1_IDLE after this long.
+S8_RECOVER_S = 16.0      # S8 gives up and returns to S0_IDLE after this long.
                          # = FOUR PASSES of its own 3.97 s loop, and the loop is
                          # the unit that matters here: the participant is not
                          # counting seconds, they are watching the same droop and
@@ -525,7 +525,7 @@ REPLAN_PERIOD_S = 0.0    # OFF ON THE EXHIBITION BRANCH. Was 540 for the study.
 STT_HARD_TIMEOUT_S = 30.0
 
 # How far the re-chosen aim must move before it counts as a DIFFERENT target,
-# and therefore before S5a announces the arrival. Not zero: the VLM's chosen
+# and therefore before S4a announces the arrival. Not zero: the VLM's chosen
 # station is quantised to S4's 5 stations but the score can wobble, and a robot
 # that performed "I have chosen!" over a two-degree change would be making a
 # movement whose result did not change. One station step is 30 deg, so half of
@@ -547,15 +547,15 @@ AIM_CHANGED_DEG = 15.0
 # head then waits for the VLM -- 6 s on a good evening, 14-62 s during the
 # service slowdowns measured 2026-08-08. The firmware falls back to its own
 # breath after 500 ms of silence, so the light was not frozen; but that fallback
-# was deliberately tuned to BE S1_IDLE's envelope, so the wait read as
+# was deliberately tuned to BE S0_IDLE's envelope, so the wait read as
 # `cool` colour + `idle` rhythm. Attending, said one way; unoccupied, said the
 # other.
 #
 # Placed against the clips' own measured envelopes:
 #
-#     S1_IDLE     led  10..80   period 1.25 s    slow, dim      unoccupied
-#     S5B_TRACK   led  26..96   period 0.90 s    quicker        watching
-#     S4_PLAN     led  26..223  period 1.23 s    bright accents a shutter per station
+#     S0_IDLE     led  10..80   period 1.25 s    slow, dim      unoccupied
+#     S4B_WATCH   led  26..96   period 0.90 s    quicker        watching
+#     S3_SCAN     led  26..223  period 1.23 s    bright accents a shutter per station
 #     -> planning  led 12..70   period 0.70 s    quickest, dimmest
 #
 # QUICKEST AND DIMMEST, and the dimness was got wrong first. The initial value
@@ -586,7 +586,7 @@ REAIM_TIMEOUT_S = 2.5    # how long S6 waits for a direction before taking the
                          # 2.5 s is S6's own clip (2.37 s) plus a margin, so the
                          # shake IS the wait: it says "not that one" and acts on
                          # it. Nothing is lost -- `reaim` is also accepted in
-                         # S5B_TRACK, so a researcher who clicks a moment later
+                         # S4B_WATCH, so a researcher who clicks a moment later
                          # still steers it, and that path already existed for
                          # exactly this case.
                          #
@@ -682,7 +682,7 @@ def validate(available):
             if n not in STATES:
                 problems.append(f"{setname} names {n!r}, which is not a state "
                                 f"-- most likely a CLIP name; the clip for "
-                                f"S5B_TRACK is S5_TRACK, and they are not the "
+                                f"S4B_WATCH is S5_TRACK, and they are not the "
                                 f"same string")
     return problems
 
@@ -693,7 +693,7 @@ def bad_state_literals(root=None):
     This exists because a wrong state name is not an error, it is a string that
     is merely never equal to anything -- and there were TWENTY-SIX of them. Most
     were the CLIP name S5-underscore-TRACK standing in for the state
-    S5B_TRACK. The
+    S4B_WATCH. The
     damage was silent in three different ways: comparisons that were false
     forever (CV never ran while watching), an override cleared on entry (the
     re-aim never applied), and a _go to the clip name, which would have raised

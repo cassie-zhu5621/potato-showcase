@@ -17,8 +17,8 @@ design (Hoffman & Ju) in **Blender 5.2**. All files in `motion/` and `robot/`.
 
 - `motion/blender/` — `build_pantilt_rig.py`, `repair_rig.py`, `add_nod_joint.py`,
   `build_shell.py`, `setup_scene.py`, `export_clip.py`, and clip generators
-  `generate_s3_ack.py` / `generate_s4_sweep.py` / `generate_s6_finetune.py` /
-  `generate_s7_found.py` / `generate_s7_beckon.py`.
+  `generate_s2_acknowledge.py` / `generate_s3_scan.py` / `generate_s6_correct.py` /
+  `generate_s5a_found.py` / `generate_s5b_beckon.py`.
 - Motion library v0.1 = 8 states (S1 idle, S2 listen, S3 ack, S4 plan/sweep,
   S5 track, S6 fine-tune, S7 found+beckon, S8 error).
   Rendered demo: the demo render (not committed -- ask cassie).
@@ -114,7 +114,7 @@ word-split unquoted expansions. Hence the environment variables.
   58 was reachable by hand). Its limits are chosen from what the clips need
   plus margin, not from where it stops.
 - pan and tilt run mirrored vs the Blender render, confirmed against
-  the demo render (not committed -- ask cassie) using S2_LISTEN (pan) and S3_ACK (tilt).
+  the demo render (not committed -- ask cassie) using S1_ATTEND (pan) and S2_ACKNOWLEDGE (tilt).
 - nod: two frames that run opposite, and mixing them up is easy —
   **in Blender positive nod = head UP**; **on the bus a higher unit = head
   DOWN**. `INVERT["nod"]=True` reconciles them. Always author against the
@@ -141,7 +141,7 @@ is nothing to gain from re-routing the loom for coverage.
 
 Station spacing must stay **under 58°** or the sweep leaves unphotographed gaps
 (invisible in the render; shows up later as the VLM "missing" objects).
-`generate_s4_sweep.py` raises rather than generating a gapped sweep.
+`generate_s3_scan.py` raises rather than generating a gapped sweep.
 
 | N | step | overlap | length |
 |---|---|---|---|

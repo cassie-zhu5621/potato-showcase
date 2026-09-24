@@ -36,7 +36,7 @@ con.min_x = math.radians(-LIMIT_DEG)
 con.max_x = math.radians(LIMIT_DEG)
 
 # The pose itself is keyframed, so widening the rail does not move anything on
-# its own -- re-run generate_s1_idle.py afterwards to write the deeper pose.
+# its own -- re-run generate_s0_idle.py afterwards to write the deeper pose.
 msg = f"nod Limit Rotation: {was} -> +/-{LIMIT_DEG:.0f} deg"
 print(msg)
 
@@ -45,7 +45,7 @@ def draw(self, context):
     self.layout.label(text=msg)
     self.layout.label(text="Nothing else was touched -- location, parenting and")
     self.layout.label(text="keyframes are as they were.")
-    self.layout.label(text="Now re-run generate_s1_idle.py to write the pose.")
+    self.layout.label(text="Now re-run generate_s0_idle.py to write the pose.")
 
 
 bpy.context.window_manager.popup_menu(draw, title="nod limit", icon='INFO')

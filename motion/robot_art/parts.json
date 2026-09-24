@@ -41,7 +41,7 @@
     0.36,
     0.63
   ],
-  "ref_state": "S2_LISTEN",
+  "ref_state": "S1_ATTEND",
   "ref_tilt": -28.0,
   "ref_nod": 53.0,
   "_note": "Pivots and cuts are fractions of the body bounding box. Nudge them here rather than in the figure script; the figure reads this file and never hard-codes a pixel."

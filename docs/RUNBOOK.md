@@ -155,9 +155,9 @@ planning*. If it is clean here, no later motion problem is the detector's fault.
 Single clips for a faster look:
 
 ```bash
-python3 robot/clip_player.py S7a    # the most demanding: pan peaks at 121 deg/s
-python3 robot/clip_player.py S7b    # holds the deep -22 lean under load
-python3 robot/clip_player.py S4_PLAN
+python3 robot/clip_player.py S5A_FOUND    # the most demanding: pan peaks at 121 deg/s
+python3 robot/clip_player.py S5B_BECKON    # holds the deep -22 lean under load
+python3 robot/clip_player.py S3_SCAN
 ```
 
 LED-only, touching no servos — separates "firmware not reflashed" from
@@ -193,7 +193,7 @@ Web UI at **http://localhost:8000** — live view, plan, feed, and the context b
 | `--cores3 <port>` | explicit beats auto-detect when you already know the port |
 
 ```
-1-8 force a state · 0 S5a · f manual finding · c cycle · r relax · q quit
+1-8 force a state · 0 S4a · f manual finding · c cycle · r relax · q quit
 ```
 
 Those keys are read from the **OpenCV preview window** when it is open, and from
@@ -284,7 +284,7 @@ hand — a relaxed neck moves freely.
 | transcript comes back empty | microphone permission for Terminal — macOS hands out a **silent stream** rather than an error |
 | stuck on the `waiting` bar | Whisper is running; `stt_busy` postpones the 15 s deadline up to a 30 s ceiling. Press STOP: if it responds, the main loop is alive |
 | motion soft / short of target | battery, not calibration |
-| BODYTAP with nobody touching it | TTP223 SIG floating. Harmless in S1 — **in S5b every false tap is an S6** |
+| BODYTAP with nobody touching it | TTP223 SIG floating. Harmless in S1 — **in S4b every false tap is an S6** |
 | `ignoring model '…' — not a Claude model` | a `NOTICEBOT_GEMINI_*` model variable is still set while the provider is `anthropic`. It is being dropped, which is the correct outcome; clear it to silence the line |
 | `404` / `not_found_error` on the Anthropic path | the model name. `NOTICEBOT_ANTHROPIC_MODEL` overrides it without validation |
 | `ran out of output budget` | raise `NOTICEBOT_ANTHROPIC_MAX_OUTPUT_TOKENS` (default 4096). On the Gemini path the same cause surfaces as `parse-fail: Expecting ',' delimiter` instead |
@@ -308,6 +308,6 @@ git rebase origin/sonan/modification
 ```
 
 Before pushing, the three checks from step 1. Note that changing
-`generate_s4_sweep.py` **will** turn `test_sweep_plan.py` red: it hard-codes S4's
+`generate_s3_scan.py` **will** turn `test_sweep_plan.py` red: it hard-codes S4's
 old structure (`led == 223`, a return of `> 200` units). That is the test
 asserting the bug you are removing, and it has to be updated with the generator.

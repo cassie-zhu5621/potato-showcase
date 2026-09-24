@@ -1,4 +1,4 @@
-# Auto-generates S3 ACKNOWLEDGE (3-DOF + LED). Run inside S3_ACK.blend after
+# Auto-generates S3 ACKNOWLEDGE (3-DOF + LED). Run inside S2_ACKNOWLEDGE.blend after
 # repair_rig.py + add_nod_joint.py. OVERWRITES all keys.
 # Design rationale: ../../../robot_motion/S3_DESIGN.md (local, not in this repo).
 #
@@ -32,8 +32,8 @@
 import bpy
 import math
 
-# ---- the pose it inherits (must match generate_s2_listen.py's closing pose) ----
-USER_PAN = -30.0    # SHARED with generate_s2_listen.py -- see the long note there.
+# ---- the pose it inherits (must match generate_s1_attend.py's closing pose) ----
+USER_PAN = -30.0    # SHARED with generate_s1_attend.py -- see the long note there.
                    # Must be identical in s2/s3/s7_beckon/s7_found: it is the one
                    # direction 'the person' lies in.
 LEAN = -28.0       # S2 end: neck leaning toward the user
@@ -108,7 +108,7 @@ HOLD_OUT_S = 0.20
 LED_BASE = 3.0
 LED_SWELL = 6.0
 
-EASE_MODE = "minjerk"      # "minjerk" | "cosine" -- see generate_s2_listen.py
+EASE_MODE = "minjerk"      # "minjerk" | "cosine" -- see generate_s1_attend.py
 FPS = 30
 SAMPLE_F = 1
 # -----------------------------------------------------------
@@ -298,7 +298,7 @@ msg = (f"S3 ack: {CYCLE1_MAG:.0f} deg + {CYCLE2_MAG:.1f} deg "
        f"{LEAN:+.0f}->{END_TILT:+.0f} tilt / {CHIN:+.0f}->{END_NOD:+.0f} nod; "
        f"{END_F}f ({END_F / FPS:.2f}s), peak {pk1:.0f} deg/s")
 print(msg)
-print(f"[s3] set states.py S3_ACK sfx_at = {SFX_AT:.2f}")
+print(f"[s3] set states.py S2_ACKNOWLEDGE sfx_at = {SFX_AT:.2f}")
 
 
 def draw(self, context):
@@ -306,7 +306,7 @@ def draw(self, context):
     self.layout.label(text="Two cycles: cyclicity is what marks assent "
                            "(Hadar 1985); 0.545 is declination x final")
     self.layout.label(text="lowering (Kimura 2025), not a taste value.")
-    self.layout.label(text=f"SET states.py S3_ACK sfx_at = {SFX_AT:.2f}")
+    self.layout.label(text=f"SET states.py S2_ACKNOWLEDGE sfx_at = {SFX_AT:.2f}")
     self.layout.label(text="Opens on S2's close; ends on S4's opening pose.")
     self.layout.label(text="Then: save, run export_clip.py")
 

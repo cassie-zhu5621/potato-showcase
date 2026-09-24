@@ -48,7 +48,7 @@ from robot.scs import open_bus
 # spend its most visible seconds looking broken.
 #
 # Seconds are HOLDS AFTER the clip's own length, not the clip length. Loop
-# clips (S1, S5B, S8) have no end of their own, so their number is the whole
+# clips (S1, S4B, S8) have no end of their own, so their number is the whole
 # time they get.
 def _clip_seconds(clips_dir):
     """How long each clip runs, read from the CSVs the player will feed.
@@ -76,19 +76,19 @@ CLIP_S = {}
 
 
 BEATS = [
-    ("S1_IDLE",     6.0,  "asleep"),
-    ("S2_LISTEN",   1.2,  "woken -- someone spoke to it"),
-    ("S3_ACK",      0.8,  "got it"),
-    ("S4_PLAN",     1.0,  "looking around the room"),
-    ("S5A_SETTLE",  0.8,  "arriving at what it chose"),
-    ("S5B_TRACK",   7.0,  "watching"),
-    ("S6_FINETUNE", 1.0,  "not that one"),
-    ("S5A_SETTLE",  0.6,  "arriving somewhere else"),
-    ("S5B_TRACK",   5.0,  "watching again"),
-    ("S7a",         0.6,  "it found something"),
-    ("S7b",         6.0,  "calling you over"),
-    ("S3_ACK",      1.0,  "seen -- acknowledged"),
-    ("S8_ERROR",    5.0,  "and this is what stuck looks like"),
+    ("S0_IDLE",     6.0,  "asleep"),
+    ("S1_ATTEND",   1.2,  "woken -- someone spoke to it"),
+    ("S2_ACKNOWLEDGE",      0.8,  "got it"),
+    ("S3_SCAN",     1.0,  "looking around the room"),
+    ("S4A_SETTLE",  0.8,  "arriving at what it chose"),
+    ("S4B_WATCH",   7.0,  "watching"),
+    ("S6_CORRECT", 1.0,  "not that one"),
+    ("S4A_SETTLE",  0.6,  "arriving somewhere else"),
+    ("S4B_WATCH",   5.0,  "watching again"),
+    ("S5A_FOUND",         0.6,  "it found something"),
+    ("S5B_BECKON",         6.0,  "calling you over"),
+    ("S2_ACKNOWLEDGE",      1.0,  "seen -- acknowledged"),
+    ("S7_ERROR",    5.0,  "and this is what stuck looks like"),
 ]
 
 
@@ -166,7 +166,7 @@ def main(argv=None):
                 # sleeping for `hold` alone would interrupt S2's 1.7 s turn
                 # after 1.2 s and the motion would read as a twitch.
                 #
-                # Loop clips (S1, S5B, S8) never finish, so they get `hold` flat.
+                # Loop clips (S1, S4B, S8) never finish, so they get `hold` flat.
                 spec_len = CLIP_S.get(state, 0.0)
                 time.sleep(max(0.05, (spec_len + hold) * a.gap))
             passes += 1

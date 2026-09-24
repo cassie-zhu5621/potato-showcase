@@ -70,23 +70,23 @@ REL_NAMES = {
 # the eye to the room instead of the screen -- so the strip shows a looking mark
 # rather than inventing an expression the robot does not wear.
 FACES = [
-    ("S1_IDLE",     "-_-",    "asleep"),
-    ("S2_LISTEN",   "._.",    "listening"),
-    ("S3_ACK",      "^o^",    "got it"),
-    ("S4_PLAN",     "\u30fb\u30fb\u30fb",    "looking"),
-    ("S5B_TRACK",   "o_o",    "watching"),
-    ("S6_FINETUNE", ">_<",    "not that"),
-    ("S7b",         "\\^o^/", "calling"),
+    ("S0_IDLE",     "-_-",    "asleep"),
+    ("S1_ATTEND",   "._.",    "listening"),
+    ("S2_ACKNOWLEDGE",      "^o^",    "got it"),
+    ("S3_SCAN",     "\u30fb\u30fb\u30fb",    "looking"),
+    ("S4B_WATCH",   "o_o",    "watching"),
+    ("S6_CORRECT", ">_<",    "not that"),
+    ("S5B_BECKON",         "\\^o^/", "calling"),
 ]
 
 # states that light the same lamp
-_FACE_OF = {"S5A_SETTLE": "S5B_TRACK", "S7a": "S7b", "S8_ERROR": "S6_FINETUNE"}
+_FACE_OF = {"S4A_SETTLE": "S4B_WATCH", "S5A_FOUND": "S5B_BECKON", "S7_ERROR": "S6_CORRECT"}
 
 
 def face_key(state):
     """Which lamp in the strip is lit for this state."""
     state = _FACE_OF.get(state, state)
-    return state if any(k == state for k, _f, _l in FACES) else "S1_IDLE"
+    return state if any(k == state for k, _f, _l in FACES) else "S0_IDLE"
 
 
 # --------------------------------------------------------------------------- #
@@ -105,9 +105,9 @@ def booth_state(STATE, feed_records, sweep_meta):
             break
     now = now or STATE.get("flow_state") or ""
 
-    if now in ("S7a", "S7b"):
+    if now in ("S5A_FOUND", "S5B_BECKON"):
         phase = "notice"
-    elif (now in ("S4_PLAN", "S5A_SETTLE", "S5B_TRACK", "S6_FINETUNE")
+    elif (now in ("S3_SCAN", "S4A_SETTLE", "S4B_WATCH", "S6_CORRECT")
             or STATE.get("plan_pending")):
         # SCANNING AND WATCHING ARE ONE SCREEN. They were two, and the watching
         # one said "tracking..." over an empty page, which tells a visitor
@@ -118,7 +118,7 @@ def booth_state(STATE, feed_records, sweep_meta):
         # MOVES when the head is corrected. Which state it is in is a glance at
         # the strip.
         phase = "room"
-    elif now == "S3_ACK":
+    elif now == "S2_ACKNOWLEDGE":
         # THE NOD DOES NOT GET A SCREEN. It is 1.7 s, and a page that appears and
         # vanishes inside two seconds is a flash, not information. It also
         # happens in two different places -- after a choice, and after OK -- so
@@ -126,7 +126,7 @@ def booth_state(STATE, feed_records, sweep_meta):
         # the page stays where the visitor's attention already is: about to
         # sweep, or reading the report they just acknowledged.
         phase = "room"
-    elif now == "S1_IDLE" or not now:
+    elif now == "S0_IDLE" or not now:
         # ASLEEP IS A FACE, NOT A MENU. A stand with a list of options on it is
         # a kiosk; a stand with something sleeping on it is a thing you want to
         # wake. It also gives the head tap a consequence on BOTH screens at
@@ -134,7 +134,7 @@ def booth_state(STATE, feed_records, sweep_meta):
         # everything else here starts.
         phase = "sleep"
     else:
-        # S2_LISTEN AND S8_ERROR LAND HERE, and they want the same screen: the
+        # S1_ATTEND AND S7_ERROR LAND HERE, and they want the same screen: the
         # sentence. While the button is held there is nothing yet and the page
         # says it is listening; when Whisper returns, the words appear; and if
         # they were rejected, the marked text is exactly what explains the

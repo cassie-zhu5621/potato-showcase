@@ -46,7 +46,7 @@ python3 tests/test_session_flow.py
 
 # tier 1 — MOTION ONLY. Servos and nothing else: no camera, no VLM, no API key.
 export NOTICEBOT_PORT=/dev/cu.usbmodemXXXXX     
-python3 robot/clip_player.py S7a                # one state
+python3 robot/clip_player.py S5A_FOUND                # one state
 python3 robot/clip_player.py                    # every state
 python3 robot/clip_player.py --all --cores3 /dev/cu.usbmodemXXXX     # every state, with LED and sound
 

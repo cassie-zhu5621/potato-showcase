@@ -22,7 +22,7 @@ Two things this exists to protect:
 Standalone:
   export NOTICEBOT_PORT=/dev/cu.usbmodemXXXX
   python3 clip_player.py                 # walk the designed cycle
-  python3 clip_player.py S7a             # one state, then hold
+  python3 clip_player.py S5A_FOUND             # one state, then hold
 """
 import csv, os, sys, threading, time
 
@@ -103,14 +103,14 @@ def shift_pan_centre(frames, to_deg, verbose=True):
     centring on it would leave the gesture lopsided about the person by half the
     amplitude.
 
-    S7b (clip v5) is the OPPOSITE case and lands here anyway: its pan is a pure
+    S5B_BECKON (clip v5) is the OPPOSITE case and lands here anyway: its pan is a pure
     bearing, held for the whole loop, with no shape at all. A constant is
     trivially its own midpoint, so the same arithmetic aims it -- but note that
     nothing is being centred and the `[face]` in the log line is a misnomer
-    there: S7b points at the FINDING, not at the person. It is routed here
+    there: S5B_BECKON points at the FINDING, not at the person. It is routed here
     rather than through `remap_share_pan` because a two-point rescale needs two
     plateaus, and applying one to a single-plateau curve would work by accident.
-    See the header of generate_s7_beckon.py for why the second plateau went.
+    See the header of generate_s5b_beckon.py for why the second plateau went.
     """
     if not frames:
         return frames
@@ -142,17 +142,17 @@ def remap_share_pan(frames, user_deg, object_deg, ceiling_dps=120.0,
                     verbose=True):
     """Move S7's two authored pan plateaus onto the real ones.
 
-    S7a and S7b are authored between a template user (+60) and a template object
-    (-25). Neither is where anything actually is. The object leg is wherever S5b
+    S5A_FOUND and S5B_BECKON are authored between a template user (+60) and a template object
+    (-25). Neither is where anything actually is. The object leg is wherever S4b
     was watching when the finding fired; the user leg is wherever the person is
     sitting, which in a lab is known and fixed.
 
     WHY A LINEAR REMAP AND NOT set_pan_deg. set_pan_deg replaces the pan channel
-    wholesale, which is only safe when it is a CONSTANT (S5_TRACK, S5A_SETTLE).
+    wholesale, which is only safe when it is a CONSTANT (S5_TRACK, S4A_SETTLE).
     S7's pan is the gesture: it crosses between two plateaus, twice per cycle in
-    S7b, with eased transits and a 4-degree overshoot past the user. Replacing it
+    S5B_BECKON, with eased transits and a 4-degree overshoot past the user. Replacing it
     would delete the alternation. Stretching it in time would rewrite the rhythm,
-    and in S7b the rhythm IS the message.
+    and in S5B_BECKON the rhythm IS the message.
 
     So: map the VALUE, leave the CLOCK alone. Every sample is placed at the same
     fraction of the new span as it held of the old one, which preserves the ease
@@ -226,10 +226,10 @@ def load_clip(path, loops=False):
         # recover. Exactly the states where "alive" matters most would look dead.
         #
         # ONLY for loops, though. A one-shot may hold a constant on purpose --
-        # S5A_SETTLE does, and its whole design is that it is available rather
+        # S4A_SETTLE does, and its whole design is that it is available rather
         # than addressed, so it deliberately has no accent. Discarding that
         # handed 1.2 s of a 1.23 s clip back to the device envelope mid-beat,
-        # which reads as a blink between S4's flash and S5b's breath. A short
+        # which reads as a blink between S4's flash and S4b's breath. A short
         # held value is an envelope; an endless one is a missing envelope.
         vals = {int(float(r["led"])) for r in rows}
         if len(vals) <= 1:
@@ -278,7 +278,7 @@ class ClipPlayer:
         self._pending_sfx = None
         self._pending_at = 0.0
         self._pan_override = None
-        self._pan_pending = None      # armed now, applied when S5B_TRACK begins
+        self._pan_pending = None      # armed now, applied when S4B_WATCH begins
         self._next_override = None    # armed now, consumed by the next `then`
         self._user_pan = None         # where the person is; None = play S7 as authored
         self._warned_no_user_pan = False   # warn once per run, not once per S7
@@ -290,7 +290,7 @@ class ClipPlayer:
                             for st in ST.STATES.values())
                 fr, clamped, has_nod, has_led = load_clip(
                     os.path.join(clips_dir, fn), loops=loops)
-                if name == "S4_PLAN":
+                if name == "S3_SCAN":
                     original_n = len(fr)
                     fr = trim_s4_return(fr)
                     if verbose and len(fr) != original_n:
@@ -340,7 +340,7 @@ class ClipPlayer:
         """Re-aim the watching pose, in Blender degrees.
 
         Only meaningful for a clip whose pan is STATIC, which is why S5_TRACK and
-        S5A_SETTLE both are: a constant has no authored timing to damage, so the
+        S4A_SETTLE both are: a constant has no authored timing to damage, so the
         pan can simply be replaced. S4 could not be retargeted this way -- its
         return is an eased curve authored for one specific distance, and
         stretching it would rewrite the very thing the clip exists to carry.
@@ -366,10 +366,10 @@ class ClipPlayer:
 
         Two callers, and they want opposite things from the same mechanism:
 
-          S4 -> S5a   the sweep has ALREADY arrived at the chosen station, so the
+          S4 -> S4a   the sweep has ALREADY arrived at the chosen station, so the
                       armed angle is the angle the body is at, and consuming it
                       produces NO travel. The crane is the whole beat.
-          S6 -> S5a   the body is still on the REFUSED bearing, so consuming it
+          S6 -> S4a   the body is still on the REFUSED bearing, so consuming it
                       produces the turn to the corrected direction, upright, at
                       REAIM_DPS. Here the travel is the beat and the crane
                       completes it.
@@ -388,7 +388,7 @@ class ClipPlayer:
         inferring it from a face detection that will lose the person the moment
         they look away, which is exactly when S7 needs to know where to call.
 
-        Only S7a and S7b use it: they are the only clips whose pan CROSSES
+        Only S5A_FOUND and S5B_BECKON use it: they are the only clips whose pan CROSSES
         between two named places. Everything else either holds a bearing or
         sweeps a range, and neither is about a person.
         """
@@ -437,12 +437,12 @@ class ClipPlayer:
         must not be allowed to hijack whatever comes next.
 
         Both halves of this were bugs on 2026-08-18. Leaving a stale override
-        alive: the head tap arms S1_IDLE and plays S2, the visitor picks a task
-        while S2 is still running, S2 is cut short, and S3_ACK's `then` (S4_PLAN)
-        is replaced by S1_IDLE -- nod, sleep, no sweep. Clearing it on the
-        INTERRUPT instead: OK arms S5B_TRACK and then requests S3_ACK, the
-        request interrupts S7b, and the arming meant for S3_ACK is wiped a
-        microsecond after it was made -- so S3_ACK falls back to S4_PLAN and the
+        alive: the head tap arms S0_IDLE and plays S2, the visitor picks a task
+        while S2 is still running, S2 is cut short, and S2_ACKNOWLEDGE's `then` (S3_SCAN)
+        is replaced by S0_IDLE -- nod, sleep, no sweep. Clearing it on the
+        INTERRUPT instead: OK arms S4B_WATCH and then requests S2_ACKNOWLEDGE, the
+        request interrupts S5B_BECKON, and the arming meant for S2_ACKNOWLEDGE is wiped a
+        microsecond after it was made -- so S2_ACKNOWLEDGE falls back to S3_SCAN and the
         robot re-scans instead of going back to watching. Clearing HERE
         distinguishes them, because only the caller knows which clip an override
         was meant for, and it says so by the order it calls these two.
@@ -531,7 +531,7 @@ class ClipPlayer:
         with distance so a long hop is not a lurch.
 
         `dps` overrides SAFE_DPS for the one transition that IS authored -- the
-        re-aim into S5a. See pose.REAIM_DPS.
+        re-aim into S4a. See pose.REAIM_DPS.
         """
         self.bus.flush_input()      # arrive with a clean buffer, whatever ran before
         for sid in IDS.values():
@@ -577,7 +577,7 @@ class ClipPlayer:
             late = max(late, now - target)
             units = {j: f[j] for j in JOINTS}
             # Both of these hold pan CONSTANT by design -- S5_TRACK because it is
-            # a hold, S5a because its pan is deliberately static ("pan does not
+            # a hold, S4a because its pan is deliberately static ("pan does not
             # move here": the crane is the beat, the turn already happened). A
             # constant has no authored timing to damage, so the angle can simply
             # be replaced. Without this the override would survive _goto and then
@@ -678,9 +678,9 @@ class ClipPlayer:
             #               and S3 are authored at. Never inferred from a face
             #               detection, which loses the person exactly when they
             #               look away -- which is when S7 needs to know.
-            #   THE FINDING is a measurement. It is wherever S5b was actually
+            #   THE FINDING is a measurement. It is wherever S4b was actually
             #               aimed when the finding fired, and self.cur still
-            #               holds it because S7a is entered straight from S5b.
+            #               holds it because S5A_FOUND is entered straight from S4b.
             #
             # THE REMAP NOW ALWAYS RUNS. It used to be gated on the user angle
             # being set, so with no seat locked the OBJECT leg also fell back to
@@ -688,23 +688,23 @@ class ClipPlayer:
             # knew perfectly well where it had just been looking. One unknown was
             # discarding the other one's answer.
             #
-            # S7b NO LONGER NAMES THE PERSON (clip v5, 2026-08-08), so it takes
+            # S5B_BECKON NO LONGER NAMES THE PERSON (clip v5, 2026-08-08), so it takes
             # the translation rather than the remap. Its pan is one constant for
             # the whole loop, and a two-point remap on a curve with a single
             # plateau has nothing to rescale between -- it would still land
             # correctly, but by accident, and the next reader would conclude
-            # from the call site that S7b still crosses. The clip changed
+            # from the call site that S5B_BECKON still crosses. The clip changed
             # because the participant places the robot freely and nothing
-            # measures where they then sit; see generate_s7_beckon.py's header.
-            if nxt in ("S7a", "S7b"):
+            # measures where they then sit; see generate_s5b_beckon.py's header.
+            if nxt in ("S5A_FOUND", "S5B_BECKON"):
                 # BOTH LEGS OF S7 NOW HOLD ONE BEARING (clips v5, 2026-08-08),
                 # so both take the translation and `remap_share_pan` has no
-                # caller left in the share path. S7a's 89-degree turn to the
+                # caller left in the share path. S5A_FOUND's 89-degree turn to the
                 # participant went for two reasons that turned out to be the
                 # same reason twice: the seat was a template nobody measured,
                 # and the camera is on the head, so the turn took the eye off
                 # the finding for 3.4 s at exactly the moment the storyboard
-                # opens. See generate_s7_found.py's header.
+                # opens. See generate_s5a_found.py's header.
                 frames = shift_pan_centre(
                     frames, unit_to_deg("pan", self.cur["pan"]),
                     verbose=self.verbose)
@@ -726,9 +726,9 @@ class ClipPlayer:
             # A re-aim only applies to the clips it was aimed at; entering anything
             # else clears it, so an old override cannot silently steer a later state.
             #
-            # S5A_SETTLE is in the set because it is how a CORRECTED aim arrives.
+            # S4A_SETTLE is in the set because it is how a CORRECTED aim arrives.
             # It was not, and the bug was silent in the worst way: the armed angle
-            # was dropped and S5a played at its hard-coded template pan, so the
+            # was dropped and S4a played at its hard-coded template pan, so the
             # robot answered "look over there" by craning at +25 regardless of
             # where the person had pointed.
             if nxt not in ST.PAN_RETARGETABLE:
@@ -738,17 +738,17 @@ class ClipPlayer:
                     self._pan_override, self._pan_pending = self._pan_pending, None
                 if self._pan_override is not None:
                     first["pan"] = self._pan_override
-            # The turn into S5a is the answer to a person, not a transition, so it
-            # runs at the authored travel speed. S5a itself opens UPRIGHT and S6
+            # The turn into S4a is the answer to a person, not a transition, so it
+            # runs at the authored travel speed. S4a itself opens UPRIGHT and S6
             # closes upright, so this move is pan-only: the body turns to the new
-            # direction straight-backed, and the lean is S5a's own first beat.
+            # direction straight-backed, and the lean is S4a's own first beat.
             # Leaning DURING the turn would mean attending to everything it passes,
             # which is the same reason S4 sweeps level.
             # Two transitions are authored, and both as SPEEDS rather than as
             # clips, because neither knows its distance until runtime.
             self._goto(first, label=f"-> {nxt}",
-                       dps={"S5A_SETTLE": REAIM_DPS,
-                            "S8_ERROR": COLLAPSE_DPS}.get(nxt))
+                       dps={"S4A_SETTLE": REAIM_DPS,
+                            "S7_ERROR": COLLAPSE_DPS}.get(nxt))
             self.state, self.loops_done = nxt, 0
             self._flash_sfx = spec.get("sfx_flash")
             self._in_flash = False
@@ -792,14 +792,14 @@ class ClipPlayer:
                     continue
                 if spec["then"]:
                     with self._lock:
-                        if self.state == "S4_PLAN":
+                        if self.state == "S3_SCAN":
                             # Enter the planning hold at the final shutter bearing.
                             # The VLM replaces it only after selecting a target.
                             self._pan_pending = frames[-1]["pan"]
                         # An armed override wins over the declared default, and
                         # is consumed either way so it cannot steer a later
-                        # state. Unarmed, S4 -> S5B and the re-crane is an
-                        # ordinary transition; armed, S4 -> S5A and the crane is
+                        # state. Unarmed, S4 -> S4B and the re-crane is an
+                        # ordinary transition; armed, S4 -> S4A and the crane is
                         # the beat. Same joints, same endpoints, two different
                         # claims -- see S4_S5_DESIGN.md sec 3.05.
                         nxt2, self._next_override = self._next_override, None
@@ -816,7 +816,7 @@ def _main():
                                              "envelope that is authored with it")
     ap.add_argument("state", nargs="?", help="one state, else the whole CYCLE")
     ap.add_argument("--all", action="store_true",
-                    help="walk every state, not just the designed cycle. S8_ERROR "
+                    help="walk every state, not just the designed cycle. S7_ERROR "
                          "is deliberately outside CYCLE -- it is not a step in the "
                          "communication cycle, it is what happens when the cycle "
                          "cannot continue -- but it still needs testing.")
@@ -935,8 +935,8 @@ def _main():
             # Wait for it to actually BE the state, then for the exit condition:
             # a loop state has no natural end, so give it two full passes; a
             # one-shot is done when the player has moved on or is holding.
-            # The deadline has to come from the clip, not a constant: S1_IDLE is
-            # 40.0 s and S5B_TRACK is 57.6 s, so a flat 40 s cut both short and
+            # The deadline has to come from the clip, not a constant: S0_IDLE is
+            # 40.0 s and S4B_WATCH is 57.6 s, so a flat 40 s cut both short and
             # reported a pass on a state it had never finished watching. One pass
             # for a one-shot, two for a loop (the point of a loop is that its
             # seam is invisible, and you cannot see a seam you never reach).

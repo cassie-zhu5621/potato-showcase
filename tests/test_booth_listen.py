@@ -40,17 +40,17 @@ def st(state, **kw):
 
 
 @pytest.mark.parametrize("state,phase", [
-    ("S1_IDLE",     "sleep"),
+    ("S0_IDLE",     "sleep"),
     ("",            "sleep"),
-    ("S2_LISTEN",   "listen"),
-    ("S8_ERROR",    "listen"),
-    ("S3_ACK",      "room"),
-    ("S4_PLAN",     "room"),
-    ("S5A_SETTLE",  "room"),
-    ("S5B_TRACK",   "room"),
-    ("S6_FINETUNE", "room"),
-    ("S7a",         "notice"),
-    ("S7b",         "notice"),
+    ("S1_ATTEND",   "listen"),
+    ("S7_ERROR",    "listen"),
+    ("S2_ACKNOWLEDGE",      "room"),
+    ("S3_SCAN",     "room"),
+    ("S4A_SETTLE",  "room"),
+    ("S4B_WATCH",   "room"),
+    ("S6_CORRECT", "room"),
+    ("S5A_FOUND",         "notice"),
+    ("S5B_BECKON",         "notice"),
 ])
 def test_every_state_lands_on_a_screen(state, phase):
     assert st(state)["phase"] == phase
@@ -58,7 +58,7 @@ def test_every_state_lands_on_a_screen(state, phase):
 
 def test_the_nod_does_not_get_a_screen_of_its_own():
     """1.7 s. A page that appears and vanishes inside two seconds is a flash."""
-    assert st("S3_ACK")["phase"] == st("S4_PLAN")["phase"]
+    assert st("S2_ACKNOWLEDGE")["phase"] == st("S3_SCAN")["phase"]
 
 
 def test_there_is_no_menu_left():
@@ -68,7 +68,7 @@ def test_there_is_no_menu_left():
     for gone in ("CHOICES", "english_for", "/booth/choose", "S.choices",
                  "request_ja", "booth_choice_ja"):
         assert gone not in src, gone
-    assert "choices" not in st("S2_LISTEN")
+    assert "choices" not in st("S1_ATTEND")
 
 
 def test_the_choose_route_is_gone_from_the_server_too():
@@ -83,7 +83,7 @@ def test_heard_and_request_are_different_fields():
     """`heard` is the microphone's last word, right or wrong, and belongs only
     to the listening screen. `request` is what the flow ACCEPTED, and is what
     every later screen echoes -- a report must name the request it answers."""
-    d = st("S2_LISTEN", heard="beep beep beep", heard_ok=False,
+    d = st("S1_ATTEND", heard="beep beep beep", heard_ok=False,
            request="tell me if someone touches my bag")
     assert d["heard"] == "beep beep beep"
     assert d["heard_ok"] is False
@@ -94,7 +94,7 @@ def test_rejected_text_survives_to_the_page():
     """It is shown, not hidden: the robot is about to perform not having
     understood, and reading what it thought it heard is what makes that
     performance legible instead of puzzling."""
-    d = st("S8_ERROR", heard="mmhm", heard_ok=False)
+    d = st("S7_ERROR", heard="mmhm", heard_ok=False)
     assert d["phase"] == "listen" and d["heard"] == "mmhm"
     assert d["heard_ok"] is False
 
@@ -171,7 +171,7 @@ def test_the_head_tap_no_longer_wakes_it():
     src = open(os.path.join(ROOT, "noticebot_loop.py")).read()
     i = src.index('elif "BODYTAP" in line:')
     branch = src[i:i + 1400]
-    assert 'player.request("S2_LISTEN")' not in branch
+    assert 'player.request("S1_ATTEND")' not in branch
     assert 'events.append("tap")' in branch
 
 
@@ -230,7 +230,7 @@ needs_node = pytest.mark.skipif(not HAS_NODE, reason="node not installed")
 
 @needs_node
 def test_render_sleep_asks_for_the_button_not_the_tablet():
-    html = _render(st("S1_IDLE"))
+    html = _render(st("S0_IDLE"))
     assert "hold the button on the robot" in html
     assert "(-_-)" in html
 
@@ -239,13 +239,13 @@ def test_render_sleep_asks_for_the_button_not_the_tablet():
 def test_render_listen_shows_dots_before_the_first_word():
     """A held button with nothing said into it yet must still look like a
     machine that is receiving."""
-    html = _render(st("S2_LISTEN", heard="", heard_ok=True))
+    html = _render(st("S1_ATTEND", heard="", heard_ok=True))
     assert cls("lst", html) and "Listening" in html
 
 
 @needs_node
 def test_render_listen_shows_the_sentence_large():
-    html = _render(st("S2_LISTEN", heard="tell me if someone touches my bag",
+    html = _render(st("S1_ATTEND", heard="tell me if someone touches my bag",
                       heard_ok=True))
     assert "tell me if someone touches my bag" in html
     assert cls("heard", html) and "I heard" in html
@@ -253,7 +253,7 @@ def test_render_listen_shows_the_sentence_large():
 
 @needs_node
 def test_render_listen_marks_a_misread_and_says_what_to_do():
-    html = _render(st("S2_LISTEN", heard="beep beep beep", heard_ok=False))
+    html = _render(st("S1_ATTEND", heard="beep beep beep", heard_ok=False))
     assert cls("heard no", html), "the rejected styling must be applied"
     assert "say it again" in html
     assert "beep beep beep" in html, "showing it is the point"
@@ -261,7 +261,7 @@ def test_render_listen_marks_a_misread_and_says_what_to_do():
 
 @needs_node
 def test_render_room_echoes_the_accepted_request_not_the_last_thing_heard():
-    d = st("S5B_TRACK", heard="something else entirely", heard_ok=True,
+    d = st("S4B_WATCH", heard="something else entirely", heard_ok=True,
            request="tell me if people gather around")
     html = _render(d)
     assert "tell me if people gather around" in html
@@ -273,13 +273,13 @@ def test_render_room_is_the_same_screen_for_scanning_and_watching():
     """The only question either state raises is which way it is looking, and
     the grid answers it continuously. 'tracking...' over an empty page told a
     participant nothing the robot in front of them was not already saying."""
-    scan = _render(st("S4_PLAN", request="r"))
-    watch = _render(st("S5B_TRACK", request="r"))
+    scan = _render(st("S3_SCAN", request="r"))
+    watch = _render(st("S4B_WATCH", request="r"))
     assert cls("grid", scan) and cls("grid", watch)
 
 
 @needs_node
 def test_render_room_has_six_cells_and_the_sixth_is_the_rule():
-    html = _render(st("S5B_TRACK", request="r"))
+    html = _render(st("S4B_WATCH", request="r"))
     assert len(re.findall(r'class="cell\b', html)) == 6
     assert "spec" in html

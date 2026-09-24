@@ -85,13 +85,13 @@ nudge the values until it looks right.
 
 ```bash
 # ONE state, then hold. This is the one you use to study a single movement.
-python3 robot/clip_player.py S7a
-python3 robot/clip_player.py S4_PLAN
+python3 robot/clip_player.py S5A_FOUND
+python3 robot/clip_player.py S3_SCAN
 
-# THE WHOLE CYCLE, in designed order: S1 → S2 → S3 → S4 → S5 → S6 → S7a → S7b
+# THE WHOLE CYCLE, in designed order: S1 → S2 → S3 → S4 → S5 → S6 → S5A_FOUND → S5B_BECKON
 python3 robot/clip_player.py
 
-# every state including S8_ERROR, which sits outside the cycle on purpose --
+# every state including S7_ERROR, which sits outside the cycle on purpose --
 # it is not a step in the communication, it is what happens when the
 # communication cannot continue
 python3 robot/clip_player.py --all
@@ -104,8 +104,8 @@ python3 robot/clip_player.py --all --cores3
 Two more, for when the movement looks wrong and you want to know why:
 
 ```bash
-python3 robot/tools/play_on_hardware.py motion/clips/S4_PLAN.csv --dry-run  # read the CSV, touch nothing
-python3 robot/tools/play_on_hardware.py motion/clips/S1_IDLE.csv --loop     # one clip on repeat
+python3 robot/tools/play_on_hardware.py motion/clips/S3_SCAN.csv --dry-run  # read the CSV, touch nothing
+python3 robot/tools/play_on_hardware.py motion/clips/S0_IDLE.csv --loop     # one clip on repeat
 python3 robot/clip_player.py --cores3 --led-test    # LED only: is the firmware flashed?
 ```
 

@@ -44,7 +44,7 @@ class Storyboard:
     # HOW FAR THE HEAD MAY HAVE MOVED and still be the same shot.
     #
     # The camera is on the head, so every panel is taken from wherever the neck
-    # happens to be. A story opens while S5b watches at tilt -12 and its later
+    # happens to be. A story opens while S4b watches at tilt -12 and its later
     # panels are taken during S7's rests at tilt -22 -- ten degrees, about a
     # third of the vertical field, so the strip jumps between its first panel
     # and the rest. Reported 2026-08-08: "the storyboard's viewpoint keeps
@@ -54,7 +54,7 @@ class Storyboard:
     # consecutive panels read as one continuous shot rather than as cuts.
     POSE_TOL_DEG = 3.0
 
-    # AND THE CEILING ON HOLDING THE CLOCK. S7b loops until OK or
+    # AND THE CEILING ON HOLDING THE CLOCK. S5B_BECKON loops until OK or
     # S7_IGNORED_TIMEOUT_S (30 s), and the robot only returns to the watching
     # pose after that, so a story can legitimately be paused for half a minute.
     # If it is paused for longer than this, something has gone wrong -- a re-aim

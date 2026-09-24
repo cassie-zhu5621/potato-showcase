@@ -1,4 +1,4 @@
-# Auto-generates S2 LISTEN (3-DOF + LED). Run inside S2_LISTEN.blend after
+# Auto-generates S2 LISTEN (3-DOF + LED). Run inside S1_ATTEND.blend after
 # repair_rig.py + add_nod_joint.py. OVERWRITES all keys.
 # Design rationale: ../../../robot_motion/S2_DESIGN.md (local, not in this repo).
 #
@@ -23,7 +23,7 @@
 import bpy
 import math
 
-# ---- the pose it wakes FROM (must match generate_s1_idle.py) ----
+# ---- the pose it wakes FROM (must match generate_s0_idle.py) ----
 SLEEP_TILT = -8.0
 SLEEP_NOD = -42.0
 
@@ -92,15 +92,15 @@ LISTEN_NOD = 53.0      # chin up 51 deg, bringing the gaze from +6 to +25 -- ONT
                        # to every state where the human is the referent
                        # (S2, S3, S6). Do it before the study films.
                        #
-                       # These two are S3_ACK's starting pose -- S3 dips FROM the
+                       # These two are S2_ACKNOWLEDGE's starting pose -- S3 dips FROM the
                        # raised chin, so the pair is a shared boundary condition,
                        # not a free choice. Change one, change both.
 USER_PAN = -30.0        # template. The firmware retargets this at runtime to
                        # wherever the speaker actually is.
                        #
                        # THIS VALUE IS SHARED. The same constant appears in
-                       # generate_s3_ack.py, generate_s7_beckon.py and
-                       # generate_s7_found.py, and it has to be identical in all
+                       # generate_s2_acknowledge.py, generate_s5b_beckon.py and
+                       # generate_s5a_found.py, and it has to be identical in all
                        # four: it is the single direction "the person" lies in.
                        # If the clips disagree, the states each face a slightly
                        # different person and the exchange stops composing.
@@ -113,7 +113,7 @@ USER_PAN = -30.0        # template. The firmware retargets this at runtime to
                        # THE RAIL WAS NOT THE MACHINE, IT WAS A CABLE. Re-routing
                        # one data lead behind the neck moved every rail outward:
                        # pan to +69.7, tilt's forward lean from 19.9 to 46.6 deg.
-                       # 60 now leaves 9.7 deg here and 5.7 under S7a's overshoot.
+                       # 60 now leaves 9.7 deg here and 5.7 under S5A_FOUND's overshoot.
                        #
                        # Worth remembering as a class of error rather than an
                        # incident: A REACHABLE RANGE IS AN ASSEMBLY STATE, NOT A

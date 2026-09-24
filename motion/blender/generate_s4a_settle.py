@@ -1,8 +1,8 @@
-# Auto-generates S5a SETTLE (3-DOF + LED). Run inside S5A_SETTLE.blend after
+# Auto-generates S4a SETTLE (3-DOF + LED). Run inside S4A_SETTLE.blend after
 # repair_rig.py + add_nod_joint.py. OVERWRITES all keys.
 # Design rationale: ../../../robot_motion/S4_S5_DESIGN.md (local, not in this repo).
 #
-# S5a is the ARRIVAL: coming to rest on a thing the robot has just chosen to
+# S4a is the ARRIVAL: coming to rest on a thing the robot has just chosen to
 # watch. "I have come to this one, and now I am looking at it."
 #
 # IT ONLY RUNS WHEN THE TARGET ACTUALLY CHANGED.
@@ -15,8 +15,8 @@
 #   That limit case is expressed here by NOT ENTERING THE STATE at all, rather
 #   than by a branch inside a clip:
 #
-#     target changed  ->  S4 -> S5a -> S5b   the crane is an AUTHORED BEAT
-#     target same     ->  S4 ->        S5b   the crane is a TRANSITION, which by
+#     target changed  ->  S4 -> S4a -> S4b   the crane is an AUTHORED BEAT
+#     target same     ->  S4 ->        S4b   the crane is a TRANSITION, which by
 #                                            the library rule carries no
 #                                            expressive content and merely
 #                                            travels between two held poses
@@ -26,9 +26,9 @@
 #
 # A BEAT THAT IS LOSSLESS IF MISSED.
 #
-#   S5a fires autonomously, potentially every few minutes, and a state that
+#   S4a fires autonomously, potentially every few minutes, and a state that
 #   demands attention on that schedule would be intolerable. So it is designed to
-#   be READ IF SEEN AND LOST WITHOUT COST IF NOT: whatever S5a says, S5b's steady
+#   be READ IF SEEN AND LOST WITHOUT COST IF NOT: whatever S4a says, S4b's steady
 #   pose says too, because the direction it settles into is the direction it then
 #   holds. Compare S7, which exists precisely to demand attention.
 #
@@ -45,14 +45,14 @@
 #   Here the two pitch joints run one schedule in exact opposition, so tilt + nod
 #   is identically zero on every frame. The head's orientation in the world does
 #   not change at all; it is only carried forward and down by the neck. That also
-#   keeps the camera frame right, which matters because S5b holds this pose for
+#   keeps the camera frame right, which matters because S4b holds this pose for
 #   minutes at a time.
 #
 #     SOCIAL states    -- the gaze moves, the body supports it   (S2)
-#     EPISTEMIC states -- the body moves, the gaze holds         (S5a)
+#     EPISTEMIC states -- the body moves, the gaze holds         (S4a)
 #
 #   Stated that way the two states are grammatical mirrors, which is exactly what
-#   stops S5a being read as S2.
+#   stops S4a being read as S2.
 #
 # SIGN CONVENTION: BLENDER positive nod = head UP; on the bus a higher unit is
 # DOWN. INVERT in robot/calibration.py reconciles them. Author against the render.
@@ -66,12 +66,12 @@ TARGET_PAN = 25.0      # = S4 RICHEST_DEG. At runtime both come from the VLM's
 START_TILT = 0.0       # = S4 SWEEP_TILT. S4 ends LEVEL and never cranes.
 START_NOD = 0.0
 
-# ---- handed to S5b (its held pose) ----
-LEAN_TILT = -12.0      # = S5B_TRACK HOLD_TILT. The crane: coming forward at the
+# ---- handed to S4b (its held pose) ----
+LEAN_TILT = -12.0      # = S4B_WATCH HOLD_TILT. The crane: coming forward at the
                        # thing. An EPISTEMIC lean -- toward an object in order to
                        # see it -- which is the move S7_DESIGN sec 2 marks as the
                        # novel one, as against a social lean into a person.
-LEAN_NOD = 12.0        # = S5B_TRACK HOLD_NOD. EXACTLY cancels the lean, so the
+LEAN_NOD = 12.0        # = S4B_WATCH HOLD_NOD. EXACTLY cancels the lean, so the
                        # gaze is level: -12 + 12 = 0. The head's orientation in
                        # the world never changes at all -- it is only carried
                        # forward and down by the neck.
@@ -110,12 +110,12 @@ HOLD_IN_S = 0.20       # library boundary holds
 HOLD_OUT_S = 0.20
 
 # ---- LED ----
-# FLAT. S5a announces nothing: the light is the channel that reports results, and
-# choosing where to look is not yet a result. It sits at S5b's breath trough so
-# the handover has no step, and S5b's breath simply takes over.
+# FLAT. S4a announces nothing: the light is the channel that reports results, and
+# choosing where to look is not yet a result. It sits at S4b's breath trough so
+# the handover has no step, and S4b's breath simply takes over.
 LED_LEVEL = 0.8
 
-EASE_MODE = "minjerk"  # Flash & Hogan 1985 -- see generate_s2_listen.py
+EASE_MODE = "minjerk"  # Flash & Hogan 1985 -- see generate_s1_attend.py
 FPS = 30
 SAMPLE_F = 2
 # -----------------------------------------------------------
@@ -137,7 +137,7 @@ REACH_PATH = ""
 def _find_up(rel, starts, levels=8):
     """Walk up, and look one step down into each level's subdirectories -- the
     .blend files live in the local design folder and the generators in the repo,
-    which makes them siblings. See generate_s2_listen.py."""
+    which makes them siblings. See generate_s1_attend.py."""
     for s in starts:
         if not s:
             continue
@@ -182,7 +182,7 @@ print("[s5a] " + reach.summary())
 if abs((LEAN_TILT + LEAN_NOD) - (START_TILT + START_NOD)) > 0.01:
     raise RuntimeError(f"gaze is not held: tilt+nod goes "
                        f"{START_TILT + START_NOD:+.1f} -> {LEAN_TILT + LEAN_NOD:+.1f}. "
-                       f"S5b holds this pose for minutes, so the camera frame "
+                       f"S4b holds this pose for minutes, so the camera frame "
                        f"must be right; set LEAN_NOD = -LEAN_TILT.")
 for _j, _v, _w in (("pan", TARGET_PAN, "target"),
                    ("tilt", START_TILT, "level"), ("tilt", LEAN_TILT, "craned"),
@@ -232,7 +232,7 @@ if mat and mat.use_nodes:
             led_color = n.inputs['Color']
             break
 if led_color is not None:
-    led_color.default_value = (0.38, 0.72, 1.00, 1.0)     # = S5b LED_COOL
+    led_color.default_value = (0.38, 0.72, 1.00, 1.0)     # = S4b LED_COOL
     mat.diffuse_color = (0.38, 0.72, 1.00, 1.0)
 
 
@@ -272,7 +272,7 @@ for f in range(1, END_F + 1, SAMPLE_F):
     key(nod, "x", f, nod_deg)
     key_led(f, LED_LEVEL)
 
-# Land exactly on S5b's held pose. A handover, not a loop seam.
+# Land exactly on S4b's held pose. A handover, not a loop seam.
 key(pan, "z", END_F, TARGET_PAN)
 key(tilt, "x", END_F, LEAN_TILT)
 key(nod, "x", END_F, LEAN_NOD)
@@ -281,7 +281,7 @@ key_led(END_F, LED_LEVEL)
 bpy.context.scene.frame_start = 1
 bpy.context.scene.frame_end = END_F
 
-msg = (f"S5a settle: neck {START_TILT:+.0f} -> {LEAN_TILT - OVERSHOOT_DEG:+.0f} "
+msg = (f"S4a settle: neck {START_TILT:+.0f} -> {LEAN_TILT - OVERSHOOT_DEG:+.0f} "
        f"-> {LEAN_TILT:+.0f}, head counter-rotating exactly; GAZE HELD at "
        f"{START_TILT + START_NOD:+.0f} throughout; {END_F}f ({END_F / FPS:.2f}s)")
 print(msg)
@@ -290,11 +290,11 @@ print(msg)
 def draw(self, context):
     self.layout.label(text=msg)
     self.layout.label(text="ONLY plays when the target CHANGED. Unchanged ->")
-    self.layout.label(text="S4 hands straight to S5b and the re-crane is a")
+    self.layout.label(text="S4 hands straight to S4b and the re-crane is a")
     self.layout.label(text="plain transition. No result, no movement.")
     self.layout.label(text="Gaze NEVER moves: the neck settles, the head holds")
     self.layout.label(text="the frame. Inverse of S2, where the gaze arrives last.")
-    self.layout.label(text="Opens on S4's close; ends on S5b's held pose.")
+    self.layout.label(text="Opens on S4's close; ends on S4b's held pose.")
 
 
-bpy.context.window_manager.popup_menu(draw, title="S5a settle", icon='INFO')
+bpy.context.window_manager.popup_menu(draw, title="S4a settle", icon='INFO')

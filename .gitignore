@@ -1,0 +1,70 @@
+# --- session output -------------------------------------------------------
+# Every run writes findings and sweeps here. It is DATA, not source: large,
+# per-session, and two people's runs would conflict on every file. Archive a
+# session by copying the folder out, not by committing it.
+session_feed/
+feed/
+live_captures/
+*.jsonl
+*.jpg
+*.jpeg
+*.mp4
+
+# --- build artefacts of the motion library --------------------------------
+# The CSVs in motion/clips/ ARE committed: they are what the robot plays, and a
+# colleague without Blender still needs them. What is excluded is Blender's own
+# churn -- .blend1 is an automatic backup of the previous save -- and the render
+# videos, which are megabytes that no code reads.
+*.blend1
+*.blend2
+motion/renders/
+
+# --- python ---------------------------------------------------------------
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# --- model checkpoints ----------------------------------------------------
+# The two MediaPipe .task files ARE committed (9 MB, and the perception layer
+# will not start without them). YOLO weights are not: ultralytics fetches them
+# on first use and they differ per --detector choice.
+*.pt
+*.pth
+*.onnx
+!perception/weights/*.task
+
+# --- but the CAD and the plan renders in a sweep are wanted ---------------
+!robot/cad/**/*.stl
+!robot/cad/**/*.step
+
+# --- arduino / os / editor ------------------------------------------------
+build/
+.pio/
+*.bin
+.DS_Store
+.idea/
+.vscode/
+*.swp
+docs/GENSORS_DESIGN_NOTES.md
+docs/inspiration.md
+
+# --- local secrets --------------------------------------------------------
+.env
+
+# S1 filming logs -- run output, like session_feed/. Kept on disk, out of the repo.
+film_log_*.json
+
+# --- the traced robot drawing ---------------------------------------------
+# motion/robot_art/ holds Cassie's own drawing and the three pieces cut out of
+# it, and the figure script rotates those pieces by the angles in the clip
+# CSVs. The SOURCE .jpg is kept beside them despite the blanket *.jpg rule
+# above: parts.json records its filename and the erase rectangles used, so with
+# the jpg the cut is reproducible and without it the pieces are unexplainable
+# artefacts. _cuts_debug.png is not kept -- it is a --debug render of the cut
+# lines, it is regenerated in a second, and a stale copy of it would show cuts
+# the parts no longer have.
+!motion/robot_art/*.jpg
+motion/robot_art/_cuts_debug.png

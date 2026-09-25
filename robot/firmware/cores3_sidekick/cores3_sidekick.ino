@@ -225,6 +225,14 @@ static const uint32_t TOF_PERIOD_MS = 50;    // 20 Hz: a reflex, not a percept
 VL53L1X tof;
 static bool tofOK = false;
 
+// COUNTERS, because "no readings" has three different causes and they are
+// indistinguishable from outside: checkTof never runs, dataReady is never true,
+// or a reading arrives and is thrown away. `TOFDIAG` tells them apart in one
+// question instead of three reflashes.
+static uint32_t tofCalls = 0, tofReadyN = 0, tofEmit = 0, tofRestarts = 0;
+static int tofLastStatus = -1, tofLastMm = -1, tofLastI2C = -1;
+static uint32_t tofLastGot = 0;
+
 // TRIED BOTH WAYS ROUND, even though the pinout above settles it. The order is
 // right for rev1 and this costs a few milliseconds at boot; what it buys is
 // that a board revision that moved the pair reports itself, instead of
@@ -291,14 +299,6 @@ void tofInit() {
   Serial.println("IN TOF READY");
 }
 
-// COUNTERS, because "no readings" has three different causes and they are
-// indistinguishable from outside: checkTof never runs, dataReady is never true,
-// or a reading arrives and is thrown away. `TOFDIAG` tells them apart in one
-// question instead of three reflashes.
-static uint32_t tofCalls = 0, tofReadyN = 0, tofEmit = 0, tofRestarts = 0;
-static int tofLastStatus = -1, tofLastMm = -1, tofLastI2C = -1;
-static uint32_t tofLastGot = 0;
-
 void checkTof() {
   if (!tofOK) return;
   tofCalls++;
@@ -338,7 +338,12 @@ void checkTof() {
   Serial.printf("IN DIST %d\n", mm);
 }
 #else
+// The same names, so TOFDIAG and the TOF query compile with USE_TOF at 0 and
+// report an honest "disabled" instead of failing the build. A diagnostic that
+// only exists when the thing works is not a diagnostic.
 static bool tofOK = false;
+static uint32_t tofCalls = 0, tofReadyN = 0, tofEmit = 0, tofRestarts = 0;
+static int tofLastStatus = -1, tofLastMm = -1, tofLastI2C = -1;
 void tofInit() {}
 void checkTof() {}
 void tofScan() { Serial.println("IN SCAN disabled -- USE_TOF is 0"); }

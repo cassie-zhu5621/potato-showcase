@@ -2,12 +2,24 @@
 """
 make_voice.py — one spoken line, baked into the firmware.
 
-  python3 robot/tools/make_voice.py "I saw that."
-  python3 robot/tools/make_voice.py --voice Samantha "I saw that."
-  python3 robot/tools/make_voice.py --wav recorded.wav
+  python3 robot/tools/make_voice.py --preview "I saw that."     # just listen
+  python3 robot/tools/make_voice.py "I was watching." "I'll remember that one."
+  python3 robot/tools/make_voice.py --voice Samantha "..." "..."
+  python3 robot/tools/make_voice.py --wav a.wav --wav b.wav
   python3 robot/tools/make_voice.py --list        # the voices on this Mac
 
-Writes robot/firmware/cores3_sidekick/voice.h, then reflash. `EVT SAY` plays it.
+Writes robot/firmware/cores3_sidekick/voice.h with every line given, then
+reflash. `EVT SAY 1`, `EVT SAY 2`... In perform.py, [ and ] pick the line and V
+says it.
+
+ALL THE LINES AT ONCE, and reflashing is not something that can happen during a
+performance -- it holds the port and reboots the board. So this is not a way to
+change what it says mid-show, and it should not be: a performance chooses from
+what was rehearsed, it does not improvise dialogue. Bake the two or three
+endings you might want and pick one on the night.
+
+--preview speaks it on the Mac and writes nothing, which is how to audition
+twenty wordings in a minute before baking the one that survives.
 
 NO SD CARD. The line lives in flash as a byte array next to the sketch: the
 card is one more thing to be missing, unreadable or full in front of an
@@ -45,8 +57,11 @@ def need(prog):
 
 def main():
     ap = argparse.ArgumentParser(description="bake one spoken line into the firmware")
-    ap.add_argument("text", nargs="?", help="what it says")
-    ap.add_argument("--wav", help="use this audio file instead of speaking text")
+    ap.add_argument("text", nargs="*", help="the lines, in order")
+    ap.add_argument("--wav", action="append", default=[],
+                    help="use audio files instead of spoken text. Repeatable")
+    ap.add_argument("--preview", action="store_true",
+                    help="say it on this Mac and write nothing")
     ap.add_argument("--voice", default="Samantha", help="macOS `say` voice")
     ap.add_argument("--rate", type=int, default=170, help="words per minute")
     ap.add_argument("--list", action="store_true", help="list the voices and stop")
@@ -56,42 +71,65 @@ def main():
         subprocess.run(["say", "-v", "?"])
         return 0
     if not (a.text or a.wav):
-        ap.error("give it a line, or --wav")
+        ap.error("give it one or more lines, or --wav")
+
+    if a.preview:
+        need("say")
+        for t in a.text:
+            print(f"  {t!r}")
+            subprocess.run(["say", "-v", a.voice, "-r", str(a.rate), t])
+        for w in a.wav:
+            subprocess.run(["afplay", w])
+        print("\nnothing written. Drop --preview to bake the ones you keep.")
+        return 0
 
     need("ffmpeg")
+    clips, total = [], 0
     with tempfile.TemporaryDirectory() as tmp:
-        src = a.wav
-        if not src:
-            need("say")
-            src = os.path.join(tmp, "raw.aiff")
-            subprocess.run(["say", "-v", a.voice, "-r", str(a.rate),
-                            "-o", src, a.text], check=True)
-        wav = os.path.join(tmp, "out.wav")
-        # NORMALISE, then convert. A quiet line on a 1 W speaker in a room with
-        # people in it is a line nobody hears, and there is no volume left to
-        # find afterwards -- the amplifier is already at 100.
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src,
-                        "-af", "loudnorm=I=-14:TP=-1.5",
-                        "-ar", str(RATE), "-ac", "1",
-                        "-c:a", "pcm_s16le", wav], check=True)
-        data = open(wav, "rb").read()
+        srcs = [(t, None) for t in a.text] + [(None, w) for w in a.wav]
+        for i, (text, path) in enumerate(srcs):
+            src = path
+            if src is None:
+                need("say")
+                src = os.path.join(tmp, f"raw{i}.aiff")
+                subprocess.run(["say", "-v", a.voice, "-r", str(a.rate),
+                                "-o", src, text], check=True)
+            wav = os.path.join(tmp, f"out{i}.wav")
+            # NORMALISE, then convert. A quiet line on a 1 W speaker in a room
+            # with people in it is a line nobody hears, and there is no volume
+            # left to find afterwards -- the amplifier is already at 100.
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src,
+                            "-af", "loudnorm=I=-14:TP=-1.5",
+                            "-ar", str(RATE), "-ac", "1",
+                            "-c:a", "pcm_s16le", wav], check=True)
+            data = open(wav, "rb").read()
+            clips.append((text or os.path.basename(path), data))
+            total += len(data)
 
-    kb = len(data) / 1024
-    secs = (len(data) - 44) / (RATE * 2)
-    if kb > 400:
-        sys.exit(f"{kb:.0f} KB is too much to bake in. Shorten the line.")
+    if total / 1024 > 800:
+        sys.exit(f"{total/1024:.0f} KB of audio is too much. Fewer or shorter.")
 
     with open(OUT, "w") as f:
         f.write("// Generated by robot/tools/make_voice.py -- do not hand-edit.\n")
-        f.write(f"// {secs:.2f}s, {RATE} Hz mono, {kb:.0f} KB\n")
-        if a.text:
-            f.write(f"// says: {a.text!r}\n")
+        f.write(f"// {len(clips)} line(s), {RATE} Hz mono, {total/1024:.0f} KB\n")
         f.write("#pragma once\n#include <stdint.h>\n\n")
-        f.write(f"static const uint8_t VOICE_WAV[{len(data)}] PROGMEM = {{\n")
-        for i in range(0, len(data), 16):
-            f.write("  " + ",".join(str(b) for b in data[i:i + 16]) + ",\n")
-        f.write("};\n")
-    print(f"{OUT}\n  {secs:.2f}s, {kb:.0f} KB. Reflash, then `EVT SAY`.")
+        for n, (label, data) in enumerate(clips, 1):
+            f.write(f"// {n}: {label!r}  "
+                    f"{(len(data)-44)/(RATE*2):.2f}s\n")
+            f.write(f"static const uint8_t VOICE_{n}[{len(data)}] PROGMEM = {{\n")
+            for i in range(0, len(data), 16):
+                f.write("  " + ",".join(str(b) for b in data[i:i + 16]) + ",\n")
+            f.write("};\n\n")
+        f.write(f"#define VOICE_COUNT {len(clips)}\n")
+        f.write("static const uint8_t* const VOICE_WAV[] = {"
+                + ", ".join(f"VOICE_{n}" for n in range(1, len(clips) + 1)) + "};\n")
+        f.write("static const uint32_t VOICE_LEN[] = {"
+                + ", ".join(str(len(d)) for _, d in clips) + "};\n")
+    print(f"{OUT}")
+    for n, (label, data) in enumerate(clips, 1):
+        print(f"  {n}  {(len(data)-44)/(RATE*2):5.2f}s  {label!r}")
+    print(f"  {total/1024:.0f} KB total. Reflash, then `EVT SAY 1`..`EVT SAY "
+          f"{len(clips)}`.")
     return 0
 
 

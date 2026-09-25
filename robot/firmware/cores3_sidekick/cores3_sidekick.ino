@@ -989,9 +989,13 @@ void handleLine(String line) {
   // louder is playing, so this is deliberately not wired to any state.
   else if (cmd == "SAY") {
 #if HAS_VOICE
-    M5.Speaker.setVolume(255);
-    M5.Speaker.playWav(VOICE_WAV, sizeof(VOICE_WAV));
-    Serial.println("IN SAY playing");
+    int n = arg.toInt(); if (n < 1) n = 1;
+    if (n > VOICE_COUNT) { Serial.printf("IN SAY only %d\n", VOICE_COUNT); }
+    else {
+      M5.Speaker.setVolume(255);
+      M5.Speaker.playWav(VOICE_WAV[n - 1], VOICE_LEN[n - 1]);
+      Serial.printf("IN SAY %d\n", n);
+    }
 #else
     Serial.println("IN SAY none -- run robot/tools/make_voice.py and reflash");
 #endif

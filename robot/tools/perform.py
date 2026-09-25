@@ -19,7 +19,7 @@ listen to the same track, which is a conductor neither of you has to be.
   B       light on / off       W C R S   warm / cool / red / summon
   1..6    gestures, quantised
   0       stop the sway, hold still
-  V       say the one line (make_voice.py bakes it in) -- music OFF first
+  V       say the selected line -- music OFF first.  [ ] pick which
   Q       quit
 
 THE TWO THINGS THAT MAKE IT LOOK PLAYED RATHER THAN TRIGGERED
@@ -99,6 +99,7 @@ class Perf:
     def __init__(self, player, link=None, verbose=False):
         self.player, self.link, self.verbose = player, link, verbose
         self.light = True
+        self.line = 1
         self._led_last, self._led_at = -1, 0.0
         self.bpm = 90.0
         self.t0 = time.perf_counter()     # phase origin: a beat falls here
@@ -304,12 +305,16 @@ def main():
                                        "r": "RED", "s": "SUMMON"}[k])
                 elif k == "0":
                     perf.frozen = True
+                elif k == "[":
+                    perf.line = max(1, perf.line - 1)
+                elif k == "]":
+                    perf.line = min(9, perf.line + 1)
                 elif k in ("v", "V"):
                     # Freeze first. The line is the end of the piece, and a
                     # robot still swaying while it speaks is not ending.
                     perf.frozen = True
                     if perf.link:
-                        perf.link.say()
+                        perf.link.say(perf.line)
                 elif k in KEY_CLIP:
                     perf.fire(KEY_CLIP[k])
             if time.perf_counter() - last > 0.1:
@@ -318,12 +323,12 @@ def main():
                 pend = perf.pending[1] if perf.pending else "-"
                 sys.stdout.write(
                     "\r  {:5.1f} BPM  {:5}  amp {:4.1f}d{} trim {:+3.0f}  "
-                    "{}  {}  next:{:<16}".format(
+                    "{}  say{}  next:{:<16}".format(
                         perf.bpm, perf.shape, perf.amp,
                         "!" if perf.amp < AMPS[perf.amp_i] - 0.05 else " ",
                         perf.trim,
                         "FROZEN" if perf.frozen else "  " + "*" * (1 + int(beat * 3)) + " " * (3 - int(beat * 3)),
-                        " ", pend))
+                        perf.line, pend))
                 sys.stdout.flush()
     finally:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old)

@@ -74,7 +74,7 @@ def main():
     gate = Proximity()
     rows, t0 = [], time.time()
     state = {"s": "S0_IDLE"}
-    hb = {"at": 0.0}
+    hb = {"at": 0.0, "why": None}
 
     def go(clip, why):
         state["s"] = clip
@@ -121,13 +121,38 @@ def main():
             d = gate.distance
             win = [v for _, v in gate._win]
             spread = (max(win) - min(win)) if len(win) > 1 else 0.0
+            st = spread <= gate.stable_mm and len(win) > 2
             print("  t={:5.1f}  d={:>7}  spread={:>5.0f}mm  still={}  "
                   "inside={}  armed={}  ref={}".format(
                       t, f"{d:.0f}mm" if d else "--", spread,
-                      "Y" if spread <= gate.stable_mm and len(win) > 2 else "n",
+                      "Y" if st else "n",
                       "Y" if gate.inside else "n",
                       "Y" if gate._armed else "n",
                       f"{gate._ref:.0f}" if gate._ref else "--"))
+            # WHY IT IS NOT FIRING, said out loud. Every silence here has a
+            # reason the numbers above already contain, and reading them off
+            # takes knowing the thresholds. Twice now the answer was that the
+            # thing being held up was at 14 cm -- which is a hand by
+            # definition, not somebody arriving -- and the tool sat there
+            # looking broken instead of saying so.
+            if st and d is not None and hb["why"] != "":
+                if d <= gate.near_mm:
+                    why = (f"held at {d:.0f} mm, which is inside the hand band "
+                           f"({gate.near_mm:.0f}). A person stands at 300-1100.")
+                elif d > gate.enter_mm:
+                    why = (f"{d:.0f} mm is beyond {gate.enter_mm:.0f}; nothing "
+                           f"has come near enough to count as arriving.")
+                elif not gate._armed:
+                    why = "still inside the refractory; wait 3 s and try again."
+                elif gate._ref is not None and d > gate._ref - gate.approach_mm:
+                    why = (f"only {gate._ref - d:.0f} mm nearer than the last "
+                           f"settle ({gate._ref:.0f}); needs "
+                           f"{gate.approach_mm:.0f}.")
+                else:
+                    why = ""
+                if why and why != hb["why"]:
+                    hb["why"] = why
+                    print(f"           ^ no arrival: {why}")
 
     # EXCLUDE THE SERVO PORT. Both boards enumerate as /dev/cu.usbmodem*, and
     # find_cores3 probes each candidate by opening it and writing PING -- which

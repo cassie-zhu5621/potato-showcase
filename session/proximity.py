@@ -52,6 +52,19 @@ from collections import deque
 # --------------------------------------------------------------------------- #
 ENTER_MM = 1200.0     # cross this, inward, and somebody may have arrived
 EXIT_MM = 1500.0      # ...and they have not left until they pass THIS going out
+# NO FLOOR ON ARRIVING. This was `near_mm`, on the reasoning that something at
+# 14 cm is a hand rather than somebody walking up -- which is true, and which
+# meant that a hand waved at the sensor was the one gesture guaranteed NOT to
+# get a reaction. R_SHY does not exist yet, so the floor bought nothing and
+# blocked the only thing the showcase actually needs: come close, get looked at.
+#
+# `too_close` still fires and is still reported. It is the event R_SHY will
+# read when there is an R_SHY; it just no longer suppresses the head coming up.
+# Zero, and the comparison is strict, so a reading of exactly 0 still does not
+# count. That is not a distance: it is the VL53L1X saturating against something
+# touching its lens. Everything above it does count, which is the point.
+ARRIVE_FLOOR_MM = 0.0
+
 NEAR_MM = 250.0       # a hand: below where anyone stood (min 329)
 NEAR_EXIT_MM = 310.0  # 60 mm of hysteresis on a 17 mm wander, and still clear
                       # of the closest standing reading
@@ -126,7 +139,7 @@ class Proximity:
                  dwell_s=DWELL_S, refractory_s=REFRACTORY_S,
                  lost_s=LOST_S, median_n=MEDIAN_N,
                  stable_win_s=STABLE_WIN_S, stable_mm=STABLE_MM,
-                 approach_mm=APPROACH_MM):
+                 approach_mm=APPROACH_MM, arrive_floor_mm=ARRIVE_FLOOR_MM):
         if exit_mm <= enter_mm:
             raise ValueError("exit_mm must be OUTSIDE enter_mm -- equal "
                              "thresholds are the flapping bug, not a config")
@@ -140,6 +153,7 @@ class Proximity:
         self.lost_s = float(lost_s)
         self.stable_win_s, self.stable_mm = float(stable_win_s), float(stable_mm)
         self.approach_mm = float(approach_mm)
+        self.arrive_floor_mm = float(arrive_floor_mm)
         self._settle = None          # when the current settle began
         self._ref = None             # the level it settled at last time
         self._ref_pending = True     # one arrival per settle, not per sample
@@ -244,7 +258,7 @@ class Proximity:
             # someone who has been there a while.
             came_in = prev is None or prev > self.enter_mm
             stepped = prev is not None and d <= prev - self.approach_mm
-            if (self._armed and self.near_mm < d <= self.enter_mm
+            if (self._armed and self.arrive_floor_mm < d <= self.enter_mm
                     and (came_in or stepped)):
                 self._armed = False
                 self._last_arrival = t

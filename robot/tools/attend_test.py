@@ -136,9 +136,9 @@ def main():
             # definition, not somebody arriving -- and the tool sat there
             # looking broken instead of saying so.
             if st and d is not None and hb["why"] != "":
-                if d <= gate.near_mm:
-                    why = (f"held at {d:.0f} mm, which is inside the hand band "
-                           f"({gate.near_mm:.0f}). A person stands at 300-1100.")
+                if d <= gate.arrive_floor_mm:
+                    why = ("reading 0 mm -- the sensor is saturated against "
+                           "something on its lens, which is not a distance.")
                 elif d > gate.enter_mm:
                     why = (f"{d:.0f} mm is beyond {gate.enter_mm:.0f}; nothing "
                            f"has come near enough to count as arriving.")

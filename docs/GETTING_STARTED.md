@@ -116,8 +116,25 @@ python3 robot/clip_player.py --cores3 --led-test    # LED only: is the firmware 
 ### Flash the CoreS3
 
 Arduino IDE → open `robot/firmware/cores3_sidekick/cores3_sidekick.ino` →
-board **M5Core S3** → upload. On boot it prints `IN HELLO cores3_sidekick v2`
-and draws the idle screen with a big green PTT and a red STOP. 
+board **M5Core S3** → upload. On boot it prints `IN HELLO cores3_sidekick v6`
+and draws the idle screen with a big green PTT and a red STOP.
+
+**Libraries** (Tools → Manage Libraries), all three needed:
+
+| library | by | note |
+|---|---|---|
+| M5Unified | M5Stack | |
+| ChainableLED | Pololu / pjpmarques | the antenna LED |
+| **VL53L1X** | **Pololu** | the approach sensor. Several libraries share this name and their APIs differ — the author must be Pololu |
+
+**Close whatever is holding the serial port first** — the loop, a serial
+monitor, `tof_test.py`. An upload that fails this way does not mention the
+port, so it is worth ruling out before reading the error.
+
+Nothing prints on boot that you can read: USB CDC enumerates after `setup()`
+has already run, so `IN HELLO` and `IN TOF READY` go into a port nothing is
+listening to. Either press reset with a monitor already open, or ask:
+`robot/tools/tof_test.py` sends `TOF` on connect and prints the answer.
 
 ---
 

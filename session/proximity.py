@@ -50,8 +50,8 @@ from collections import deque
 # The gap between 550 and 1844 is enormous, so where ENTER goes inside it barely
 # matters; 1000 catches somebody well before they stop.
 # --------------------------------------------------------------------------- #
-ENTER_MM = 1000.0     # cross this, inward, and somebody may have arrived
-EXIT_MM = 1400.0      # ...and they have not left until they pass THIS going out
+ENTER_MM = 1200.0     # cross this, inward, and somebody may have arrived
+EXIT_MM = 1500.0      # ...and they have not left until they pass THIS going out
 NEAR_MM = 250.0       # a hand: below where anyone stood (min 329)
 NEAR_EXIT_MM = 310.0  # 60 mm of hysteresis on a 17 mm wander, and still clear
                       # of the closest standing reading
@@ -70,7 +70,23 @@ NEAR_EXIT_MM = 310.0  # 60 mm of hysteresis on a 17 mm wander, and still clear
 # 1.5 s is not a delay. Somebody crossing 1 m at walking pace is decelerating,
 # and 1.5 s later they have stopped: the head comes up as they settle, which
 # reads as having been noticed arriving rather than as a motion detector firing.
-DWELL_S = 1.5
+# BOTH CONDITIONS, not either. `still` alone lets a pass through: at its
+# closest point the distance stops changing -- the derivative crosses zero --
+# so for a few hundred ms somebody walking past looks exactly like somebody
+# standing. Measured: adding `still` without keeping a dwell turned take2's two
+# passes into two arrivals, each followed by `left` a tenth of a second later.
+#
+# Swept over dwell 0.5-1.5, window 0.5-1.0, tolerance 40-120 mm: 58 of the 60
+# combinations give exactly the right two arrivals on both traces. The choice
+# is not delicate, so these sit in the middle of the region that works rather
+# than at an edge of it.
+DWELL_S = 0.8         # ...of being inside AND still. See `still` in update().
+STABLE_WIN_S = 1.0    # the window "still" is measured over. A whole second,
+                      # because a pass is only momentarily flat.
+STABLE_MM = 80.0      # movement inside it that still counts as stopped.
+                      # Standing sway measured 8 mm median and 17 at the 95th,
+                      # so this is nearly five times the noise and nothing like
+                      # a walk.
 REFRACTORY_S = 3.0    # after an arrival, ignore further arrivals for this long
 LOST_S = 0.5          # readings must be missing this long before "left"
 MEDIAN_N = 5          # samples in the spike filter
@@ -94,7 +110,8 @@ class Proximity:
     def __init__(self, enter_mm=ENTER_MM, exit_mm=EXIT_MM,
                  near_mm=NEAR_MM, near_exit_mm=NEAR_EXIT_MM,
                  dwell_s=DWELL_S, refractory_s=REFRACTORY_S,
-                 lost_s=LOST_S, median_n=MEDIAN_N):
+                 lost_s=LOST_S, median_n=MEDIAN_N,
+                 stable_win_s=STABLE_WIN_S, stable_mm=STABLE_MM):
         if exit_mm <= enter_mm:
             raise ValueError("exit_mm must be OUTSIDE enter_mm -- equal "
                              "thresholds are the flapping bug, not a config")
@@ -106,7 +123,9 @@ class Proximity:
         self.near_mm, self.near_exit_mm = float(near_mm), float(near_exit_mm)
         self.dwell_s, self.refractory_s = float(dwell_s), float(refractory_s)
         self.lost_s = float(lost_s)
+        self.stable_win_s, self.stable_mm = float(stable_win_s), float(stable_mm)
         self._buf = deque(maxlen=int(median_n))
+        self._win = []               # (t, mm) over stable_win_s, for `still`
 
         self.inside = False          # past enter_mm, by the hysteresis rule
         self.near = False            # inside the table edge
@@ -146,6 +165,29 @@ class Proximity:
         self.distance = d
 
         # ---- the approach band -------------------------------------- #
+        # HAVE THEY STOPPED. Measured over a trailing window, and it is what the
+        # dwell is actually for.
+        #
+        # A duration test cannot tell an amble from an arrival; it can only tell
+        # fast from slow. Both recorded traces happen to contain brisk passes
+        # (0.4-1.33 s) so 1.5 s covers them, but nothing stops somebody
+        # wandering past over three seconds, and no dwell long enough to reject
+        # that is short enough to be worth having -- it would delay everyone who
+        # really did arrive.
+        #
+        # Stopping is the thing that actually separates them, and it is trivial
+        # to see: a person walking past sweeps through hundreds of mm, a person
+        # who has stopped moves by their own sway, which measured 8 mm median
+        # and 17 at the 95th. So the dwell runs on "inside AND still", not on
+        # "inside", and it can then be short.
+        self._win.append((t, d))
+        while self._win and t - self._win[0][0] > self.stable_win_s:
+            self._win.pop(0)
+        vals = [v for _, v in self._win]
+        still = (len(self._win) >= 3
+                 and t - self._win[0][0] >= self.stable_win_s * 0.6
+                 and max(vals) - min(vals) <= self.stable_mm)
+
         if not self.inside:
             if d > self.exit_mm:
                 # THE DWELL IS CANCELLED BY THE OUTER THRESHOLD, NOT THE INNER
@@ -155,7 +197,8 @@ class Proximity:
                 # restarts each time, and they stand there being not-noticed
                 # forever. Hysteresis has to cover entering as well as leaving.
                 self._since = None
-            elif d <= self.enter_mm:
+            elif d <= self.enter_mm and still:
+                # the timer starts when they STOP, not when they cross
                 if self._since is None:
                     self._since = t
                 elif t - self._since >= self.dwell_s:
@@ -215,6 +258,7 @@ class Proximity:
         """Forget everything. For a state change that invalidates the history --
         the robot being re-homed, or a session restarting."""
         self._buf.clear()
+        self._win.clear()
         self.inside = self.near = False
         self.distance = self._since = self._last_arrival = None
         self._last_reading_t = None

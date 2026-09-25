@@ -140,19 +140,41 @@ not chosen:
 
 | band | meaning | goes to |
 |---|---|---|
-| > 1400 mm (out) | nobody | S0 Idle |
-| crosses 1000 mm in, held **1.5 s** | someone arrived | S1 Attend |
+| > 1500 mm (out) | nobody | S0 Idle |
+| inside 1200 mm **and stopped** for 0.8 s | someone arrived | S1 Attend |
 | < 250 mm | a hand or a face, deliberately | R_SHY |
 
-**The dwell was the one number that mattered and the guess was wrong by four.**
-Walking straight past without stopping spends 1.03 s inside 600 mm and comes to
-236 mm on the way through; an arrival that means it holds for 23 s. At the
-guessed 0.4 s a passer-by fired both `arrived` and `too_close` — the robot
-looked up at, and then flinched from, somebody on their way past. The two are
-twenty times apart, so the cut is not delicate, but it has to clear 1.24 s.
+**What separates arriving from walking past is stopping, not waiting.**
 
-1.5 s is not a delay. Somebody crossing 1 m at walking pace is decelerating and
-has stopped by the time it elapses, so the head comes up as they settle.
+A duration test was the first attempt and it was wrong by four: walking straight
+past spends 1.03 s inside 600 mm and comes to 236 mm on the way through, so the
+guessed 0.4 s dwell made a passer-by fire both `arrived` and `too_close` — the
+robot looked up at, and then flinched from, somebody on their way past. Raising
+it to 1.5 s covered both recorded takes, but only because both happen to contain
+brisk passes. Nothing stops somebody ambling past over three seconds, and no
+dwell long enough to reject that is short enough to be worth having.
+
+Stopping is the thing that actually distinguishes them, and it is trivial to
+see: somebody walking sweeps through hundreds of mm, somebody who has stopped
+moves by their own sway, which measured 8 mm median and 17 at the 95th.
+
+**But stillness alone is not enough either, and that is the non-obvious half.**
+At the closest point of a pass the distance stops changing — the derivative
+crosses zero — so for a few hundred ms a passer-by looks exactly like somebody
+standing. Adding stillness without keeping a dwell turned the held-out take's
+two far passes into two arrivals, each followed by `left` a tenth of a second
+later. So the gate wants **both**: inside, and still, for 0.8 s.
+
+Swept over dwell 0.5–1.5 s, window 0.5–1.0 s and tolerance 40–120 mm, 58 of the
+60 combinations give exactly the right two arrivals on both traces. The choice
+is not delicate; the settings sit in the middle of the region that works.
+
+**The held-out take is what found the other one.** `walkups.csv` fitted these
+numbers so it could not also test them. `take2.csv`, recorded afterwards,
+showed somebody standing 8 s at 1050 mm going completely unnoticed — ENTER was
+1000. At a showcase that is the expensive failure: a person stops a metre away
+to look, and the robot ignores them. ENTER is 1200 now, and it costs nothing —
+every crossing in either take that is not a real arrival is under 1.33 s.
 
 Hysteresis on every one of them: enter and exit are different numbers, or a
 person standing on the boundary makes the head bob up and down, which reads as

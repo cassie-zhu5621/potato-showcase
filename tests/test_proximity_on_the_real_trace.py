@@ -27,7 +27,9 @@ sys.path.insert(0, ROOT)
 
 from session.proximity import Proximity
 
-TRACE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "walkups.csv")
+DATA = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+TRACE = os.path.join(DATA, "walkups.csv")
+TRACE2 = os.path.join(DATA, "take2.csv")
 
 # Read off the trace, not off the script: segment boundaries in seconds.
 HOLDING_STILL = (31.4, 54.5)     # stopped in front of it, not moving
@@ -104,3 +106,49 @@ def test_every_too_close_is_paired_with_a_backed_off(events):
             depth -= 1
         assert depth in (0, 1), "too_close and backed_off got out of step"
     assert depth == 0, "the trace ends with the robot still flinching"
+
+
+# --------------------------------------------------------------------------- #
+# THE HELD-OUT TAKE. walkups.csv fitted the thresholds, so it cannot also test
+# them. take2.csv was recorded afterwards, against the tuned gate, and it is the
+# one that found something: standing 8 s at 1050 mm went unnoticed, because
+# ENTER was 1000. That is the failure a showcase cannot afford -- somebody stops
+# a metre away to look and the robot ignores them -- and no amount of replaying
+# the fitting trace would have shown it.
+# --------------------------------------------------------------------------- #
+@pytest.fixture(scope="module")
+def events2():
+    rows = []
+    with open(TRACE2) as f:
+        for r in csv.reader(f):
+            if not r or r[0] == "t":
+                continue
+            rows.append((float(r[0]), None if r[1] in ("", "-1") else float(r[1])))
+    assert len(rows) > 4000, "the held-out trace is truncated"
+    g, out = Proximity(), []
+    for t, mm in rows:
+        for e in g.update(t, mm):
+            out.append((t, e))
+    return out
+
+
+def test_held_out_take_has_exactly_two_arrivals(events2):
+    """One walk-up-and-stop, and one deliberate stop a metre back. Everything
+    else in those 221 seconds is somebody crossing in front."""
+    assert [e for _, e in events2].count("arrived") == 2
+
+
+def test_someone_who_stops_a_metre_away_is_noticed(events2):
+    """She stood at 1050 mm for 8 s from t=91. At the fitted ENTER of 1000 this
+    produced nothing at all until she stepped closer at t=99 -- the one thing
+    the held-out take was recorded to find."""
+    assert any(91.0 <= t <= 95.0 for t, e in events2 if e == "arrived")
+
+
+def test_the_far_passes_are_not_arrivals(events2):
+    """Four crossings between t=139 and t=185, none closer than 1018 mm and
+    none longer than 1.33 s. Adding a stillness test made these fire until a
+    dwell was kept as well: at its closest point a pass stops changing distance,
+    so for a few hundred ms it looks exactly like standing."""
+    for a, b in ((139.0, 149.0), (176.0, 185.0)):
+        assert [t for t, e in events2 if e == "arrived" and a <= t <= b] == []

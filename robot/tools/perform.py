@@ -16,6 +16,7 @@ listen to the same track, which is a conductor neither of you has to be.
   ↑ ↓     amplitude
   ← →     nudge the phase, an eighth at a time
   T / G   trim the neck up / down, for looking at something above
+  B       light on / off       W C R S   warm / cool / red / summon
   1..6    gestures, quantised
   0       stop the sway, hold still
   Q       quit
@@ -70,6 +71,12 @@ CLIP_DUR = {"S1_ATTEND": 1.97, "S2_ACKNOWLEDGE": 1.63, "S3_SCAN": 6.13,
 # Mechanical lead. Measured once, by eye, against a click: raise it until the
 # bottom of the sway lands ON the beat rather than after it.
 LEAD_S = 0.12
+# THE LIGHT GETS NO LEAD. The lead exists to cover the time a servo takes to
+# arrive; an LED arrives instantly. Driving both from the same shifted phase
+# flashes the light early, and the symptom is "the light and the movement do
+# not line up" -- which sends you to the waveform rather than to the one line
+# where a mechanical constant was applied to something with no mechanics.
+LED_PEAK, LED_BASE, LED_DECAY_S = 235, 40, 0.18
 AMPS = (3.0, 6.0, 10.0, 15.0)     # degrees, well inside the authored reach
 RATE_HZ = 50.0
 
@@ -88,8 +95,10 @@ AMP_BPM_LIMIT = 1146.0
 
 
 class Perf:
-    def __init__(self, player, verbose=False):
-        self.player, self.verbose = player, verbose
+    def __init__(self, player, link=None, verbose=False):
+        self.player, self.link, self.verbose = player, link, verbose
+        self.light = True
+        self._led_last, self._led_at = -1, 0.0
         self.bpm = 90.0
         self.t0 = time.perf_counter()     # phase origin: a beat falls here
         self.shape = "nod"                # nod | lean | dip
@@ -124,6 +133,11 @@ class Perf:
         """Beats since the origin, evaluated LEAD_S ahead so the motion arrives
         on the beat instead of departing on it."""
         t = (at if at is not None else time.perf_counter()) + LEAD_S
+        return (t - self.t0) / self.period
+
+    def phase_now(self, at=None):
+        """The same, with no lead. For anything with no mechanism to cover."""
+        t = at if at is not None else time.perf_counter()
         return (t - self.t0) / self.period
 
     def next_beat(self, after=None):
@@ -197,7 +211,28 @@ class Perf:
             # instead of wherever it was interrupted.
             if not self.frozen and now >= self.busy_until and self.player:
                 self.player.drive_deg(**self.pose())
+            self._pulse(now)
             time.sleep(dt)
+
+    def _pulse(self, now):
+        """A flash on each beat, decaying. No lead -- see LED_PEAK above.
+
+        Rate-limited and change-gated: the loop runs at 50 Hz and the link is a
+        115200 serial line shared with everything else the board is saying, so
+        sending a level every frame would queue behind itself and the light
+        would lag further the longer it ran.
+        """
+        if not (self.link and self.light) or self.frozen:
+            return
+        since = (self.phase_now(now) % 1.0) * self.period
+        lvl = int(LED_BASE + (LED_PEAK - LED_BASE)
+                  * math.exp(-since / LED_DECAY_S))
+        if abs(lvl - self._led_last) > 6 and now - self._led_at > 0.04:
+            self._led_last, self._led_at = lvl, now
+            try:
+                self.link.led(lvl)
+            except Exception:
+                pass
 
 
 def getch(timeout=0.1):
@@ -214,14 +249,21 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     a = ap.parse_args()
 
-    player = None
+    player, link = None, None
     if not a.dry_run:
         from robot.clip_player import ClipPlayer
         from robot.scs import open_bus
-        bus, _ = open_bus()
+        from session.cores3_link import CoreS3Link, find_cores3
+        bus, servo_port = open_bus()
         player = ClipPlayer(bus, verbose=False).start(home=True)
+        port = find_cores3(exclude=(servo_port,))
+        if port:
+            link = CoreS3Link(port)
+            print(f"light on {port}")
+        else:
+            print("no CoreS3 found -- running without the light")
 
-    perf = Perf(player).start()
+    perf = Perf(player, link).start()
     old = termios.tcgetattr(sys.stdin)
     try:
         tty.setcbreak(sys.stdin.fileno())
@@ -253,6 +295,12 @@ def main():
                     perf.trim = min(30.0, perf.trim + 3)
                 elif k in ("g", "G"):
                     perf.trim = max(-20.0, perf.trim - 3)
+                elif k in ("b", "B"):
+                    perf.light = not perf.light
+                elif k in ("w", "c", "r", "s"):
+                    if perf.link:
+                        perf.link.hue({"w": "WARM", "c": "COOL",
+                                       "r": "RED", "s": "SUMMON"}[k])
                 elif k == "0":
                     perf.frozen = True
                 elif k in KEY_CLIP:
@@ -274,6 +322,8 @@ def main():
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old)
         perf.stop()
         print()
+        if link:
+            link.close()
         if player:
             player.request("S0_IDLE")
             time.sleep(1.2)

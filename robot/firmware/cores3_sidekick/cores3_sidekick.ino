@@ -189,6 +189,67 @@ void tapInit() {
 #endif
 }
 
+// ---------------- APPROACH (VL53L1X ToF on Port A) ---------------------------
+// UNCOMPILED. Written against the datasheet and the Pololu library's API; it
+// has never been built or flashed. Bring it up with robot/tools/tof_test.py
+// BEFORE trusting it, and before running it anywhere near a demo.
+//
+// WHY PORT A. It is the only free connector: Port B is the LED pair (8/9) and
+// Port C's 17 is the TTP223. Port A is the board's external I2C -- G1 = SDA,
+// G2 = SCL -- and the unit is a Grove plug, so there is no wiring to get wrong.
+//
+// WHY THE BASE AND NOT THE HEAD. The head moves. A rangefinder bolted to it
+// reports how far away whatever it has turned towards is, which is not the
+// question. Fixed to the base, pointing forward, it answers "is somebody
+// standing here" independently of where the robot is looking.
+//
+// -1 IS NOT A DISTANCE. Every reading whose range_status is not valid goes out
+// as -1 and the host turns that into None. A failed measurement reported as a
+// small number is a face pressed against the lens, and the robot will act on it.
+#define USE_TOF   1
+#if USE_TOF
+#include <Wire.h>
+#include <VL53L1X.h>
+static const int TOF_SDA = 1, TOF_SCL = 2;   // Port A
+static const uint32_t TOF_PERIOD_MS = 50;    // 20 Hz: a reflex, not a percept
+VL53L1X tof;
+static bool tofOK = false;
+
+void tofInit() {
+  Wire.begin(TOF_SDA, TOF_SCL);
+  Wire.setClock(400000);
+  tof.setBus(&Wire);
+  tof.setTimeout(100);
+  if (!tof.init()) { Serial.println("IN TOF FAIL"); return; }
+  // LONG mode reaches 4 m and is the reason for buying the L1X over the L0X.
+  // It is also the mode that suffers most from ambient light, which is why the
+  // budget below is generous: a showcase has windows and spotlights.
+  tof.setDistanceMode(VL53L1X::Long);
+  tof.setMeasurementTimingBudget(50000);     // us. == TOF_PERIOD_MS
+  tof.startContinuous(TOF_PERIOD_MS);
+  tofOK = true;
+  Serial.println("IN TOF READY");
+}
+
+void checkTof() {
+  if (!tofOK) return;
+  static uint32_t tlast = 0;
+  if (millis() - tlast < TOF_PERIOD_MS) return;
+  tlast = millis();
+  if (!tof.dataReady()) return;
+  tof.read(false);
+  // RangeValid only. Everything else -- wraparound, signal too weak, sigma too
+  // high -- is the sensor saying it does not know, and it says so often enough
+  // that treating those as readings would put noise straight into the gate.
+  int mm = (tof.ranging_data.range_status == VL53L1X::RangeValid)
+           ? (int)tof.ranging_data.range_mm : -1;
+  Serial.printf("IN DIST %d\n", mm);
+}
+#else
+void tofInit() {}
+void checkTof() {}
+#endif
+
 void checkTap() {
 #if USE_TAP
   static uint32_t tlast = 0;
@@ -798,6 +859,7 @@ void setup() {
   M5.Display.setBrightness(120);
   antennaInit();
   tapInit();
+  tofInit();
   uiDraw();                 // the idle screen, immediately -- no legacy layout
   Serial.println("IN HELLO cores3_sidekick v6");
 }
@@ -809,6 +871,7 @@ void loop() {
   uiTick();
   sfxTick();
   checkTap();
+  checkTof();
 
   static String buf;
   while (Serial.available()) {

@@ -97,9 +97,23 @@ def live(args, rows):
     print("                         the plug is not seated.")
     print("IN TOF READY but no bar? it is working and seeing nothing: out of")
     print("                         range, or aimed over everyone's head.\n")
+    # READY AND SILENT IS ITS OWN FAULT, and it is not the one the notes above
+    # describe. It means the board says the sensor initialised and then no
+    # reading ever arrives -- a scheduling bug in checkTof, not a sensor or a
+    # socket -- and without saying so here the symptom is indistinguishable
+    # from "nobody has walked in front of it yet".
     try:
+        t_start = time.time()
+        warned = False
         while True:
             time.sleep(0.2)
+            if (not warned and not rows and time.time() - t_start > 3.0):
+                warned = True
+                print("\n  READY, but three seconds and not one reading.")
+                print("  That is the firmware, not the sensor: it initialised.")
+                print("  Check that checkTof() polls dataReady() every pass --")
+                print("  rate-limiting it to the sensor's own period aliases")
+                print("  against it and drops nearly every sample.\n")
     except KeyboardInterrupt:
         print()
     finally:

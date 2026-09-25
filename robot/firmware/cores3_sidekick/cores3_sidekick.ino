@@ -275,17 +275,26 @@ void tofInit() {
   // It is also the mode that suffers most from ambient light, which is why the
   // budget below is generous: a showcase has windows and spotlights.
   tof.setDistanceMode(VL53L1X::Long);
-  tof.setMeasurementTimingBudget(50000);     // us. == TOF_PERIOD_MS
-  tof.startContinuous(TOF_PERIOD_MS);
+  // BUDGET SHORTER THAN THE PERIOD, not equal to it. The inter-measurement
+  // period has to leave room for the measurement itself; at 50/50 the sensor
+  // is starting the next one as it finishes the last, and it drops samples
+  // rather than reporting that it is overrun.
+  tof.setMeasurementTimingBudget(33000);     // us
+  tof.startContinuous(TOF_PERIOD_MS);        // 50 ms -> 20 Hz
   tofOK = true;
   Serial.println("IN TOF READY");
 }
 
 void checkTof() {
   if (!tofOK) return;
-  static uint32_t tlast = 0;
-  if (millis() - tlast < TOF_PERIOD_MS) return;
-  tlast = millis();
+  // POLL EVERY PASS. Rate-limiting this to TOF_PERIOD_MS and then asking
+  // dataReady() is a beat frequency: the sensor produces a sample every 50 ms
+  // and this asked every 50 ms, so the two clocks slid past each other and the
+  // answer was almost always "not yet" -- which then cost another full period.
+  // The result was IN TOF READY and no readings at all, which looks like a
+  // broken sensor rather than a scheduling mistake.
+  // The loop already paces itself at ~200 Hz, and the sensor only has an answer
+  // 20 times a second, so asking every pass IS the 20 Hz stream.
   if (!tof.dataReady()) return;
   tof.read(false);
   // RangeValid only. Everything else -- wraparound, signal too weak, sigma too

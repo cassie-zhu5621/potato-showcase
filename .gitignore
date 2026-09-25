@@ -68,3 +68,4 @@ film_log_*.json
 # the parts no longer have.
 !motion/robot_art/*.jpg
 motion/robot_art/_cuts_debug.png
+voice.h

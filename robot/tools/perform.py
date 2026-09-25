@@ -19,6 +19,7 @@ listen to the same track, which is a conductor neither of you has to be.
   B       light on / off       W C R S   warm / cool / red / summon
   1..6    gestures, quantised
   0       stop the sway, hold still
+  V       say the one line (make_voice.py bakes it in) -- music OFF first
   Q       quit
 
 THE TWO THINGS THAT MAKE IT LOOK PLAYED RATHER THAN TRIGGERED
@@ -303,6 +304,12 @@ def main():
                                        "r": "RED", "s": "SUMMON"}[k])
                 elif k == "0":
                     perf.frozen = True
+                elif k in ("v", "V"):
+                    # Freeze first. The line is the end of the piece, and a
+                    # robot still swaying while it speaks is not ending.
+                    perf.frozen = True
+                    if perf.link:
+                        perf.link.say()
                 elif k in KEY_CLIP:
                     perf.fire(KEY_CLIP[k])
             if time.perf_counter() - last > 0.1:

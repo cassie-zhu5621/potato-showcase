@@ -52,6 +52,9 @@ def main():
                     help="no servo bus. The gate's own latency, with nothing "
                          "mechanical in front of it")
     ap.add_argument("--log", metavar="CSV", help="record the trace as well")
+    ap.add_argument("--bus", type=int, choices=(0, 1), default=None,
+                    help="re-init the ToF on I2C controller 0 (Wire) or 1. "
+                         "The flashed default is 0")
     a = ap.parse_args()
 
     player, servo_port = None, None
@@ -81,8 +84,13 @@ def main():
     def on_line(s):
         mm = parse_dist(s)
         if mm is None and not s.startswith("IN DIST"):
-            if s.startswith("IN TOF"):
-                print(f"  {s}")
+            # EVERYTHING the board says, not a whitelist. The first version
+            # printed only lines starting "IN TOF", so a RESTART or a DIAG or a
+            # boot message could arrive and be silently dropped -- and then the
+            # symptom is "no reaction", which is the least informative thing a
+            # tool can say.
+            if s.strip():
+                print(f"\n  {s}")
             return
         t = time.time() - t0
         rows.append((t, mm))
@@ -113,10 +121,30 @@ def main():
     time.sleep(0.4)
     link.tof()
     time.sleep(0.5)
+    if a.bus is not None:
+        print(f"  re-initialising the ToF on {'Wire1' if a.bus else 'Wire'}...")
+        link.tofbus(a.bus)
+        time.sleep(1.2)
     print(f"\nlistening on {port}. Walk up to it. Ctrl-C to stop.\n")
     try:
+        t_start, asked = time.time(), False
         while True:
             time.sleep(0.2)
+            # READY AND SILENT. Opening the servo bus probes every
+            # /dev/cu.usbmodem*, which resets the CoreS3, and find_cores3 then
+            # opens it again -- so by the time we are listening the board has
+            # rebooted twice and tofInit() has run on a sensor that never lost
+            # power. Whether that is what breaks it is a question for TOFDIAG,
+            # not for guessing: ready=0 with i2c=2 is the bus, calls=0 is the
+            # loop, emit>0 means the readings are arriving and we are dropping
+            # them here.
+            if not asked and not rows and time.time() - t_start > 3.0:
+                asked = True
+                print("\n  three seconds, no readings. asking the board:")
+                link.tofdiag()
+                time.sleep(0.8)
+                print("\n  if ready=0 try:  --bus 1")
+                print("  if calls=0 the firmware is older than TOFDIAG\n")
     except KeyboardInterrupt:
         print()
     finally:

@@ -216,9 +216,15 @@ VL53L1X tof;
 static bool tofOK = false;
 
 void tofInit() {
-  Wire.begin(TOF_SDA, TOF_SCL);
-  Wire.setClock(400000);
-  tof.setBus(&Wire);
+  // Wire1, NOT Wire. M5Unified owns an I2C bus for the board's own parts -- the
+  // IMU, the touch panel, the power management -- and calling Wire.begin() with
+  // Port A's pins would repoint whichever bus that is. The failure would not
+  // look like an I2C problem: the screen would stop responding to touch, or the
+  // board would brown out, and the ToF would be the last thing suspected.
+  // Wire1 is a separate peripheral, so this cannot reach the internal bus at all.
+  Wire1.begin(TOF_SDA, TOF_SCL);
+  Wire1.setClock(400000);
+  tof.setBus(&Wire1);
   tof.setTimeout(100);
   if (!tof.init()) { Serial.println("IN TOF FAIL"); return; }
   // LONG mode reaches 4 m and is the reason for buying the L1X over the L0X.
@@ -246,6 +252,7 @@ void checkTof() {
   Serial.printf("IN DIST %d\n", mm);
 }
 #else
+static bool tofOK = false;
 void tofInit() {}
 void checkTof() {}
 #endif
@@ -848,6 +855,14 @@ void handleLine(String line) {
     uiSet("idle");
   }
   else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v6");
+  // ASKABLE, because the boot line is not readable. USB CDC enumerates after
+  // setup() has already run, so `IN TOF READY` and `IN TOF FAIL` are printed
+  // into a port nothing is listening to yet and are simply lost. Without this
+  // there is no way to tell "the sensor failed to init" from "the sensor is
+  // fine and nobody is in front of it", and those need opposite fixes.
+  else if (cmd == "TOF") Serial.println(String("IN TOF ")
+                                        + (USE_TOF ? (tofOK ? "READY" : "FAIL")
+                                                   : "DISABLED"));
 }
 
 // ---------------- setup / loop -------------------------------------------------

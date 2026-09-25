@@ -83,9 +83,17 @@ def live(args, rows):
     if not port:
         sys.exit("no CoreS3 found -- pass the port, or set NOTICEBOT_CORES3")
     link = CoreS3Link(port, on_input=on_line)
+    # ASK, do not wait for the boot line. USB CDC enumerates after setup() has
+    # run, so IN TOF READY was printed before anything was listening.
+    time.sleep(0.4)
+    link.tof()
+    time.sleep(0.4)
     print(f"listening on {port}. Ctrl-C to stop.")
-    print("if nothing arrives at all: USE_TOF is 0, or the unit is in Port B/C,")
-    print("or the firmware predates the ToF and needs reflashing.\n")
+    print("no `IN TOF` line above?  the firmware predates the ToF -- reflash.")
+    print("IN TOF FAIL?             wrong port (it is the RED one, Port A), or")
+    print("                         the plug is not seated.")
+    print("IN TOF READY but no bar? it is working and seeing nothing: out of")
+    print("                         range, or aimed over everyone's head.\n")
     try:
         while True:
             time.sleep(0.2)

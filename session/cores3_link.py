@@ -201,6 +201,7 @@ class CoreS3Link:
     def name(self, text):        self.event("NAME", str(text)[:16])  # ASCII only
     def rest(self):               self.event("REST")   # quiet + back to idle
     def ping(self):               self.event("PING")   # -> IN PONG ...
+    def tof(self):                self.event("TOF")    # -> IN TOF READY|FAIL|DISABLED
 
     def close(self):
         self._stop = True

@@ -74,6 +74,7 @@ def main():
     gate = Proximity()
     rows, t0 = [], time.time()
     state = {"s": "S0_IDLE"}
+    hb = {"at": 0.0}
 
     def go(clip, why):
         state["s"] = clip
@@ -95,20 +96,38 @@ def main():
         t = time.time() - t0
         rows.append((t, mm))
         for e in gate.update(t, mm):
+            d0 = gate.distance
             if e == "arrived":
-                go("S1_ATTEND", f"somebody stopped at {mm:.0f} mm")
+                go("S1_ATTEND", f"somebody stopped at {d0:.0f} mm")
             elif e == "left" and state["s"] != "S0_IDLE":
                 go("S0_IDLE", "they went away")
             elif e == "too_close":
                 # R_SHY is not authored yet. Saying so beats moving wrongly.
-                print(f"\n  ... too_close at {mm:.0f} mm  (R_SHY not built)")
+                # THE FILTERED DISTANCE, not the raw sample. Printing `mm`
+                # here produced "too_close at 2093 mm", which is impossible --
+                # the threshold is 250 -- and sent an hour looking at the
+                # sensor instead of at this line.
+                print(f"\n  ... too_close at {d0:.0f} mm  (R_SHY not built)")
             elif e == "backed_off":
                 print(f"\n  ... backed_off")
-        d = gate.distance
-        print("\r  {:>6}  {}".format(
-            f"{d:.0f}mm" if d else "--",
-            "#" * min(40, int(40 * (1 - min(d or 2000, 2000) / 2000))).ljust(40)),
-            end="", flush=True)
+        # A HEARTBEAT ON ITS OWN LINE, once a second, instead of a bar
+        # rewritten in place. A \r bar looks better and cannot be pasted into a
+        # message: the terminal keeps only its final state, so "no reaction"
+        # arrives with no evidence attached. This prints what the gate is
+        # actually thinking, which is the only thing that explains a silence.
+        now = time.time()
+        if now - hb["at"] >= 1.0:
+            hb["at"] = now
+            d = gate.distance
+            win = [v for _, v in gate._win]
+            spread = (max(win) - min(win)) if len(win) > 1 else 0.0
+            print("  t={:5.1f}  d={:>7}  spread={:>5.0f}mm  still={}  "
+                  "inside={}  armed={}  ref={}".format(
+                      t, f"{d:.0f}mm" if d else "--", spread,
+                      "Y" if spread <= gate.stable_mm and len(win) > 2 else "n",
+                      "Y" if gate.inside else "n",
+                      "Y" if gate._armed else "n",
+                      f"{gate._ref:.0f}" if gate._ref else "--"))
 
     # EXCLUDE THE SERVO PORT. Both boards enumerate as /dev/cu.usbmodem*, and
     # find_cores3 probes each candidate by opening it and writing PING -- which

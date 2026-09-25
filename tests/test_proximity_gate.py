@@ -29,6 +29,16 @@ NEAR_PERSON = 500        # inside every band, where people actually stood
 HAND = 150               # inside the shy band
 
 
+def empty(secs=2.0, dt=DT):
+    """Long enough for the empty room to SETTLE, which is not the same as long
+    enough to look empty. Arriving is now a settle nearer than the settle
+    before it, so a lead-in too short to settle leaves the gate with no
+    reference and nobody can arrive at all. Five samples used to be plenty;
+    under the new rule they are a robot that has just been switched on.
+    """
+    return [EMPTY] * int(secs / dt)
+
+
 def stays(mm, extra=0.4, dt=DT):
     """Enough samples of `mm` to outlast the dwell and count as an arrival.
 
@@ -70,7 +80,7 @@ def evs(got):
 # --------------------------------------------------------------------------- #
 def test_someone_walks_up_and_it_fires_exactly_once():
     p = Proximity()
-    got, _ = feed(p, [EMPTY] * 5 + stays(500))
+    got, _ = feed(p, empty() + stays(500))
     assert evs(got) == ["arrived"]
 
 
@@ -78,7 +88,7 @@ def test_walking_past_is_not_arriving():
     """The commonest event in a busy room is somebody crossing the beam on their
     way somewhere else. The dwell is the whole difference."""
     p = Proximity(dwell_s=0.4)
-    got, _ = feed(p, [EMPTY] * 5 + [500] * 3 + [EMPTY] * 20)   # 0.15 s inside
+    got, _ = feed(p, empty() + [500] * 3 + empty())   # 0.15 s inside
     assert evs(got) == []
 
 
@@ -86,13 +96,27 @@ def test_walking_past_is_not_arriving():
 # the symptoms
 # --------------------------------------------------------------------------- #
 def test_standing_on_the_boundary_does_not_make_the_head_bob():
-    """THE symptom this module exists for. One threshold plus a person
-    breathing at 60 cm = the head rising and falling forever, which reads as
-    broken rather than as alive."""
+    """THE symptom this module exists for: one threshold plus a person
+    breathing on the line = the head rising and falling forever, which reads as
+    broken rather than as alive.
+
+    The invariant is that nothing REPEATS. Whether somebody hovering exactly on
+    the line is noticed once or not at all is a judgement call -- under the
+    settle rule their level has to land inside, and on the line it sometimes
+    does not -- but it must never alternate.
+    """
     p = Proximity(enter_mm=600, exit_mm=900)
-    got, _ = feed(p, [EMPTY] * 5 + [595, 605, 598, 610, 590, 602] * 12)
-    assert evs(got).count("arrived") == 1
-    assert "left" not in evs(got), "hysteresis did not hold the person inside"
+    got, _ = feed(p, empty() + [595, 605, 598, 610, 590, 602] * 12)
+    assert evs(got).count("arrived") <= 1
+    assert evs(got).count("left") == 0, "hysteresis did not hold them inside"
+
+
+def test_standing_just_inside_is_noticed_once_and_stays_noticed():
+    """The same person, standing a hand's width nearer, where there is no
+    ambiguity about which side of the line they are on."""
+    p = Proximity(enter_mm=600, exit_mm=900)
+    got, _ = feed(p, empty() + [555, 565, 558, 570, 550, 562] * 12)
+    assert evs(got) == ["arrived"]
 
 
 def test_a_crowd_does_not_retrigger_forever():
@@ -106,7 +130,7 @@ def test_a_crowd_does_not_retrigger_forever():
 def test_it_re_arms_once_they_actually_leave():
     p = Proximity(refractory_s=1.0)
     walk_up = stays(500)
-    walk_off = [EMPTY] * 40
+    walk_off = empty(3.0)
     got, _ = feed(p, walk_up + walk_off + walk_up)
     assert evs(got) == ["arrived", "left", "arrived"]
 
@@ -115,7 +139,7 @@ def test_leaving_and_coming_straight_back_does_not_double_fire():
     """Someone steps back to let a friend see, then leans in again. Inside the
     refractory that is one visit, not two."""
     p = Proximity(refractory_s=3.0)
-    got, _ = feed(p, stays(500) + [EMPTY] * 6 + stays(500))
+    got, _ = feed(p, stays(500) + empty(1.6) + stays(500))
     assert evs(got).count("arrived") == 1
 
 
@@ -167,14 +191,14 @@ def test_a_hand_is_inside_the_person_band_not_instead_of_it():
     """They are consecutive beats of one story -- it looks up at you, you keep
     coming, it pulls back -- not two competing triggers."""
     p = Proximity()
-    got, _ = feed(p, [EMPTY] * 5 + stays(500) + [150] * 20)
+    got, _ = feed(p, empty() + stays(500) + [150] * 20)
     assert evs(got) == ["arrived", "too_close"]
     assert p.inside and p.near
 
 
 def test_the_hand_going_away_does_not_end_the_visit():
     p = Proximity()
-    got, _ = feed(p, [EMPTY] * 5 + stays(500) + [150] * 10 + [500] * 20)
+    got, _ = feed(p, empty() + stays(500) + [150] * 10 + [500] * 20)
     assert evs(got) == ["arrived", "too_close", "backed_off"]
     assert p.inside
 
@@ -183,8 +207,8 @@ def test_leaving_from_inside_the_shy_band_reports_both():
     """Snatching a hand away and walking off is one motion. Neither flag may be
     left set, or the next visitor meets a robot that thinks it is being touched."""
     p = Proximity()
-    _, t = feed(p, [EMPTY] * 5 + stays(500) + [150] * 20)
-    got, _ = feed(p, [EMPTY] * 20, t0=t)
+    _, t = feed(p, empty() + stays(500) + [150] * 20)
+    got, _ = feed(p, empty(), t0=t)
     assert set(evs(got)) == {"left", "backed_off"}
     assert not p.inside and not p.near
 

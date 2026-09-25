@@ -83,6 +83,20 @@ NEAR_EXIT_MM = 310.0  # 60 mm of hysteresis on a 17 mm wander, and still clear
 DWELL_S = 0.8         # ...of being inside AND still. See `still` in update().
 STABLE_WIN_S = 1.0    # the window "still" is measured over. A whole second,
                       # because a pass is only momentarily flat.
+APPROACH_MM = 200.0   # a settled level this much nearer than the one before it
+                      # is somebody arriving, even in a crowd. Three times the
+                      # measured lean (61 mm) and twelve times the sway (17).
+                      #
+                      # AND THERE IS A LIMIT HERE THAT NO NUMBER FIXES. One
+                      # forward-facing ToF reports the nearest thing and cannot
+                      # count people. Replaying her trace with somebody already
+                      # standing at 700 mm, her approach to 363 is a 337 mm step
+                      # and is caught; at 500 it is 137 mm and is not; at 400 it
+                      # is 37 mm, which is leaning. So a new arrival is only
+                      # visible while the space directly in front is not already
+                      # occupied at a similar distance -- and when it is, the
+                      # robot is already attending to whoever is standing there,
+                      # which is the tolerable version of being wrong.
 STABLE_MM = 80.0      # movement inside it that still counts as stopped.
                       # Standing sway measured 8 mm median and 17 at the 95th,
                       # so this is nearly five times the noise and nothing like
@@ -111,7 +125,8 @@ class Proximity:
                  near_mm=NEAR_MM, near_exit_mm=NEAR_EXIT_MM,
                  dwell_s=DWELL_S, refractory_s=REFRACTORY_S,
                  lost_s=LOST_S, median_n=MEDIAN_N,
-                 stable_win_s=STABLE_WIN_S, stable_mm=STABLE_MM):
+                 stable_win_s=STABLE_WIN_S, stable_mm=STABLE_MM,
+                 approach_mm=APPROACH_MM):
         if exit_mm <= enter_mm:
             raise ValueError("exit_mm must be OUTSIDE enter_mm -- equal "
                              "thresholds are the flapping bug, not a config")
@@ -124,6 +139,10 @@ class Proximity:
         self.dwell_s, self.refractory_s = float(dwell_s), float(refractory_s)
         self.lost_s = float(lost_s)
         self.stable_win_s, self.stable_mm = float(stable_win_s), float(stable_mm)
+        self.approach_mm = float(approach_mm)
+        self._settle = None          # when the current settle began
+        self._ref = None             # the level it settled at last time
+        self._ref_pending = True     # one arrival per settle, not per sample
         self._buf = deque(maxlen=int(median_n))
         self._win = []               # (t, mm) over stable_win_s, for `still`
 
@@ -188,6 +207,51 @@ class Proximity:
                  and t - self._win[0][0] >= self.stable_win_s * 0.6
                  and max(vals) - min(vals) <= self.stable_mm)
 
+        # ---- ARRIVING IS A SETTLE THAT IS NEARER THAN THE LAST ONE ---- #
+        #
+        # Crossing a threshold from outside cannot carry this on its own.
+        # Re-arming that way requires going OUT past exit_mm, and in a crowd the
+        # nearest thing is never that far, so the first person within range is
+        # noticed and nobody after them ever is. Replayed against her own trace
+        # with one other person standing at 700 mm, the approach at t=33 s
+        # vanished completely.
+        #
+        # What survives a crowd is what she asked for: the nearest thing
+        # suddenly got closer. So an arrival is a SETTLE whose level is a
+        # person's-width nearer than the level before it -- true whether the
+        # room was empty or somebody was already standing there.
+        #
+        # Leaning must not qualify and does not: she leaned 541 -> 480, 61 mm.
+        # A hand does not either, hence the near_mm floor; that is `too_close`,
+        # which is a different event about a different thing.
+        #
+        # Once the trigger is a STEP, the "must leave first" guard is redundant
+        # and harmful -- what prevents repeats is that a second arrival needs a
+        # second step, and standing still is not one. So re-arming is the
+        # refractory alone.
+        if not still:
+            self._settle = None
+            self._ref_pending = True
+        elif self._settle is None:
+            self._settle = t
+        elif (self._ref_pending and t - self._settle >= self.dwell_s):
+            self._ref_pending = False
+            prev, self._ref = self._ref, d
+            # prev is None on the FIRST settle of all -- the robot has just
+            # been switched on. Somebody already standing there has arrived as
+            # far as it is concerned; it has no history to say otherwise, and
+            # booting next to a person and ignoring them is worse than greeting
+            # someone who has been there a while.
+            came_in = prev is None or prev > self.enter_mm
+            stepped = prev is not None and d <= prev - self.approach_mm
+            if (self._armed and self.near_mm < d <= self.enter_mm
+                    and (came_in or stepped)):
+                self._armed = False
+                self._last_arrival = t
+                if not self.inside:
+                    self.inside = True
+                out.append("arrived")
+
         if not self.inside:
             if d > self.exit_mm:
                 # THE DWELL IS CANCELLED BY THE OUTER THRESHOLD, NOT THE INNER
@@ -198,20 +262,14 @@ class Proximity:
                 # forever. Hysteresis has to cover entering as well as leaving.
                 self._since = None
             elif d <= self.enter_mm and still:
-                # the timer starts when they STOP, not when they cross
+                # `inside` is the state the caller watches to know somebody is
+                # there. The ARRIVAL is emitted above, off the settle step; this
+                # only keeps the flag true so `left` has something to end.
                 if self._since is None:
                     self._since = t
                 elif t - self._since >= self.dwell_s:
-                    # THE DWELL IS WHAT SEPARATES ARRIVING FROM WALKING PAST.
-                    # Somebody crossing the beam on their way somewhere else is
-                    # the commonest event in a busy room and it is not an
-                    # interaction.
                     self.inside = True
                     self._since = None
-                    if self._armed:
-                        self._armed = False
-                        self._last_arrival = t
-                        out.append("arrived")
         else:
             # HYSTERESIS: leaving uses the OUTER threshold. With one threshold,
             # a person standing at 60 cm breathes and the head bobs.
@@ -231,8 +289,7 @@ class Proximity:
         # being OUT. At a showcase "somebody is near" is true almost
         # continuously, so a purely time-based re-arm would fire into a crowd
         # every few seconds at whoever happened to be standing closest.
-        if (not self._armed and not self.inside
-                and self._last_arrival is not None
+        if (not self._armed and self._last_arrival is not None
                 and t - self._last_arrival >= self.refractory_s):
             self._armed = True
 
@@ -259,6 +316,8 @@ class Proximity:
         the robot being re-homed, or a session restarting."""
         self._buf.clear()
         self._win.clear()
+        self._settle = self._ref = None
+        self._ref_pending = True
         self.inside = self.near = False
         self.distance = self._since = self._last_arrival = None
         self._last_reading_t = None

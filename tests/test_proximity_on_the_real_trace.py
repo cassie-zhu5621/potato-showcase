@@ -132,10 +132,61 @@ def events2():
     return out
 
 
-def test_held_out_take_has_exactly_two_arrivals(events2):
-    """One walk-up-and-stop, and one deliberate stop a metre back. Everything
-    else in those 221 seconds is somebody crossing in front."""
-    assert [e for _, e in events2].count("arrived") == 2
+def test_held_out_take_has_exactly_three_arrivals(events2):
+    """Three, and the third is a correction rather than a regression.
+
+    She stopped at 1109 mm (t=93), then walked right up to 336 mm (t=103), then
+    later stopped again at 925 mm (t=188). Those are three separate approaches
+    and the robot should attend to each. The threshold-crossing version this
+    replaced reported two, because once it was inside it could not see her come
+    closer -- it was losing an event, not suppressing a duplicate."""
+    assert [e for _, e in events2].count("arrived") == 3
+
+
+def crowd(path, floor):
+    """The trace with somebody ALREADY standing at `floor` mm and never leaving.
+
+    A ToF reports the nearest thing, so another person in front of the sensor
+    is exactly a ceiling on every reading. Synthetic, but synthesised from a
+    real recording rather than invented: everything she did still happens, on
+    top of somebody who was there first.
+    """
+    rows = []
+    with open(path) as f:
+        for r in csv.reader(f):
+            if not r or r[0] == "t":
+                continue
+            mm = None if r[1] in ("", "-1") else float(r[1])
+            rows.append((float(r[0]), None if mm is None else min(mm, floor)))
+    g, out = Proximity(), []
+    for t, mm in rows:
+        for e in g.update(t, mm):
+            out.append((t, e))
+    return out
+
+
+def test_an_approach_is_still_seen_when_somebody_is_already_there():
+    """THE SHOWCASE CASE, and the one that broke the first design.
+
+    Re-arming used to require going OUT past exit_mm. In a crowd the nearest
+    thing never is, so the first person within range was noticed and nobody
+    after them ever was -- replayed with one person at 700 mm, her approach at
+    t=33 s disappeared entirely. Arriving is a settle nearer than the last one
+    now, which does not care whether the room was empty.
+    """
+    ev = crowd(TRACE, 700.0)
+    assert [t for t, e in ev if e == "arrived" and 30.0 <= t <= 40.0]
+
+
+def test_the_crowd_limit_is_physical_and_is_written_down():
+    """At 400 mm the person already standing is nearer than she ever gets, so
+    her arrival is a 37 mm change -- smaller than the 61 mm she leaned by. No
+    threshold separates those, and this asserts the limit rather than pretending
+    it is not there: the robot is attending to whoever is in front, which is the
+    tolerable way to be wrong."""
+    ev = crowd(TRACE, 400.0)
+    assert [t for t, e in ev if e == "arrived" and t < 10.0]
+    assert [t for t, e in ev if e == "arrived" and 30.0 <= t <= 40.0] == []
 
 
 def test_someone_who_stops_a_metre_away_is_noticed(events2):

@@ -73,6 +73,19 @@ LEAD_S = 0.12
 AMPS = (3.0, 6.0, 10.0, 15.0)     # degrees, well inside the authored reach
 RATE_HZ = 50.0
 
+# A LIMITER, because you cannot read a warning while performing.
+#
+# A sway of amplitude A at f Hz peaks at 2*pi*f*A deg/s. pose.SAFE_DPS is 120,
+# the ceiling this project already uses for moves nobody authored, and putting
+# the two together gives A * BPM <= 1146. Above that the servo cannot reach the
+# turnaround before the waveform has left, and the sway stops being a sway: it
+# smears into a small fast tremble that reads as a fault.
+#
+# So the amplitude asked for is a request. What is played is the smaller of it
+# and what the tempo allows -- shown in the status line, so it is visible that
+# it happened rather than silently different from the key that was pressed.
+AMP_BPM_LIMIT = 1146.0
+
 
 class Perf:
     def __init__(self, player, verbose=False):
@@ -127,10 +140,16 @@ class Perf:
         return self.t0 + n * self.period
 
     # ---------------- the sway ----------------
+    @property
+    def amp(self):
+        """What is actually played: the amplitude asked for, or what the tempo
+        allows, whichever is smaller."""
+        return min(AMPS[self.amp_i], AMP_BPM_LIMIT / max(self.bpm, 1.0))
+
     def pose(self):
         """The oscillator. Phase 0 is the beat, and the beat is the BOTTOM of
         the dip -- the accent of a head bob is where it stops going down."""
-        a = AMPS[self.amp_i]
+        a = self.amp
         w = -math.cos(2 * math.pi * self.phase())      # -1 on the beat
         if self.shape == "nod":
             return dict(nod=self.trim + a * w)
@@ -243,9 +262,11 @@ def main():
                 beat = perf.phase() % 1.0
                 pend = perf.pending[1] if perf.pending else "-"
                 sys.stdout.write(
-                    "\r  {:5.1f} BPM  {:5}  amp {:4.0f}d  trim {:+3.0f}  "
+                    "\r  {:5.1f} BPM  {:5}  amp {:4.1f}d{} trim {:+3.0f}  "
                     "{}  {}  next:{:<16}".format(
-                        perf.bpm, perf.shape, AMPS[perf.amp_i], perf.trim,
+                        perf.bpm, perf.shape, perf.amp,
+                        "!" if perf.amp < AMPS[perf.amp_i] - 0.05 else " ",
+                        perf.trim,
                         "FROZEN" if perf.frozen else "  " + "*" * (1 + int(beat * 3)) + " " * (3 - int(beat * 3)),
                         " ", pend))
                 sys.stdout.flush()

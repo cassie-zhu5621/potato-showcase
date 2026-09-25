@@ -102,8 +102,11 @@ def test_the_whole_session_is_a_readable_story(events):
     there: wrong in no single instant, and useless over an hour.
     """
     assert [e for _, e in events].count("arrived") == 3
-    # she stood still from 33 to 54 s; exactly one arrival in that stretch
-    assert len([t for t, e in events if e == "arrived" and 33.0 <= t <= 54.0]) == 1
+    # She walked up at 31.4 and stood until 54.5. Exactly one arrival in that
+    # stretch -- the window opens at 31 rather than 33 because the arrival
+    # moved earlier when the latency was cut, and a bound written around the
+    # old timing is a test of the old timing.
+    assert len([t for t, e in events if e == "arrived" and 31.0 <= t <= 54.0]) == 1
 
 
 def test_every_too_close_is_paired_with_a_backed_off(events):

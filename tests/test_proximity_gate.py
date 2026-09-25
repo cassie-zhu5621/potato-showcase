@@ -137,8 +137,14 @@ def test_it_re_arms_once_they_actually_leave():
 
 def test_leaving_and_coming_straight_back_does_not_double_fire():
     """Someone steps back to let a friend see, then leans in again. Inside the
-    refractory that is one visit, not two."""
-    p = Proximity(refractory_s=3.0)
+    refractory that is one visit, not two.
+
+    The refractory is generous here on purpose. The point being tested is that
+    the refractory suppresses the second arrival, not that a particular gap
+    happens to fall inside the default -- which it stopped doing the moment the
+    dwell was shortened, turning this into a test of the timing of `stays()`.
+    """
+    p = Proximity(refractory_s=10.0)
     got, _ = feed(p, stays(500) + empty(1.6) + stays(500))
     assert evs(got).count("arrived") == 1
 

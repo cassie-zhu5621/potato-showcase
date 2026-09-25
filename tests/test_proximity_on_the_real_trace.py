@@ -89,10 +89,21 @@ def test_nothing_happens_in_an_empty_room(events):
 
 
 def test_the_whole_session_is_a_readable_story(events):
-    """Two approaches -- she stepped away at 54 s and came back at 60 s -- and
-    they are the only two. A gate that fires five times on one visit is not
-    wrong in any single instant and is useless over an hour."""
-    assert [e for _, e in events].count("arrived") == 2
+    """Three approaches, and each one is somebody deliberately coming nearer:
+    the walk-up at 33 s, coming back at 59 s after stepping away, and the hand
+    put right up to the sensor at 73 s.
+
+    The hand counts now. It did not when a floor sat under arriving at 250 mm,
+    which meant the one gesture guaranteed to get no reaction was reaching out
+    to the robot -- so the floor went. `too_close` still fires alongside; it is
+    what R_SHY will read when R_SHY exists.
+
+    What must NOT happen is firing repeatedly while somebody simply stands
+    there: wrong in no single instant, and useless over an hour.
+    """
+    assert [e for _, e in events].count("arrived") == 3
+    # she stood still from 33 to 54 s; exactly one arrival in that stretch
+    assert len([t for t, e in events if e == "arrived" and 33.0 <= t <= 54.0]) == 1
 
 
 def test_every_too_close_is_paired_with_a_backed_off(events):

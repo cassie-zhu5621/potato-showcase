@@ -93,9 +93,24 @@ NEAR_EXIT_MM = 310.0  # 60 mm of hysteresis on a 17 mm wander, and still clear
 # combinations give exactly the right two arrivals on both traces. The choice
 # is not delicate, so these sit in the middle of the region that works rather
 # than at an edge of it.
-DWELL_S = 0.8         # ...of being inside AND still. See `still` in update().
-STABLE_WIN_S = 1.0    # the window "still" is measured over. A whole second,
-                      # because a pass is only momentarily flat.
+# TUNED AGAINST THE CLOCK, because the head came up visibly late. The cost of
+# an arrival is three things in series: the median filter's lag, the stability
+# window having to clear of the approach, and then the dwell. At 0.8 + 1.0 that
+# was about 1.8 s after somebody stopped, which reads as the robot thinking
+# about it rather than noticing.
+#
+# Swept against both traces with one objective -- never fire during a pass, and
+# be as early as possible otherwise. The floor is 1.14 s. Below it the passes
+# start firing, on every combination, so that is not a tuning limit but the
+# price of telling an arrival from a crossing at all.
+#
+# Of the two combinations that reach 1.14 s, this is the one whose work is done
+# by the WINDOW rather than the dwell. Neither trace contains a slow amble past
+# -- the thing no duration can reject -- and a longer stillness window is the
+# half that would catch one, because an ambler has to hold still for it.
+DWELL_S = 0.2         # ...of being inside AND still. See `still` in update().
+STABLE_WIN_S = 0.8    # the window "still" is measured over. A pass is only
+                      # momentarily flat, so this is what rejects one.
 APPROACH_MM = 200.0   # a settled level this much nearer than the one before it
                       # is somebody arriving, even in a crowd. Three times the
                       # measured lean (61 mm) and twelve times the sway (17).

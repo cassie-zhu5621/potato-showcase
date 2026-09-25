@@ -88,6 +88,10 @@ def live(args, rows):
     time.sleep(0.4)
     link.tof()
     time.sleep(0.4)
+    if args.bus is not None:
+        print(f"  re-initialising on {'Wire1' if args.bus else 'Wire'}...")
+        link.tofbus(args.bus)
+        time.sleep(1.0)
     if args.scan:
         link.scan()
         time.sleep(1.5)
@@ -123,6 +127,9 @@ def live(args, rows):
                 print("             themselves are failing")
                 print("  emit>0     readings ARE arriving and something above")
                 print("             is dropping them\n")
+                print("  i2c=2 with ready=0 is the I2C controller being shared")
+                print("  with M5Unified. Try the other one WITHOUT reflashing:")
+                print("      python3 %s --bus 1\n" % sys.argv[0])
     except KeyboardInterrupt:
         print()
     finally:
@@ -229,6 +236,10 @@ def main():
     ap.add_argument("--log", metavar="CSV", help="record the trace while running")
     ap.add_argument("--fit", metavar="CSV", help="read bands off a recorded trace")
     ap.add_argument("--replay", metavar="CSV", help="run a trace through the gate")
+    ap.add_argument("--bus", type=int, choices=(0, 1), default=None,
+                    help="re-init the sensor on I2C controller 0 (Wire) or 1 "
+                         "(Wire1) and carry on. For when TOFDIAG shows ready=0 "
+                         "with i2c=2: M5Unified has the other one")
     ap.add_argument("--scan", action="store_true",
                     help="scan Port A's I2C on both pin orders and stop. Run "
                          "this when init fails: it separates a swapped pair "

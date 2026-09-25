@@ -238,12 +238,28 @@ static uint32_t tofLastGot = 0;
 // that a board revision that moved the pair reports itself, instead of
 // presenting as IN TOF FAIL -- which is the same message as a wrong socket and
 // a dead unit, and needs a different fix from either.
+// WHICH I2C CONTROLLER. The S3 has two; Arduino calls them Wire and Wire1, and
+// M5Unified drives the board's own parts -- touch panel, IMU, power -- on one
+// of them. Sharing it does not fail at init, which is the trap: tofInit() runs
+// in setup() before the loop exists, takes the peripheral, and succeeds. Then
+// M5.update() runs every pass and takes it back, pointed at G12/G11, and every
+// ToF read after that goes out on the wrong pins and is NACKed. The screen
+// keeps working, so nothing looks wrong except the sensor.
+//
+// Measured symptom, for the next person: calls climbing, ready=0, i2c=2.
+// Return code 2 is Wire's "NACK on address" -- nobody is there to answer.
+//
+// So: default to Wire, and make it switchable at runtime, because which
+// controller M5Unified has claimed is a property of the board and the library
+// version and is not worth another reflash to find out.
+static TwoWire* tofBus = &Wire;
+
 static bool tofTry(int sda, int scl) {
-  Wire1.end();
-  Wire1.begin(sda, scl);
-  Wire1.setClock(400000);
+  tofBus->end();
+  tofBus->begin(sda, scl);
+  tofBus->setClock(400000);
   delay(10);                 // the VL53L1X needs ~1.2 ms after power to boot
-  tof.setBus(&Wire1);
+  tof.setBus(tofBus);
   tof.setTimeout(100);
   return tof.init();
 }
@@ -255,14 +271,14 @@ static bool tofTry(int sda, int scl) {
 void tofScan() {
   for (int pass = 0; pass < 2; pass++) {
     int sda = pass ? TOF_SCL : TOF_SDA, scl = pass ? TOF_SDA : TOF_SCL;
-    Wire1.end();
-    Wire1.begin(sda, scl);
-    Wire1.setClock(100000);
+    tofBus->end();
+    tofBus->begin(sda, scl);
+    tofBus->setClock(100000);
     delay(10);
     String found = "";
     for (uint8_t a = 0x08; a < 0x78; a++) {
-      Wire1.beginTransmission(a);
-      if (Wire1.endTransmission() == 0) found += " 0x" + String(a, HEX);
+      tofBus->beginTransmission(a);
+      if (tofBus->endTransmission() == 0) found += " 0x" + String(a, HEX);
     }
     Serial.printf("IN SCAN sda=G%d scl=G%d ->%s\n", sda, scl,
                   found.length() ? found.c_str() : " nothing");
@@ -277,7 +293,8 @@ void tofInit() {
   // board would brown out, and the ToF would be the last thing suspected.
   // Wire1 is a separate peripheral, so this cannot reach the internal bus at all.
   bool ok = tofTry(TOF_SDA, TOF_SCL);
-  if (ok) Serial.printf("IN TOF PINS sda=G%d scl=G%d\n", TOF_SDA, TOF_SCL);
+  if (ok) Serial.printf("IN TOF PINS sda=G%d scl=G%d bus=%s\n",
+                        TOF_SDA, TOF_SCL, tofBus == &Wire ? "Wire" : "Wire1");
   if (!ok) {
     ok = tofTry(TOF_SCL, TOF_SDA);
     if (ok) Serial.printf("IN TOF PINS sda=G%d scl=G%d (swapped)\n",
@@ -344,6 +361,7 @@ void checkTof() {
 static bool tofOK = false;
 static uint32_t tofCalls = 0, tofReadyN = 0, tofEmit = 0, tofRestarts = 0;
 static int tofLastStatus = -1, tofLastMm = -1, tofLastI2C = -1;
+static TwoWire* tofBus = &Wire;
 void tofInit() {}
 void checkTof() {}
 void tofScan() { Serial.println("IN SCAN disabled -- USE_TOF is 0"); }
@@ -953,6 +971,14 @@ void handleLine(String line) {
   // there is no way to tell "the sensor failed to init" from "the sensor is
   // fine and nobody is in front of it", and those need opposite fixes.
   else if (cmd == "SCAN") tofScan();
+  // TOFBUS 0|1 -- re-init on the other I2C controller without reflashing.
+  // Watch TOFDIAG's `ready` afterwards: it climbing is the answer.
+  else if (cmd == "TOFBUS") {
+    tofBus = (arg.toInt() == 1) ? &Wire1 : &Wire;
+    tofOK = false;
+    tofCalls = tofReadyN = tofEmit = tofRestarts = 0;
+    tofInit();
+  }
   else if (cmd == "TOFDIAG")
     Serial.printf("IN TOFDIAG calls=%lu ready=%lu emit=%lu restarts=%lu "
                   "status=%d mm=%d i2c=%d ok=%d\n",

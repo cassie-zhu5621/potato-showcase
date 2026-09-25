@@ -204,6 +204,7 @@ class CoreS3Link:
     def tof(self):                self.event("TOF")    # -> IN TOF READY|FAIL|DISABLED
     def scan(self):               self.event("SCAN")   # -> IN SCAN sda=.. -> 0x29
     def tofdiag(self):            self.event("TOFDIAG")# -> IN TOFDIAG calls=.. ready=..
+    def tofbus(self, n):          self.event("TOFBUS", int(n))  # 0=Wire 1=Wire1
 
     def close(self):
         self._stop = True

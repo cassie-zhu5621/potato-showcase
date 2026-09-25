@@ -52,6 +52,52 @@ CSVs are build artefacts. **Never hand-edit them** -- see `docs/MOTION_AUTHORING
   and the 38° of lost field changes the S4 sweep maths.)*
 - Print/assembly spec + STLs: `robot/cad/`.
 
+### The approach sensor (VL53L1X on Port A)
+
+M5Stack Unit **ToF4M** — the VL53L1X, 4 cm to 4 m. Not the older "ToF Sensor
+Unit", which is a VL53L0X: 2 m, no programmable ROI, and a tenth of the ambient
+light tolerance, which matters in a room with windows.
+
+Port A is the **red** Grove socket: **G2 = SDA, G1 = SCL**. Written down because
+the online docs give both orders — the CoreS3 rev1 pinout settles it, and the
+firmware had it backwards first. The board's own bus is G12/G11, a different
+pair, so Port A cannot reach the IMU or the touch panel.
+
+Mount it **on the base, not the head**, horizontal, at roughly 40 cm, on a
+printed bracket. Reasons in `SHOWCASE_FLOW.md` §4; the short version is that a
+rangefinder on a moving head reports where the head turned to, and tape lets the
+origin drift, which makes every threshold quietly wrong.
+
+**Four things cost an afternoon between them, in the order they bit:**
+
+**It shares an I2C controller with M5Unified, and that does not fail at init.**
+The S3 has two controllers. `tofInit()` runs in `setup()`, before the loop
+exists, takes one, and succeeds. Then `M5.update()` runs every pass and takes it
+back pointed at G12/G11, so every read after that goes out on the wrong pins.
+Nothing else breaks — the touch panel is M5Unified's and keeps working — so the
+only symptom is a sensor that reported READY and then says nothing.
+Signature: `TOFDIAG` shows `calls` climbing, `ready=0`, `i2c=2` (Wire's NACK on
+address). **Wire is the right one here.** `tof_test.py --bus 1` tries the other
+without reflashing, because which one M5Unified claims depends on the library
+version.
+
+**Polling at the sensor's own rate catches almost nothing.** Rate-limiting
+`checkTof()` to 50 ms and then asking `dataReady()` beats against the sensor's
+own 50 ms period: the answer is nearly always "not yet", and missing it costs a
+whole period. Poll every pass. The loop runs at ~200 Hz and the sensor answers
+20 times a second, so polling every pass *is* the 20 Hz stream.
+
+**A reading of 0 mm is not a failed reading.** A failed one comes through as
+`-1` and prints as `--`. A valid 0 means something is inside the 4 cm minimum —
+in practice the **protective film still on the lens**, or the unit face-down on
+the desk. Peel it and point it across the room before suspecting anything else.
+
+**Uploading is flaky over the S3's native USB.** See GETTING_STARTED: use
+`pio run -t upload`, which applies `--no-stub` and 115200. An upload can fail
+*after* the sketch compiles, leaving the previous build running and answering
+exactly as before — which is why the firmware version is bumped with every flash
+that matters and `tof_test.py` prints what `PING` answered.
+
 ### Power — read this before plugging anything in
 - **The servo bus needs its own 5–6 V supply on the blue screw terminal.**
   SCS0009 is a 6 V-class servo. The board accepts 4.8–12 V but V1 is a

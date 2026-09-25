@@ -202,6 +202,7 @@ class CoreS3Link:
     def rest(self):               self.event("REST")   # quiet + back to idle
     def ping(self):               self.event("PING")   # -> IN PONG ...
     def tof(self):                self.event("TOF")    # -> IN TOF READY|FAIL|DISABLED
+    def scan(self):               self.event("SCAN")   # -> IN SCAN sda=.. -> 0x29
 
     def close(self):
         self._stop = True

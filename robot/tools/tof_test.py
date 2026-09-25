@@ -67,7 +67,7 @@ def live(args, rows):
         nonlocal last_print
         mm = parse_dist(s)
         if mm is None and not s.startswith("IN DIST"):
-            if s.startswith("IN TOF"):
+            if s.startswith("IN TOF") or s.startswith("IN SCAN"):
                 print(f"  {s}")
             return
         t = time.time() - t0
@@ -88,6 +88,9 @@ def live(args, rows):
     time.sleep(0.4)
     link.tof()
     time.sleep(0.4)
+    if args.scan:
+        link.scan()
+        time.sleep(1.5)
     print(f"listening on {port}. Ctrl-C to stop.")
     print("no `IN TOF` line above?  the firmware predates the ToF -- reflash.")
     print("IN TOF FAIL?             wrong port (it is the RED one, Port A), or")
@@ -203,6 +206,10 @@ def main():
     ap.add_argument("--log", metavar="CSV", help="record the trace while running")
     ap.add_argument("--fit", metavar="CSV", help="read bands off a recorded trace")
     ap.add_argument("--replay", metavar="CSV", help="run a trace through the gate")
+    ap.add_argument("--scan", action="store_true",
+                    help="scan Port A's I2C on both pin orders and stop. Run "
+                         "this when init fails: it separates a swapped pair "
+                         "from a wrong socket from a unit that is not there")
     ap.add_argument("--gate", action="store_true",
                     help="also run the Proximity gate and print its events")
     a = ap.parse_args()

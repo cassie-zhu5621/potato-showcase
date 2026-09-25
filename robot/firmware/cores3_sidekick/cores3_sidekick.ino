@@ -215,6 +215,42 @@ static const uint32_t TOF_PERIOD_MS = 50;    // 20 Hz: a reflex, not a percept
 VL53L1X tof;
 static bool tofOK = false;
 
+// WHICH PIN IS SDA. Port A is G1 and G2, and that much is agreed; which of the
+// two is the data line is not -- the docs say both, depending on where you
+// read. Rather than pick one and get IN TOF FAIL with no way to tell a swapped
+// pair from a wrong port from a dead unit, try both and say which worked.
+// One of them is a no-op that costs a few milliseconds at boot, once.
+static bool tofTry(int sda, int scl) {
+  Wire1.end();
+  Wire1.begin(sda, scl);
+  Wire1.setClock(400000);
+  delay(10);                 // the VL53L1X needs ~1.2 ms after power to boot
+  tof.setBus(&Wire1);
+  tof.setTimeout(100);
+  return tof.init();
+}
+
+// The bus, as it actually is. `SCAN` on the serial link answers the question
+// IN TOF FAIL cannot: nothing at all on either wiring means the unit is in the
+// wrong socket or not seated; 0x29 on one of them means the pins were swapped;
+// anything else means it is not the sensor we think it is.
+void tofScan() {
+  for (int pass = 0; pass < 2; pass++) {
+    int sda = pass ? TOF_SCL : TOF_SDA, scl = pass ? TOF_SDA : TOF_SCL;
+    Wire1.end();
+    Wire1.begin(sda, scl);
+    Wire1.setClock(100000);
+    delay(10);
+    String found = "";
+    for (uint8_t a = 0x08; a < 0x78; a++) {
+      Wire1.beginTransmission(a);
+      if (Wire1.endTransmission() == 0) found += " 0x" + String(a, HEX);
+    }
+    Serial.printf("IN SCAN sda=G%d scl=G%d ->%s\n", sda, scl,
+                  found.length() ? found.c_str() : " nothing");
+  }
+}
+
 void tofInit() {
   // Wire1, NOT Wire. M5Unified owns an I2C bus for the board's own parts -- the
   // IMU, the touch panel, the power management -- and calling Wire.begin() with
@@ -222,11 +258,14 @@ void tofInit() {
   // look like an I2C problem: the screen would stop responding to touch, or the
   // board would brown out, and the ToF would be the last thing suspected.
   // Wire1 is a separate peripheral, so this cannot reach the internal bus at all.
-  Wire1.begin(TOF_SDA, TOF_SCL);
-  Wire1.setClock(400000);
-  tof.setBus(&Wire1);
-  tof.setTimeout(100);
-  if (!tof.init()) { Serial.println("IN TOF FAIL"); return; }
+  bool ok = tofTry(TOF_SDA, TOF_SCL);
+  if (ok) Serial.printf("IN TOF PINS sda=G%d scl=G%d\n", TOF_SDA, TOF_SCL);
+  if (!ok) {
+    ok = tofTry(TOF_SCL, TOF_SDA);
+    if (ok) Serial.printf("IN TOF PINS sda=G%d scl=G%d (swapped)\n",
+                          TOF_SCL, TOF_SDA);
+  }
+  if (!ok) { Serial.println("IN TOF FAIL"); return; }
   // LONG mode reaches 4 m and is the reason for buying the L1X over the L0X.
   // It is also the mode that suffers most from ambient light, which is why the
   // budget below is generous: a showcase has windows and spotlights.
@@ -255,6 +294,7 @@ void checkTof() {
 static bool tofOK = false;
 void tofInit() {}
 void checkTof() {}
+void tofScan() { Serial.println("IN SCAN disabled -- USE_TOF is 0"); }
 #endif
 
 void checkTap() {
@@ -860,6 +900,7 @@ void handleLine(String line) {
   // into a port nothing is listening to yet and are simply lost. Without this
   // there is no way to tell "the sensor failed to init" from "the sensor is
   // fine and nobody is in front of it", and those need opposite fixes.
+  else if (cmd == "SCAN") tofScan();
   else if (cmd == "TOF") Serial.println(String("IN TOF ")
                                         + (USE_TOF ? (tofOK ? "READY" : "FAIL")
                                                    : "DISABLED"));

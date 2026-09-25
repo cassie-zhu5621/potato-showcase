@@ -43,7 +43,12 @@
  *                          `hello`. Data, not firmware: one flash teaches the
  *                          command, every later name is a serial line.
  *     EVT REST             end of a run: go quiet, back to idle + warm breath
- *     EVT PING             -> `IN PONG cores3_sidekick v6`
+ *     EVT PING             -> `IN PONG cores3_sidekick v7`
+ *
+ *   BUMP THE VERSION WITH EVERY FLASH THAT MATTERS. This link is flaky enough
+ *   that an upload can fail after the sketch has compiled, and then the board
+ *   answers exactly as it did before -- so "is my fix on the board" is not
+ *   answerable by behaviour, only by the version. v7 adds the ToF.
  *
  *   CoreS3 -> Laptop
  *     IN PTT_DOWN / IN PTT_UP     the green button, held
@@ -908,7 +913,7 @@ void handleLine(String line) {
     setAntennaHue(255, 242, 224);   // = WARM. Keep in sync with HUE above.
     uiSet("idle");
   }
-  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v6");
+  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v7");
   // ASKABLE, because the boot line is not readable. USB CDC enumerates after
   // setup() has already run, so `IN TOF READY` and `IN TOF FAIL` are printed
   // into a port nothing is listening to yet and are simply lost. Without this
@@ -931,7 +936,7 @@ void setup() {
   tapInit();
   tofInit();
   uiDraw();                 // the idle screen, immediately -- no legacy layout
-  Serial.println("IN HELLO cores3_sidekick v6");
+  Serial.println("IN HELLO cores3_sidekick v7");
 }
 
 void loop() {

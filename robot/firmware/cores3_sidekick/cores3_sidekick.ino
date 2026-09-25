@@ -210,16 +210,21 @@ void tapInit() {
 #if USE_TOF
 #include <Wire.h>
 #include <VL53L1X.h>
-static const int TOF_SDA = 1, TOF_SCL = 2;   // Port A
+// Port A, off the CoreS3 rev1 pinout: G2 is PA_SDA and G1 is PA_SCL. Written
+// down because the online docs say it both ways and the first version here had
+// it backwards. The board's own internal bus is G12/G11 (intSDA/intSCL) -- a
+// different pair entirely, which is why Wire1 on these two cannot disturb the
+// IMU, the touch panel or the power management.
+static const int TOF_SDA = 2, TOF_SCL = 1;   // Port A: G2 = SDA, G1 = SCL
 static const uint32_t TOF_PERIOD_MS = 50;    // 20 Hz: a reflex, not a percept
 VL53L1X tof;
 static bool tofOK = false;
 
-// WHICH PIN IS SDA. Port A is G1 and G2, and that much is agreed; which of the
-// two is the data line is not -- the docs say both, depending on where you
-// read. Rather than pick one and get IN TOF FAIL with no way to tell a swapped
-// pair from a wrong port from a dead unit, try both and say which worked.
-// One of them is a no-op that costs a few milliseconds at boot, once.
+// TRIED BOTH WAYS ROUND, even though the pinout above settles it. The order is
+// right for rev1 and this costs a few milliseconds at boot; what it buys is
+// that a board revision that moved the pair reports itself, instead of
+// presenting as IN TOF FAIL -- which is the same message as a wrong socket and
+// a dead unit, and needs a different fix from either.
 static bool tofTry(int sda, int scl) {
   Wire1.end();
   Wire1.begin(sda, scl);

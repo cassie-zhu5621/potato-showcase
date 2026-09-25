@@ -39,13 +39,38 @@ from __future__ import annotations
 from collections import deque
 
 # --------------------------------------------------------------------------- #
-# provisional, and every one of them is meant to be replaced by a measurement
+# MEASURED, from walkups.csv -- 2953 samples, 139 s, 2.3% dropped. Not guesses.
+# Re-record and re-read these if the sensor moves; they are a property of the
+# mounting and the room, not of the code.
+#
+#     empty room          1844 mm   the far wall. 435 readings, none under 1500
+#     a person standing    330 - 550
+#     a hand held in         0 - 250
+#
+# The gap between 550 and 1844 is enormous, so where ENTER goes inside it barely
+# matters; 1000 catches somebody well before they stop.
 # --------------------------------------------------------------------------- #
-ENTER_MM = 600.0      # cross this, inward, and somebody has arrived
-EXIT_MM = 900.0       # ...and they have not left until they pass THIS going out
-NEAR_MM = 250.0       # inside the table edge: a hand, not a body
-NEAR_EXIT_MM = 350.0
-DWELL_S = 0.4         # must stay inside before it counts as an arrival
+ENTER_MM = 1000.0     # cross this, inward, and somebody may have arrived
+EXIT_MM = 1400.0      # ...and they have not left until they pass THIS going out
+NEAR_MM = 250.0       # a hand: below where anyone stood (min 329)
+NEAR_EXIT_MM = 310.0  # 60 mm of hysteresis on a 17 mm wander, and still clear
+                      # of the closest standing reading
+
+# THE ONE NUMBER THE TRACE CHANGED, and it was wrong by a factor of four.
+#
+# Walking straight past without stopping spends 1.03 s inside 600 mm and 1.24 s
+# inside 1200 -- and it comes as close as 245 mm on the way through. At the 0.4 s
+# guessed here before, a passer-by fired `arrived` AND `too_close`: the robot
+# would have looked up at, and then flinched from, somebody on their way to the
+# coffee machine.
+#
+# An arrival that means it holds for 23 s. The two are twenty times apart, so
+# the cut is not delicate -- but it has to be above 1.24 s, and 0.4 was not.
+#
+# 1.5 s is not a delay. Somebody crossing 1 m at walking pace is decelerating,
+# and 1.5 s later they have stopped: the head comes up as they settle, which
+# reads as having been noticed arriving rather than as a motion detector firing.
+DWELL_S = 1.5
 REFRACTORY_S = 3.0    # after an arrival, ignore further arrivals for this long
 LOST_S = 0.5          # readings must be missing this long before "left"
 MEDIAN_N = 5          # samples in the spike filter

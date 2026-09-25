@@ -127,12 +127,32 @@ person's torso physically cannot get nearer than the table edge. Anything
 reading closer than that is a hand or a face put there on purpose. That is
 geometry, not a heuristic, and it is the cleanest discriminator available.
 
+**Measured 2026-09-25**, `tests/data/walkups.csv`: 2953 samples over 139 s,
+2.3% dropped. The room separates cleanly and the numbers below are read off it,
+not chosen:
+
+| what | reads |
+|---|---|
+| empty room | **1844 mm** — the far wall. 435 readings, not one under 1500 |
+| a person standing | **330–550 mm** |
+| a hand held in | **0–250 mm** |
+| wander while standing still | median **8 mm**, 95th **17 mm** |
+
 | band | meaning | goes to |
 |---|---|---|
-| > `<measure>` (out) | nobody | S0 Idle |
-| crosses `<measure>` in, held `<measure>` s | someone arrived | S1 Attend |
-| < `<measure>` (inside the table edge) | a hand or a face, deliberately | R_SHY |
-| closing faster than `<measure>` m/s | thrust, not a walk | R_STARTLE |
+| > 1400 mm (out) | nobody | S0 Idle |
+| crosses 1000 mm in, held **1.5 s** | someone arrived | S1 Attend |
+| < 250 mm | a hand or a face, deliberately | R_SHY |
+
+**The dwell was the one number that mattered and the guess was wrong by four.**
+Walking straight past without stopping spends 1.03 s inside 600 mm and comes to
+236 mm on the way through; an arrival that means it holds for 23 s. At the
+guessed 0.4 s a passer-by fired both `arrived` and `too_close` — the robot
+looked up at, and then flinched from, somebody on their way past. The two are
+twenty times apart, so the cut is not delicate, but it has to clear 1.24 s.
+
+1.5 s is not a delay. Somebody crossing 1 m at walking pace is decelerating and
+has stopped by the time it elapses, so the head comes up as they settle.
 
 Hysteresis on every one of them: enter and exit are different numbers, or a
 person standing on the boundary makes the head bob up and down, which reads as

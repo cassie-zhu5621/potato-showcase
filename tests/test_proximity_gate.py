@@ -15,7 +15,20 @@ import pytest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
-from session.proximity import Proximity, parse_dist
+from session.proximity import DWELL_S, Proximity, parse_dist
+
+DT = 0.05
+
+
+def stays(mm, extra=0.6, dt=DT):
+    """Enough samples of `mm` to outlast the dwell and count as an arrival.
+
+    DERIVED FROM DWELL_S, not written out as a count. The dwell is a measured
+    number -- it went from a guessed 0.4 s to 1.5 s the first time a real trace
+    was recorded -- and a test that spells the count out turns, silently, into a
+    test that a WALK-PAST arrives. Which is the opposite of what it says.
+    """
+    return [mm] * int((DWELL_S + extra) / dt)
 
 
 def feed(p, samples, t0=0.0, dt=0.05):
@@ -44,7 +57,7 @@ def evs(got):
 # --------------------------------------------------------------------------- #
 def test_someone_walks_up_and_it_fires_exactly_once():
     p = Proximity()
-    got, _ = feed(p, [1500] * 5 + [500] * 40)
+    got, _ = feed(p, [1500] * 5 + stays(500))
     assert evs(got) == ["arrived"]
 
 
@@ -79,7 +92,7 @@ def test_a_crowd_does_not_retrigger_forever():
 
 def test_it_re_arms_once_they_actually_leave():
     p = Proximity(refractory_s=1.0)
-    walk_up = [500] * 20
+    walk_up = stays(500)
     walk_off = [1500] * 40
     got, _ = feed(p, walk_up + walk_off + walk_up)
     assert evs(got) == ["arrived", "left", "arrived"]
@@ -89,7 +102,7 @@ def test_leaving_and_coming_straight_back_does_not_double_fire():
     """Someone steps back to let a friend see, then leans in again. Inside the
     refractory that is one visit, not two."""
     p = Proximity(refractory_s=3.0)
-    got, _ = feed(p, [500] * 20 + [1500] * 6 + [500] * 20)
+    got, _ = feed(p, stays(500) + [1500] * 6 + stays(500))
     assert evs(got).count("arrived") == 1
 
 
@@ -108,7 +121,7 @@ def test_a_dropped_reading_is_not_a_distance():
     """None must never be read as 0 (a face against the lens) or as infinity
     (the room emptied). Both are wrong and both are dramatic."""
     p = Proximity()
-    _, t = feed(p, [500] * 20)
+    _, t = feed(p, stays(500))
     got, _ = feed(p, [None] * 2, t0=t)          # a brief dropout: 0.1 s
     assert evs(got) == [], "a short dropout must not empty the room"
     assert p.inside
@@ -116,7 +129,7 @@ def test_a_dropped_reading_is_not_a_distance():
 
 def test_a_long_dropout_does_eventually_mean_gone():
     p = Proximity(lost_s=0.5)
-    _, t = feed(p, [500] * 20)
+    _, t = feed(p, stays(500))
     got, _ = feed(p, [None] * 40, t0=t)         # 2 s of nothing
     assert "left" in evs(got)
 
@@ -141,14 +154,14 @@ def test_a_hand_is_inside_the_person_band_not_instead_of_it():
     """They are consecutive beats of one story -- it looks up at you, you keep
     coming, it pulls back -- not two competing triggers."""
     p = Proximity()
-    got, _ = feed(p, [1500] * 5 + [500] * 20 + [150] * 20)
+    got, _ = feed(p, [1500] * 5 + stays(500) + [150] * 20)
     assert evs(got) == ["arrived", "too_close"]
     assert p.inside and p.near
 
 
 def test_the_hand_going_away_does_not_end_the_visit():
     p = Proximity()
-    got, _ = feed(p, [1500] * 5 + [500] * 20 + [150] * 10 + [500] * 20)
+    got, _ = feed(p, [1500] * 5 + stays(500) + [150] * 10 + [500] * 20)
     assert evs(got) == ["arrived", "too_close", "backed_off"]
     assert p.inside
 
@@ -157,7 +170,7 @@ def test_leaving_from_inside_the_shy_band_reports_both():
     """Snatching a hand away and walking off is one motion. Neither flag may be
     left set, or the next visitor meets a robot that thinks it is being touched."""
     p = Proximity()
-    _, t = feed(p, [1500] * 5 + [500] * 20 + [150] * 20)
+    _, t = feed(p, [1500] * 5 + stays(500) + [150] * 20)
     got, _ = feed(p, [1500] * 20, t0=t)
     assert set(evs(got)) == {"left", "backed_off"}
     assert not p.inside and not p.near
@@ -179,7 +192,7 @@ def test_thresholds_that_cannot_work_are_refused_at_construction(kw):
 
 def test_reset_forgets_everything():
     p = Proximity()
-    _, t = feed(p, [500] * 20)
+    _, t = feed(p, stays(500))
     p.reset()
     assert not p.inside and p.distance is None
-    assert evs(feed(p, [500] * 20, t0=t)[0]) == ["arrived"]
+    assert evs(feed(p, stays(500), t0=t)[0]) == ["arrived"]

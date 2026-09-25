@@ -57,9 +57,18 @@ def bar(mm, width=48, full=2000.0):
 
 
 # --------------------------------------------------------------------------- #
-def live(args, rows):
-    """Stream to the terminal, and to a CSV if asked."""
+def live(args, rows, fired=None):
+    """Stream to the terminal, and to a CSV if asked.
+
+    `--gate` is what makes a second recording worth taking. The first trace
+    FITTED the thresholds, so it cannot also test them; a held-out take can,
+    and watching the events land while you walk is the whole point -- an
+    ARRIVED that prints while you are still three steps away is obvious
+    standing there and invisible in a CSV read afterwards.
+    """
     gate = Proximity() if args.gate else None
+    if fired is None:
+        fired = []
     t0 = time.time()
     last_print = 0.0
 
@@ -74,6 +83,7 @@ def live(args, rows):
         rows.append((t, mm))
         evs = gate.update(t, mm) if gate else []
         for e in evs:
+            fired.append((t, e, mm))
             print(f"\n  >>> {e.upper():<12} at {mm if mm else '--'} mm, t={t:6.2f}s")
         if time.time() - last_print > 0.05:
             last_print = time.time()
@@ -134,6 +144,13 @@ def live(args, rows):
         print()
     finally:
         link.close()
+    if gate is not None:
+        print(f"\n{len(fired)} events over {rows[-1][0]:.0f}s:" if rows else "")
+        for t, e, mm in fired:
+            print(f"  {t:7.2f}s  {e:<12} {mm if mm is not None else '--'}")
+        n = sum(1 for _, e, _ in fired if e == "arrived")
+        print(f"\n  arrived x{n}.  One per person who actually stopped, and")
+        print("  none for anyone who only walked past -- that is the test.")
 
 
 # --------------------------------------------------------------------------- #
@@ -263,9 +280,9 @@ def main():
             replay(rows, Proximity())
         return 0
 
-    rows = []
+    rows, fired = [], []
     try:
-        live(a, rows)
+        live(a, rows, fired)
     finally:
         if a.log and rows:
             with open(a.log, "w") as f:

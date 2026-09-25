@@ -286,12 +286,34 @@ void tofInit() {
   // rather than reporting that it is overrun.
   tof.setMeasurementTimingBudget(33000);     // us
   tof.startContinuous(TOF_PERIOD_MS);        // 50 ms -> 20 Hz
+  tofLastGot = millis();
   tofOK = true;
   Serial.println("IN TOF READY");
 }
 
+// COUNTERS, because "no readings" has three different causes and they are
+// indistinguishable from outside: checkTof never runs, dataReady is never true,
+// or a reading arrives and is thrown away. `TOFDIAG` tells them apart in one
+// question instead of three reflashes.
+static uint32_t tofCalls = 0, tofReadyN = 0, tofEmit = 0, tofRestarts = 0;
+static int tofLastStatus = -1, tofLastMm = -1, tofLastI2C = -1;
+static uint32_t tofLastGot = 0;
+
 void checkTof() {
   if (!tofOK) return;
+  tofCalls++;
+
+  // WATCHDOG. Continuous ranging can be left not-running by a configuration
+  // call that quietly failed, and the symptom is exactly this: init reports
+  // success and dataReady is never true again. Re-issuing startContinuous is
+  // cheap and says so in the log, so a restart that fixes it is evidence
+  // rather than magic.
+  if (tofLastGot && millis() - tofLastGot > 2000) {
+    tofLastGot = millis();
+    tofRestarts++;
+    tof.startContinuous(TOF_PERIOD_MS);
+    Serial.printf("IN TOF RESTART #%lu\n", (unsigned long)tofRestarts);
+  }
   // POLL EVERY PASS. Rate-limiting this to TOF_PERIOD_MS and then asking
   // dataReady() is a beat frequency: the sensor produces a sample every 50 ms
   // and this asked every 50 ms, so the two clocks slid past each other and the
@@ -300,8 +322,14 @@ void checkTof() {
   // broken sensor rather than a scheduling mistake.
   // The loop already paces itself at ~200 Hz, and the sensor only has an answer
   // 20 times a second, so asking every pass IS the 20 Hz stream.
-  if (!tof.dataReady()) return;
+  if (!tof.dataReady()) { tofLastI2C = tof.last_status; return; }
+  tofReadyN++;
+  tofLastGot = millis();
   tof.read(false);
+  tofLastStatus = (int)tof.ranging_data.range_status;
+  tofLastMm = (int)tof.ranging_data.range_mm;
+  tofLastI2C = tof.last_status;
+  tofEmit++;
   // RangeValid only. Everything else -- wraparound, signal too weak, sigma too
   // high -- is the sensor saying it does not know, and it says so often enough
   // that treating those as readings would put noise straight into the gate.
@@ -920,6 +948,12 @@ void handleLine(String line) {
   // there is no way to tell "the sensor failed to init" from "the sensor is
   // fine and nobody is in front of it", and those need opposite fixes.
   else if (cmd == "SCAN") tofScan();
+  else if (cmd == "TOFDIAG")
+    Serial.printf("IN TOFDIAG calls=%lu ready=%lu emit=%lu restarts=%lu "
+                  "status=%d mm=%d i2c=%d ok=%d\n",
+                  (unsigned long)tofCalls, (unsigned long)tofReadyN,
+                  (unsigned long)tofEmit, (unsigned long)tofRestarts,
+                  tofLastStatus, tofLastMm, tofLastI2C, (int)tofOK);
   else if (cmd == "TOF") Serial.println(String("IN TOF ")
                                         + (USE_TOF ? (tofOK ? "READY" : "FAIL")
                                                    : "DISABLED"));

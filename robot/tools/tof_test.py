@@ -114,9 +114,15 @@ def live(args, rows):
                 warned = True
                 print("\n  READY, but three seconds and not one reading.")
                 print("  That is the firmware, not the sensor: it initialised.")
-                print("  Check that checkTof() polls dataReady() every pass --")
-                print("  rate-limiting it to the sensor's own period aliases")
-                print("  against it and drops nearly every sample.\n")
+                print("  asking the board what it is actually doing:\n")
+                link.tofdiag()
+                time.sleep(0.6)
+                print("\n  calls=0    checkTof() is not being called from loop()")
+                print("  ready=0    the sensor never raises data-ready: ranging")
+                print("             is not running, or i2c!=0 means the reads")
+                print("             themselves are failing")
+                print("  emit>0     readings ARE arriving and something above")
+                print("             is dropping them\n")
     except KeyboardInterrupt:
         print()
     finally:

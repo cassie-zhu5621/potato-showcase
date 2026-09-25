@@ -54,11 +54,14 @@ def main():
     ap.add_argument("--log", metavar="CSV", help="record the trace as well")
     a = ap.parse_args()
 
-    player = None
+    player, servo_port = None, None
     if not a.dry_run:
         from robot.clip_player import ClipPlayer
         from robot.scs import open_bus
-        bus = open_bus()
+        # open_bus returns (bus, port) -- every other tool in here unpacks it,
+        # and passing the tuple straight to ClipPlayer fails four frames later
+        # inside flush_input, where it looks like a driver problem.
+        bus, servo_port = open_bus()
         player = ClipPlayer(bus, verbose=False).start(home=True)
         player.request("S0_IDLE")
         print("servos live. S0_IDLE.")
@@ -99,7 +102,11 @@ def main():
             "#" * min(40, int(40 * (1 - min(d or 2000, 2000) / 2000))).ljust(40)),
             end="", flush=True)
 
-    port = a.port or find_cores3()
+    # EXCLUDE THE SERVO PORT. Both boards enumerate as /dev/cu.usbmodem*, and
+    # find_cores3 probes each candidate by opening it and writing PING -- which
+    # on the Feetech adapter means resetting the servo bus mid-session, under a
+    # ClipPlayer that is already driving it.
+    port = a.port or find_cores3(exclude=(servo_port,) if servo_port else ())
     if not port:
         sys.exit("no CoreS3 found")
     link = CoreS3Link(port, on_input=on_line)

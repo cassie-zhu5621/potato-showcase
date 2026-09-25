@@ -165,6 +165,8 @@ def main():
     time.sleep(0.4)
     link.tof()
     time.sleep(0.5)
+    link.dist(True)          # the board does not stream unless asked
+    time.sleep(0.3)
     if a.bus is not None:
         print(f"  re-initialising the ToF on {'Wire1' if a.bus else 'Wire'}...")
         link.tofbus(a.bus)

@@ -98,6 +98,8 @@ def live(args, rows, fired=None):
     time.sleep(0.4)
     link.tof()
     time.sleep(0.4)
+    link.dist(True)          # the board does not stream unless asked
+    time.sleep(0.3)
     if args.bus is not None:
         print(f"  re-initialising on {'Wire1' if args.bus else 'Wire'}...")
         link.tofbus(args.bus)

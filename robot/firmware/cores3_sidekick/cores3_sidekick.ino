@@ -245,6 +245,13 @@ static uint32_t tofCalls = 0, tofReadyN = 0, tofEmit = 0, tofRestarts = 0;
 static int tofLastStatus = -1, tofLastMm = -1, tofLastI2C = -1;
 static uint32_t tofLastGot = 0;
 
+// SILENT UNLESS ASKED. The sensor runs either way -- TOFDIAG stays truthful --
+// but 20 readings a second is telemetry nobody asked for, and the notice loop
+// prints every line the board says. Left on by default it buried PTT, BODYTAP,
+// OK and STOP under 1200 lines a minute. `EVT DIST 1` turns the stream on;
+// the tools that want it ask, and the study loop never does.
+static bool tofStream = false;
+
 // TRIED BOTH WAYS ROUND, even though the pinout above settles it. The order is
 // right for rev1 and this costs a few milliseconds at boot; what it buys is
 // that a board revision that moved the pair reports itself, instead of
@@ -364,7 +371,7 @@ void checkTof() {
   // that treating those as readings would put noise straight into the gate.
   int mm = (tof.ranging_data.range_status == VL53L1X::RangeValid)
            ? (int)tof.ranging_data.range_mm : -1;
-  Serial.printf("IN DIST %d\n", mm);
+  if (tofStream) Serial.printf("IN DIST %d\n", mm);
 }
 #else
 // The same names, so TOFDIAG and the TOF query compile with USE_TOF at 0 and
@@ -983,6 +990,10 @@ void handleLine(String line) {
   // there is no way to tell "the sensor failed to init" from "the sensor is
   // fine and nobody is in front of it", and those need opposite fixes.
   else if (cmd == "SCAN") tofScan();
+  else if (cmd == "DIST") {
+    tofStream = (arg.toInt() != 0);
+    Serial.printf("IN DIST %s\n", tofStream ? "on" : "off");
+  }
   // ONE LINE, AT THE END, WITH THE MUSIC OFF. The point of putting a voice in
   // the body is that the sound is located there; through a PA it is narration
   // about the robot rather than the robot. That only survives while nothing

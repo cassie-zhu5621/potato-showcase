@@ -33,6 +33,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))))
 from robot.scs import Bus, open_bus
 from robot.pose import (JOINTS, IDS, CENTER, UNITS_PER_DEG, resolve, centre_units,
+                        clamp_deg,
                        reach_deg, clamp_deg,
                   unit_to_deg,
                   move_ms, REAIM_DPS, COLLAPSE_DPS)
@@ -486,6 +487,33 @@ class ClipPlayer:
                     pass
 
     # ---------------- internals ----------------
+    def drive_deg(self, **deg):
+        """Command a pose directly, in Blender degrees. For live performance.
+
+        THE ONE PUBLIC WAY TO MOVE THIS WITHOUT A CLIP, and it exists so that
+        there is still exactly one object that owns the bus. A performance mode
+        needs a continuous oscillator rather than an authored file -- a clip has
+        a duration, and what a tempo needs is a phase -- but giving that its own
+        Bus would mean two writers and a jam nobody could reproduce.
+
+        Safe to call from another thread while no clip is playing: `_run_inner`
+        sleeps when `_want` is None and touches nothing. It is NOT safe during a
+        clip, and the caller is expected to know which it is doing -- this is a
+        performance instrument, not a queue.
+
+        Every angle goes through clamp_deg, so the calibrated reach holds
+        whatever the caller asks for. Returns the angles actually commanded.
+        """
+        out, units = {}, dict(self.cur)
+        for j, d in deg.items():
+            if j not in JOINTS:
+                raise KeyError(j)
+            c, _ = clamp_deg(j, d)
+            out[j] = c
+            units[j] = resolve(j, CENTER + c * UNITS_PER_DEG)[0]
+        self._send(units)
+        return out
+
     def _lead(self, units):
         """Bias each command in the direction it is travelling, by half the
         joint's measured dead band.

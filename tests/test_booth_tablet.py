@@ -551,3 +551,25 @@ def test_the_prompt_box_is_16px_so_ios_does_not_zoom_the_page():
     from webui.booth import PAGE
     css = PAGE[PAGE.index("#ctx{"):PAGE.index("#ctx:focus")]
     assert "font-size:16px" in css
+
+
+def test_the_relation_ribbon_is_off_unless_asked_for():
+    """It is burned INTO the frame, so it reaches every screen the stream
+    reaches -- including the visitor's tablet, where eleven abbreviations from
+    a vocabulary nobody has read sit over the bottom of the picture.
+
+    Off by default, `--ribbon` for debugging the relation engine, where seeing
+    a row light up on the frame that caused it is the whole point."""
+    import inspect
+    from planning.plan_view import PlanView
+    assert inspect.signature(PlanView.__init__).parameters["ribbon"].default is False
+    src = inspect.getsource(PlanView)
+    i = src.index("draw_relation_ribbon(fr")
+    assert "if self.ribbon:" in src[max(0, i - 200):i], \
+        "the ribbon must be drawn behind the flag, not unconditionally"
+
+
+def test_the_loop_can_turn_the_ribbon_back_on():
+    src = open("noticebot_loop.py").read()
+    assert '"--ribbon"' in src
+    assert "ribbon=a.ribbon" in src

@@ -313,6 +313,12 @@ def main():
                          "By default a new session_feed/e2e_<timestamp> directory "
                          "is created for every process start.")
     ap.add_argument("--list-cams", action="store_true")
+    # Burned into the frame, so it reaches the visitor's tablet too --
+    # eleven abbreviations over the bottom of the picture. The developer
+    # page shows the same rows as HTML, lit the same way.
+    ap.add_argument("--ribbon", action="store_true",
+                    help="draw the 1-11 relation strip into the frame "
+                         "(debugging the relation engine)")
     ap.add_argument("--no-stt", action="store_true",
                     help="skip Whisper; the web UI text box is then the only "
                          "transcript source. The flow is identical either way.")
@@ -613,7 +619,8 @@ def main():
                             vocab=[v.strip() for v in a.vocab.split(",")],
                             conf=a.conf, persist=a.persist,
                             cooldown=a.cooldown, tau_gap=a.tau_gap,
-                            synonym_prompt=a.synonym_prompt)
+                            synonym_prompt=a.synonym_prompt,
+                            ribbon=a.ribbon)
             print(f"[cv] ready ({a.detector})")
         except Exception as e:
             # Said loudly, and the session still runs: the motion machine and the

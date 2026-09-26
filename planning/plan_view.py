@@ -59,7 +59,20 @@ class PlanView:
 
     def __init__(self, detector="yoloworld", vocab=("person",), conf=0.3,
                  persist=2, cooldown=15.0, tau_gap=3.0, lean_deg=25.0,
-                 synonym_prompt=True):
+                 synonym_prompt=True, ribbon=False):
+        # THE RELATION RIBBON IS OFF BY DEFAULT, and that is a decision about
+        # audience rather than about pixels. It is burned INTO the frame, so it
+        # reaches every screen the stream reaches -- including the tablet the
+        # visitor is holding, where `1 gaze 2 joint 3 eye 4 point ...` is eleven
+        # abbreviations from a vocabulary nobody in the room has read, printed
+        # over the bottom of the picture they were actually looking at.
+        #
+        # Nothing is lost by hiding it: the developer page renders the same
+        # eleven rows as HTML chips, lit per frame from the same truth map, and
+        # does it legibly. `--ribbon` puts it back for debugging the engine
+        # itself, where seeing a row light up ON the frame that caused it is
+        # the point.
+        self.ribbon = bool(ribbon)
         # live relevance state, updated by each plan. `allow` is the closed-YOLO
         # whitelist (synonym-expanded to match whatever labels the detector
         # emits); `want_classes` is the RAW planner nouns for an open-vocab
@@ -214,7 +227,8 @@ class PlanView:
             draw_arrow(fr, r0.origin, r0.point_at(0.5 * math.hypot(W, H)), C_CYAN, 12)
         for c in self.viz.get("joint", []):
             draw_circle(fr, c["point"], 26, C_MAGENTA, 10)
-        draw_relation_ribbon(fr, W, H, self.truth, self.entries())
+        if self.ribbon:
+            draw_relation_ribbon(fr, W, H, self.truth, self.entries())
         if header:
             draw_text(fr, header, (16, 30), C_GREEN, 0.6, 2)
         return fr

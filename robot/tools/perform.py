@@ -120,6 +120,11 @@ AMP_BPM_LIMIT = 1146.0
 # RAMPED, not jumped. drive_deg commands a position and the servo goes there as
 # fast as it can; a 30-degree jump mid-sway is a lurch, and pan's limit is the
 # camera loom rather than the servo, so it is the axis to be gentle with.
+# A SWELL, NOT A STEP. Changing the amplitude instantly moves the pose by the
+# difference -- at the bottom of a sway, 6 to 15 degrees is a 9 degree jump in
+# one frame, which is 450 deg/s and reads as a tick. Ramped over about a beat
+# it is a crescendo instead, which is what the key was wanted for anyway.
+AMP_DPS = 14.0
 PAN_STEP = 15.0
 PAN_DPS = 40.0
 PAN_MAX = 65.0
@@ -137,6 +142,7 @@ class Perf:
         self.t0 = time.perf_counter()     # phase origin: a beat falls here
         self.shape = "nod"                # nod | lean | dip
         self.amp_i = 1
+        self._amp = AMPS[1]          # ramps toward the asked-for amplitude
         self.trim = 0.0                   # neck bias, for looking up
         self.frozen = True                # start still; F to begin
         self.pan = 0.0
@@ -209,10 +215,16 @@ class Perf:
 
     # ---------------- the sway ----------------
     @property
-    def amp(self):
-        """What is actually played: the amplitude asked for, or what the tempo
-        allows, whichever is smaller."""
+    def amp_target(self):
+        """The amplitude asked for, or what the tempo allows, whichever is
+        smaller."""
         return min(AMPS[self.amp_i], AMP_BPM_LIMIT / max(self.bpm, 1.0))
+
+    @property
+    def amp(self):
+        """What is actually being played right now, part way through the ramp.
+        The status line shows this one, so what is printed is what is moving."""
+        return self._amp
 
     def pose(self):
         """The oscillator. Phase 0 is the beat, and the beat is the BOTTOM of
@@ -277,7 +289,11 @@ class Perf:
             # THE PHASE KEEPS RUNNING WHILE A CLIP PLAYS. It is read off the
             # wall clock, not accumulated, so the sway resumes exactly in time
             # instead of wherever it was interrupted.
-            # ramp the turn, whatever else is happening
+            # ramp the amplitude and the turn, whatever else is happening
+            want = self.amp_target
+            astep = AMP_DPS * dt
+            self._amp = (want if abs(want - self._amp) <= astep
+                         else self._amp + astep * (1 if want > self._amp else -1))
             step = PAN_DPS * dt
             if abs(self.pan_want - self.pan) <= step:
                 self.pan = self.pan_want
@@ -406,7 +422,7 @@ def main():
                     "pan {:+4.0f}  "
                     "{}  {}{}  next:{:<16}".format(
                         perf.bpm, perf.shape, perf.amp,
-                        "!" if perf.amp < AMPS[perf.amp_i] - 0.05 else " ",
+                        "!" if perf.amp_target < AMPS[perf.amp_i] - 0.05 else " ",
                         perf.trim,
                         "FROZEN" if perf.frozen else "  " + "*" * (1 + int(beat * 3)) + " " * (3 - int(beat * 3)),
                         "snd" if perf.sound else "   ", perf.line, pend))

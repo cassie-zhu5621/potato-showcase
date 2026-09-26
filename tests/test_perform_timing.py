@@ -207,3 +207,48 @@ def test_the_sway_carries_the_pan():
     p = perf(shape="lean")
     p.pan = 25.0
     assert p.pose()["pan"] == 25.0
+
+
+def test_the_amplitude_swells_rather_than_steps():
+    """Changing it instantly moves the pose by the difference -- at the bottom
+    of a sway, 6 to 15 degrees is a 9 degree jump in one frame, 450 deg/s, and
+    it reads as a tick. One frame of ramp has to be small enough to be
+    invisible."""
+    dt = 1.0 / perform.RATE_HZ
+    assert perform.AMP_DPS * dt < 0.5
+
+
+def test_the_swell_takes_about_a_beat():
+    """Short enough to be a gesture, long enough to be a crescendo."""
+    p = perf(bpm=90.0)
+    p.amp_i = 0
+    p._amp = perform.AMPS[0]
+    p.amp_i = 3
+    dt, t = 1.0 / perform.RATE_HZ, 0.0
+    while abs(p.amp_target - p._amp) > 0.01 and t < 5:
+        st = perform.AMP_DPS * dt
+        p._amp += st * (1 if p.amp_target > p._amp else -1)
+        t += dt
+    assert 0.3 < t / p.period < 2.5, f"{t/p.period:.2f} beats"
+
+
+def test_the_status_line_shows_what_is_moving_not_what_was_asked():
+    """It reports `amp`, the value part way through the ramp, so the number on
+    screen is the one in the neck."""
+    p = perf(bpm=90.0)
+    p.amp_i = 3
+    p._amp = 6.0
+    assert p.amp == 6.0
+    assert p.amp_target != 6.0
+
+
+def test_the_limiter_is_what_the_bang_reports():
+    """At 90 BPM the cap is 12.7 degrees, so asking for 15 is limited -- and
+    that has to be visible, because the key pressed and the motion produced are
+    then different things."""
+    p = perf(bpm=90.0)
+    p.amp_i = 3
+    assert p.amp_target < perform.AMPS[3] - 0.05
+    p2 = perf(bpm=60.0)
+    p2.amp_i = 3
+    assert p2.amp_target == perform.AMPS[3]

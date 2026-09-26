@@ -10,6 +10,22 @@ servo bus and the CoreS3, and there is one of each.
 | **Showcase** | `python3 robot/tools/attend_test.py` | somebody comes close, the head comes up. No planner, no network |
 | **Performance** | `python3 robot/tools/perform.py` | played from the keyboard, to music, beside the fish. `PERFORM_RUNBOOK.md` |
 
+## Switching between them
+
+Ctrl-C the one that is running, start the other. That is all of it.
+
+**No reflash.** The firmware is one build shared by all four, so flashing is a
+one-off and happens again only when the firmware itself changes.
+
+**No power cycle, and nothing to remember to turn off.** Each mode claims the
+board on the way in and says every switch including the offs, so whatever the
+last mode left behind is overwritten before the new one starts — see below.
+
+The only real constraint is the one at the top: **nothing here runs at the same
+time as anything else here.** All four want the servo bus and the CoreS3, and
+there is one of each. If a mode will not start, the usual reason is the
+previous one still holding a port in another window.
+
 ## What the showcase work changed under the study loop
 
 Almost nothing, and the parts that did are listed here rather than left to be

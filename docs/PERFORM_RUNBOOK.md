@@ -19,7 +19,11 @@ as the study loop.
 
 ---
 
-## 1. Flash, once
+## 1. Flash — ONCE, not every time
+
+Switching between this and the demo needs no reflash, no power cycle and no
+cleanup: Ctrl-C one, start the other. Flash again only when the firmware
+itself changes.
 
 Firmware **v9** — or anything newer. The firmware is shared by all four modes
 and grows only by addition, with every optional thing off until a mode asks, so

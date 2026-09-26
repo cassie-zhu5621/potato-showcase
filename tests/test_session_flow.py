@@ -377,12 +377,14 @@ expect(f.state != "S7_ERROR",
 
 print("\n--- S4 re-fires on its own (REPLAN_IDLE_S / REPLAN_PERIOD_S) ---")
 # These two constants sat in states.py, documented and unread, while the robot
-# watched one angle until somebody tapped it. They are now 0 -- OFF for the user
-# study, where quiet is the normal condition and thirteen re-sweeps in fifteen
-# minutes left the aim close to random when an event finally happened.
+# watched one angle until somebody tapped it.
 #
-# The MECHANISM is still tested, with the constants supplied here: switching a
-# feature off for one study must not delete the coverage that says it works.
+# THE MECHANISM IS TESTED WITH THE CONSTANTS SUPPLIED HERE, and the live values
+# are tested separately below by asking the constant rather than by assuming a
+# branch's answer. The two must stay apart: switching a feature off for one
+# study must not delete the coverage that says it works, and a test that hard-
+# codes one branch's setting has to be edited every time the branch changes --
+# which is how it comes to be edited without being read.
 _IDLE, _PERIOD = ST.REPLAN_IDLE_S, ST.REPLAN_PERIOD_S
 ST.REPLAN_IDLE_S, ST.REPLAN_PERIOD_S = 30.0, 300.0
 
@@ -422,18 +424,31 @@ for st, label in (("S6_CORRECT", "a correction in progress"),
 
 ST.REPLAN_IDLE_S, ST.REPLAN_PERIOD_S = _IDLE, _PERIOD
 
-# ...and 0 means OFF, which is what the study runs with. A feature switched off
-# by a constant has to be switched off by that constant, not merely slowed down.
+# THE IDLE ONE IS A PER-BRANCH DECISION TOO, so this asks the constant.
+#
+# Showcase (60): the room turns over every couple of minutes and nobody retypes
+# a prompt for each new face, so a plan that has produced nothing for a minute
+# is about a room that has gone. It cannot interrupt anyone -- a rule that keeps
+# landing keeps pushing the clock out.
+# Study (0): quiet is the NORMAL condition in a 15-minute session, so this fired
+# about thirteen times and left the aim close to random when an event finally
+# happened.
 f = flow()
 run(f, ["ptt_down", "ptt_up", "transcript:watch the desk",
         "arrived:S3_SCAN", "arrived:S4B_WATCH", "planned"], "")
-# Inside the period, so only the idle rule could fire -- and it is off. Eight
-# minutes of nothing is far past the 60 s this used to re-sweep on.
-CLOCK[0] += ST.REPLAN_PERIOD_S - 60
-out = f.feed("tick")
-expect(f.state == "S4B_WATCH",
-       f"REPLAN_IDLE_S={ST.REPLAN_IDLE_S:.0f} -> "
-       f"{(ST.REPLAN_PERIOD_S-60)/60:.0f} min of quiet alone never re-sweeps")
+if ST.REPLAN_IDLE_S:
+    CLOCK[0] += ST.REPLAN_IDLE_S - 1
+    f.feed("tick")
+    expect(f.state == "S4B_WATCH", "just under REPLAN_IDLE_S -- still watching")
+    CLOCK[0] += 2
+    f.feed("tick")
+    expect(f.state == "S3_SCAN",
+           f"{ST.REPLAN_IDLE_S:.0f}s of nothing at this angle -> look elsewhere")
+else:
+    CLOCK[0] += 480
+    f.feed("tick")
+    expect(f.state == "S4B_WATCH",
+           "REPLAN_IDLE_S=0 -> eight minutes of quiet alone never re-sweeps")
 
 # THE PERIODIC ONE IS A PER-BRANCH DECISION, so the test asks the constant
 # rather than hard-coding one branch's answer.
@@ -447,9 +462,16 @@ expect(f.state == "S4B_WATCH",
 f = flow()
 run(f, ["ptt_down", "ptt_up", "transcript:watch the plant",
         "arrived:S3_SCAN", "arrived:S4B_WATCH", "planned"], "")
+_t0 = CLOCK[0]
 if ST.REPLAN_PERIOD_S:
-    CLOCK[0] += ST.REPLAN_PERIOD_S - 30
-    f.feed("tick")
+    # KEEP THE ANGLE PRODUCTIVE while the period runs down. With REPLAN_IDLE_S
+    # on, plain waiting re-sweeps for the idle reason long before the period is
+    # reached, and the test would then be watching the wrong timer -- passing,
+    # and proving nothing about the one it names.
+    while ST.REPLAN_PERIOD_S - 30 > 0 and CLOCK[0] < _t0 + ST.REPLAN_PERIOD_S - 30:
+        CLOCK[0] += 20
+        run(f, ["finding:cup", "ok", "arrived:S4B_WATCH"], "")
+        f.feed("tick")
     expect(f.state == "S4B_WATCH", "just before the period -- still watching")
     CLOCK[0] += 60
     out = f.feed("tick")
@@ -458,10 +480,18 @@ if ST.REPLAN_PERIOD_S:
     expect(("plan", "watch the plant") in out,
            "...on the request already on record, not a new one")
 else:
-    CLOCK[0] += 3600
-    f.feed("tick")
+    # A FINDING EVERY HALF MINUTE, because with REPLAN_IDLE_S on, plain quiet is
+    # no longer the right probe: it would re-sweep for the OTHER reason and the
+    # test would pass while proving nothing about the period. A productive angle
+    # keeps the idle clock pushed out, so anything that sweeps here is the
+    # periodic rule -- which is what is meant to be off.
+    for _ in range(8):
+        CLOCK[0] += 30
+        run(f, ["finding:cup", "ok", "arrived:S4B_WATCH"], "")
+        f.feed("tick")
     expect(f.state == "S4B_WATCH",
-           "REPLAN_PERIOD_S=0 -> an hour of quiet never re-sweeps on its own")
+           "REPLAN_PERIOD_S=0 -> four minutes of a WORKING angle is never "
+           "interrupted by a clock")
 
 print("\n--- transcript_usable thresholds ---")
 for text, want in [("find the blue mug", True), ("", False), ("hm", False),

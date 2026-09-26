@@ -412,7 +412,27 @@ STT_TIMEOUT_S = 15.0
 # See robot_motion/S4_S5_DESIGN.md sec 1.
 #
 # S4 re-fires on two conditions:
-REPLAN_IDLE_S = 0.0      # OFF for the user study. Was 60.
+REPLAN_IDLE_S = 60.0     # ON for the showcase. 0.0 for the user study.
+                         #
+                         # THIS CHECKOUT IS THE SHOWCASE ONE, and the two want
+                         # opposite things from the same number. At a stand the
+                         # room turns over every couple of minutes: a plan made
+                         # for whoever was standing there ten minutes ago is
+                         # about a room that no longer exists, and nobody is
+                         # going to retype a prompt for each new face.
+                         #
+                         # IDLE, NOT PERIOD, and that is the whole choice. This
+                         # one only fires when the watched angle has produced
+                         # NOTHING for a minute, so it cannot interrupt somebody
+                         # mid-interaction -- if the rule keeps landing, the
+                         # timer keeps being pushed out. REPLAN_PERIOD_S goes
+                         # off on a clock whatever is happening, which at a
+                         # stand means swinging the head away from the person
+                         # who just asked it to watch something. Left at 0.
+                         #
+                         # Restore to 0.0 to reproduce a study session. The
+                         # reasoning for that, kept because it is the reason
+                         # this was ever off:
                          #
                          # In a 15-minute session with scripted events at 3, 5
                          # and 10 minutes, QUIET IS THE NORMAL CONDITION -- so a
@@ -429,7 +449,7 @@ REPLAN_IDLE_S = 0.0      # OFF for the user study. Was 60.
                          # participant cannot tell 'it re-scanned' from 'it noticed
                          # something', and neither can the transcript.
                          #
-                         # Restore to 60 for unattended running. Original note:
+                         # Original note:
                          # tracking has seen nothing. The detection is real:
                          # *there is nothing here*.
                          #

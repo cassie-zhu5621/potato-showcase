@@ -435,13 +435,22 @@ def test_the_strip_scrolls_sideways_at_full_height():
     assert "width:auto" in img, "let it be as wide as it is"
 
 
-def test_the_exhibition_does_not_re_sweep_on_its_own():
-    """A self-directed sweep is a good beat in a 15-minute session. At a stand it
-    lands in the middle of a stranger's ninety seconds and the head swings off
-    the thing they just asked it to watch."""
+def test_the_showcase_re_sweeps_when_idle_but_never_on_a_clock():
+    """Two timers, opposite answers, and the difference is whether it can
+    interrupt somebody.
+
+    REPLAN_IDLE_S fires only when the watched angle has produced NOTHING for a
+    minute, so a rule that keeps landing keeps pushing it out and a visitor is
+    never cut off mid-interaction. At a stand that is what keeps a ten-minute-old
+    plan from outliving the room it was made for.
+
+    REPLAN_PERIOD_S goes off on a clock whatever is happening -- a good beat in
+    a 15-minute session, and at a stand it swings the head away from the person
+    who just asked it to watch something. Stays off.
+    """
     import robot.states as ST
+    assert ST.REPLAN_IDLE_S == 60.0
     assert ST.REPLAN_PERIOD_S == 0.0
-    assert ST.REPLAN_IDLE_S == 0.0
 
 
 # ------------------------------------------------------------ the routes --

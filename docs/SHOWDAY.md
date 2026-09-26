@@ -250,6 +250,24 @@ still does nothing, it is `--feedback robot`.
 
 ---
 
+## It looks around by itself after a quiet minute
+
+`REPLAN_IDLE_S = 60`. If the angle it is watching produces **nothing** for a
+minute, it sweeps and re-plans on the request already on record. That is what
+keeps a plan made for whoever was standing there ten minutes ago from outliving
+the room it was made for, without anybody retyping a prompt for each new face.
+
+**It cannot interrupt a visitor.** A rule that keeps landing keeps pushing the
+clock out, and a correction or a report in progress is never cut off. The other
+timer -- `REPLAN_PERIOD_S`, which goes off on a clock whatever is happening --
+is deliberately **off**: at a stand it swings the head away from the person who
+just asked it to watch something.
+
+So a head that turns away after a quiet minute is working, not lost. It costs
+about 6 s of sweeping and one VLM round trip. Both live in `robot/states.py`.
+
+---
+
 ## The thirty-second check after any restart
 
 1. walk up -> head comes up

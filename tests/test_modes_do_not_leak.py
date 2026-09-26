@@ -138,3 +138,23 @@ def test_the_runbooks_pass_feedback_robot():
         for b in demo:
             for flag in ("--feedback robot", "--detector yoloworld", "--serve"):
                 assert flag in b, f"{path} is missing {flag}:\n{b}"
+
+
+# --------------------------------------------------------------------------- #
+# "did not arrive" must READ the voltage, not nominate it.
+# --------------------------------------------------------------------------- #
+def test_a_low_bus_voltage_is_named_not_nominated():
+    """The old line listed three suspects and left the commonest one to a
+    multimeter nobody fetches mid-session. The servo knows -- register 62 --
+    and the reading is worth most right after the move that failed, because by
+    the time it is at rest it has recovered."""
+    import inspect
+    from robot import clip_player as cp
+    src = inspect.getsource(cp.ClipPlayer)
+    i = src.index("did not arrive")
+    block = src[max(0, i - 1400):i + 200]
+    assert "read_voltage" in block, "it must read, not guess"
+    assert "THE SUPPLY" in block and "which is fine" in block, \
+        "both verdicts, or the line still needs interpreting"
+    assert "except Exception" in block, \
+        "an unreadable bus must not turn a failed move into a crash"

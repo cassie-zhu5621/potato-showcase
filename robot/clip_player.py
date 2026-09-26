@@ -577,8 +577,28 @@ class ClipPlayer:
             if p is None or abs(p - units[j]) > ARRIVE_TOL:
                 bad.append(f"{j}={p}/{units[j]}")
         if bad and self.verbose:
-            print(f"[player] !! did not arrive: {', '.join(bad)} -- torque off, "
-                  f"jammed, or over-loaded at this voltage")
+            # READ THE VOLTAGE, do not list it as a suspect. "over-loaded at
+            # this voltage" named the commonest cause and then left it to be
+            # checked with a multimeter, at the one moment nobody is going to
+            # fetch one -- so the line was printed, read, and shrugged at for a
+            # whole evening. The servo already knows: register 62, and the
+            # answer is worth more RIGHT AFTER a move that failed than it is at
+            # rest, which is when a resting 5.5 V has already sagged.
+            v = None
+            try:
+                vs = [self.bus.read_voltage(IDS[j]) for j in JOINTS]
+                vs = [x for x in vs if x]
+                v = min(vs) if vs else None
+            except Exception:
+                pass
+            if v is None:
+                why = "torque off, jammed, or over-loaded (voltage unreadable)"
+            elif v < 4.8:
+                why = (f"bus reads {v}V under load -- THE SUPPLY. Below ~4.8 V "
+                       f"the servo cannot hold, and nothing in software helps")
+            else:
+                why = f"bus reads {v}V, which is fine -- so torque off or jammed"
+            print(f"[player] !! did not arrive: {', '.join(bad)} -- {why}")
         return not bad
 
     def _play_once(self, frames):

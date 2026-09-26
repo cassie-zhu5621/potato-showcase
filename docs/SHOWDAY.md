@@ -56,12 +56,33 @@ sensor), not anything that "opens but yields no frame" -- that is Continuity
 Camera and it will hang the loop for 8 s and then fail. Close Zoom, FaceTime
 and Photo Booth first or the list comes back short.
 
-**Then check, before people arrive:**
+**Check the servo supply.** Not with a multimeter -- the servos report it
+themselves, and `tof_test.py` cannot: that talks to the CoreS3, which is a
+different board on a different bus.
 
-- servo supply on the blue terminal reads **5-6 V**, not 4.3. At 4.3 it is
-  running on USB back-feed and the neck will not reach its poses -- the symptom
-  is `!! did not arrive: nod=641/626` in the log, and it gets worse as the day
-  warms up
+```bash
+python3 robot/tools/check_bus.py
+```
+
+Three servos must answer -- 1 pan, 2 tilt, 3 nod -- each with a voltage beside
+it. **5-6 V.** It warns by itself below 4.5. At 4.3 the robot is running on USB
+back-feed and the neck will not reach its poses: the symptom is
+`!! did not arrive` in the log, and it gets worse as the day warms up.
+
+This reads the bus AT REST, which is the easy case. A supply that passes here
+can still sag under a fast pan -- so if `!! did not arrive` appears during a
+run, believe that over this, and the line now prints the voltage it measured at
+the moment the move failed:
+
+```
+[player] !! did not arrive: pan=168/156 -- bus reads 4.3V under load -- THE
+         SUPPLY. Below ~4.8 V the servo cannot hold, and nothing in software helps
+[player] !! did not arrive: pan=168/156 -- bus reads 5.6V, which is fine -- so
+         torque off or jammed
+```
+
+**Then, before people arrive:**
+
 - both USB plugged in: the servo adapter and the CoreS3
 - the ToF on its bracket, horizontal, about 40 cm, pointing where people walk
   up. **Move the sensor and every threshold measured for it is void**
@@ -196,7 +217,7 @@ and then power-cycle the servo supply, because nothing turned the torque off.
 | `no CoreS3 found` | the other mode still has it, or you did not wait two seconds, or the cable |
 | `camera N opened but produced no frames` | an orphan has it, or the index moved -- `--list-cams` again |
 | servos do not move | performance starts **frozen** -- press `F`. Otherwise the 5-6 V supply |
-| `!! did not arrive` in the log | supply voltage, every time. Not a software setting |
+| `!! did not arrive` in the log | the line itself now says which: a voltage under load, or torque off / jammed |
 | walking up does nothing | is `approach trigger ARMED` in the loop's first lines? If not, `--approach` did not arrive |
 | it wakes once and never again | v10 or older on the board. Fixed in v11 -- check `tof_test.py` |
 | the robot performs an error | `standing_prompt.py` is not running |

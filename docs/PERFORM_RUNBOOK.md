@@ -52,7 +52,9 @@ reported. Above is fine.
 
 ## 2. Before the doors open
 
-- **Servo supply on the blue terminal**, 5–6 V. If the bus reads 4.3 V it is
+- **Servo supply**, 5–6 V. `python3 robot/tools/check_bus.py` asks the servos
+  themselves and warns below 4.5 V -- `tof_test.py` cannot, it talks to the
+  CoreS3, which is a different board on a different bus. If the bus reads 4.3 V it is
   running on USB back-feed and will brown out under load — see HARDWARE_SETUP.
 - **Two USB ports**: the servo adapter and the CoreS3. Both enumerate as
   `/dev/cu.usbmodem*`; the tools tell them apart by PING, so no configuration.

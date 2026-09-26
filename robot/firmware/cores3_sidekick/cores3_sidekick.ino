@@ -43,12 +43,12 @@
  *                          `hello`. Data, not firmware: one flash teaches the
  *                          command, every later name is a serial line.
  *     EVT REST             end of a run: go quiet, back to idle + warm breath
- *     EVT PING             -> `IN PONG cores3_sidekick v10`
+ *     EVT PING             -> `IN PONG cores3_sidekick v11`
  *
  *   BUMP THE VERSION WITH EVERY FLASH THAT MATTERS. This link is flaky enough
  *   that an upload can fail after the sketch has compiled, and then the board
  *   answers exactly as it did before -- so "is my fix on the board" is not
- *   answerable by behaviour, only by the version. v7 added the ToF; v8 made its stream opt-in and added SAY; v9 added the approach gate; v10 holds its button for a speaking window rather than 180 ms; v9 adds
+ *   answerable by behaviour, only by the version. v7 added the ToF; v8 made its stream opt-in and added SAY; v9 added the approach gate; v10 holds its button for a speaking window rather than 180 ms; v11 lets it re-arm when the room goes quiet instead of waiting for a far reading that never comes; v9 adds
  *   the approach gate. Every one of them arrives OFF -- the firmware is
  *   shared by four modes and may only grow by addition, so a mode gets
  *   what it asks for and nothing it did not.
@@ -378,28 +378,47 @@ static bool apprOn = false;
 static uint32_t apprSince = 0, apprLast = 0;
 static bool apprIn = false;
 static uint32_t apprUpAt = 0;          // when the owed PTT_UP falls due, or 0
+static uint32_t apprNearAt = 0;        // last time anybody was inside APPR_EXIT
 static const int APPR_ENTER = 900, APPR_EXIT = 1300;   // mm
 static const uint32_t APPR_DWELL = 700, APPR_REFRACTORY = 12000;
 static const uint32_t APPR_HOLD = 4500;                // the speaking window
+static const uint32_t APPR_GONE = 1500;                // silence that means left
 
 void checkApproach(int mm) {
-  if (!apprOn || mm < 0) return;
+  if (!apprOn) return;
   uint32_t m = millis();
-  if (!apprIn) {
-    if (mm > APPR_EXIT) { apprSince = 0; return; }
-    if (mm > APPR_ENTER) return;
-    if (!apprSince) { apprSince = m; return; }
-    if (m - apprSince < APPR_DWELL) return;
-    apprIn = true; apprSince = 0;
-    if (m - apprLast < APPR_REFRACTORY) return;   // one visitor, one wake
-    apprLast = m;
-    // PTT_DOWN now, PTT_UP owed. Sending only one leaves the laptop recording
-    // until its timeout; sending both at once leaves it recording nothing.
-    Serial.println("IN PTT_DOWN");
-    apprUpAt = m + APPR_HOLD;
-  } else if (mm > APPR_EXIT) {
-    apprIn = false; apprSince = 0;
+
+  // LEAVING IS A TIMEOUT, NOT A READING, and getting that backwards cost a
+  // whole evening. The latch was cleared by a reading ABOVE APPR_EXIT -- but
+  // walking away from the robot means walking into open space, where there is
+  // nothing for the beam to come back off and the sensor answers -1: "I do not
+  // know", not "far away". So the big reading never arrived, the latch never
+  // cleared, and "one visitor, one wake" quietly became "one wake, ever".
+  //
+  // What says somebody is gone is therefore the ABSENCE of near readings for a
+  // while -- which covers both ways of being gone, the open room and the
+  // reading that really is far. It has to be a while and not one sample: a
+  // single -1 happens several times a minute to a sensor pointed at a person.
+  if (mm >= 0 && mm <= APPR_EXIT) apprNearAt = m;
+
+  if (apprIn) {
+    if (m - apprNearAt > APPR_GONE) { apprIn = false; apprSince = 0; }
+    return;
   }
+  // A dropout mid-approach is no information, so it neither advances the dwell
+  // nor throws it away. Only a reading that is genuinely far does that.
+  if (mm < 0) return;
+  if (mm > APPR_EXIT) { apprSince = 0; return; }
+  if (mm > APPR_ENTER) return;
+  if (!apprSince) { apprSince = m; return; }
+  if (m - apprSince < APPR_DWELL) return;
+  apprIn = true; apprSince = 0;
+  if (m - apprLast < APPR_REFRACTORY) return;   // one visitor, one wake
+  apprLast = m;
+  // PTT_DOWN now, PTT_UP owed. Sending only one leaves the laptop recording
+  // until its timeout; sending both at once leaves it recording nothing.
+  Serial.println("IN PTT_DOWN");
+  apprUpAt = m + APPR_HOLD;
 }
 
 // Pay the owed PTT_UP. Called every pass of loop(), and unconditionally: the
@@ -1200,7 +1219,7 @@ void handleLine(String line) {
     setAntennaHue(255, 242, 224);   // = WARM. Keep in sync with HUE above.
     uiSet("idle");
   }
-  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v10");
+  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v11");
   // ASKABLE, because the boot line is not readable. USB CDC enumerates after
   // setup() has already run, so `IN TOF READY` and `IN TOF FAIL` are printed
   // into a port nothing is listening to yet and are simply lost. Without this
@@ -1270,7 +1289,7 @@ void setup() {
   tapInit();
   tofInit();
   uiDraw();                 // the idle screen, immediately -- no legacy layout
-  Serial.println("IN HELLO cores3_sidekick v10");
+  Serial.println("IN HELLO cores3_sidekick v11");
 }
 
 void loop() {

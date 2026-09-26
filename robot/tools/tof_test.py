@@ -152,7 +152,7 @@ def live(args, rows, fired=None):
                     print("  Name the board and watch it verify:\n")
                     print("      pio run -t upload --upload-port %s\n" % port)
                     print("  'Hash of data verified.' is the line to look for.")
-                    print("  Then run this again: the first line must say v10.\n")
+                    print("  Then run this again: the first line must say v11.\n")
                     continue
                 print("\n  READY, but three seconds and not one reading.")
                 print("  That is the firmware, not the sensor: it initialised.")

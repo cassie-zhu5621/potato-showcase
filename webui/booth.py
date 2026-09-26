@@ -202,6 +202,12 @@ def booth_state(STATE, feed_records, sweep_meta):
                    "all": r.get("all") or [], "any": r.get("any") or [],
                    "not": r.get("not") or [], "then": r.get("then") or [],
                    "sat": bool(r.get("sat")), "cool": bool(r.get("cool")),
+                   # WHETHER IT IS ON THAT OBJECT RIGHT NOW, which is not the
+                   # same as the relation being true: `hands on` is true of a
+                   # hand on anything. Without this the object chip is a label,
+                   # and a visitor cannot tell a rule about to fire from one
+                   # landing on the wrong thing.
+                   "on_now": bool(r.get("on_now")),
                    "truth": r.get("on") or {}}
                   for r in (STATE.get("status") or [])],
         "rel_names": REL_NAMES,
@@ -373,6 +379,10 @@ h1{font-weight:600;font-size:clamp(26px,3.4vh,40px);line-height:1.3;margin:0;let
 .op{font-size:clamp(11px,1.1vw,15px);color:#55524b}
 .obj{font-size:clamp(12px,1.3vw,18px);padding:4px 9px;border-radius:10px;
   background:#1c1c19;border:1px solid #3a3a35;color:#cfe33a}
+/* Lit when the relation is landing on THIS object, not merely when the rule
+   names it. Same fill as a true relation chip, so one glance reads the whole
+   row: relation true, and true ABOUT the right thing. */
+.obj.t{background:#cfe33a;border-color:#cfe33a;color:#101010;font-weight:700}
 .spec.sat{border-color:#d95b5b;background:#201616}
 
 /* THE PROMPT ROW. Slim and at the foot of every screen, including the sleep
@@ -536,7 +546,7 @@ function specInner(){
   ).join('');
   return `<span class=lb>${w.sat?'TRUE NOW':'WAITING FOR'}</span>
     <div class=row>${chips}${w.on?`<span class=op>on</span>
-      <span class=obj>${esc(w.on)}</span>`:''}</div>`;
+      <span class="obj${w.on_now?' t':''}">${esc(w.on)}</span>`:''}</div>`;
 }
 
 function specCell(){

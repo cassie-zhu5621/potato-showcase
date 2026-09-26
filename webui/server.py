@@ -96,7 +96,7 @@ REL_NAMES = {
 }
 
 
-def build_status(statuses, entries, truth):
+def build_status(statuses, entries, truth, landed=None):
     """Pack per-entry state for the UI: operator id groups + which rows are T this frame.
 
     statuses : list[EntryStatus] from WatchExecutor.step
@@ -120,8 +120,37 @@ def build_status(statuses, entries, truth):
             # "hands_on isn't bound to the whiteboard" about a plan that was
             # bound to it correctly.
             "onobj": e.get("on") or "",
+            # IS IT ON THAT OBJECT RIGHT NOW? A separate question from whether
+            # the relation is true, and the one the panel could not answer.
+            #
+            # `truth[9]` is "a hand is on SOMETHING" -- global, by design -- so
+            # a hand resting on the desk lit the relation chip while `phone`
+            # sat there in its own colour saying nothing either way. Watching
+            # that, there is no way to tell a rule that is about to fire from
+            # one that has been landing on the wrong object for ten minutes.
+            # It cost an evening on exactly that distinction.
+            "on_now": bool(_landed_on(e, landed)),
         })
     return out
+
+
+def _landed_on(e, landed):
+    """Did any of this entry's object-directed rows land on the object it
+    names? `landed` is {relation_id: {label}} from PlanView._gate_targets --
+    the same remembered set the focus gate itself decides on, so the chip and
+    the decision cannot disagree."""
+    if not landed:
+        return False
+    on = (e.get("on") or "").strip().lower()
+    if not on:
+        return False
+    from planning.spec_utils import _expand, OBJECT_DIRECTED
+    want = _expand([on])
+    ids = set(e.get("all") or []) | set(e.get("any") or []) | set(e.get("then") or [])
+    for rid in ids & OBJECT_DIRECTED:
+        if set(landed.get(rid) or ()) & want:
+            return True
+    return False
 
 PAGE = """<!doctype html><html><head><meta charset=utf-8><title>attention system</title>
 <style>
@@ -132,6 +161,9 @@ PAGE = """<!doctype html><html><head><meta charset=utf-8><title>attention system
 .op.onobj{background:#1c1c19;border:1px solid #3a3a35;color:#cfe33a;
   font:11px ui-monospace,monospace;padding:3px 8px;border-radius:9px;margin-left:6px}
 .op.onobj.none{color:#8a867d}
+/* LIT = the relation is landing on this object right now, which is a different
+   claim from the relation being true. truth[9] is "a hand is on SOMETHING". */
+.op.onobj.lit{background:#D9E157;border-color:#D9E157;color:#262626;font-weight:700}
 
 .devonly{font:11px ui-monospace,monospace;color:#8a867d;letter-spacing:.08em;
   text-transform:uppercase;margin-left:8px}
@@ -352,7 +384,7 @@ function compose(s){
   // about which object has to be touched -- which is the whole of the entry's
   // meaning, and the difference between a card that can fire and one the focus
   // gate will hold back on every frame.
-  if(s.onobj) parts.push(`<span class="op onobj">on ${s.onobj}</span>`);
+  if(s.onobj) parts.push(`<span class="op onobj${s.on_now?' lit':''}">on ${s.onobj}</span>`);
   else if((s.all||[]).some(i=>[1,4,7,8,9,11].includes(i)))
     parts.push(`<span class="op onobj none">any focus object</span>`);
   return `<div class=logic>${parts.join('')}</div>`;

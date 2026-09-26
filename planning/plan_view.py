@@ -418,7 +418,8 @@ class PlanView:
             UI.STATE["transcript"] = self.transcript
             UI.STATE["suppressed"] = list(self.suppressed)
             UI.STATE["status"] = attention_ui.build_status(
-                self.statuses, self.entries(), self.truth)
+                self.statuses, self.entries(), self.truth,
+                self._gate_targets(time.time()))
             if states is not None:
                 UI.STATE["states"] = states
             if collecting is not None:

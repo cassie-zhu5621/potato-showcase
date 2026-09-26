@@ -111,3 +111,44 @@ def test_lean_focus_ignores_unrelated_gaze_hit():
         "hits": [("gazing-at", {"det": 0}), ("lean-in", {"det": 1})],
     }
     assert not _focus_ok(entry, viz, {"laptop"})
+
+
+# --------------------------------------------------------------------------- #
+# The object chip answers "on it RIGHT NOW", not "the rule names it".
+# --------------------------------------------------------------------------- #
+def test_the_object_chip_lights_only_when_the_relation_lands_on_it():
+    """`truth[9]` is "a hand is on SOMETHING" -- global by design. So a hand on
+    the desk lit the relation while the `phone` chip sat in its own colour
+    saying nothing, and there was no way to tell a rule about to fire from one
+    that had been landing on the wrong object for ten minutes."""
+    from webui.server import build_status
+
+    class _S:
+        label = "touching_phone"; satisfied = False; cooling = False
+        cooldown_remaining_s = 0.0
+    e = {"all": [9], "any": [], "not": [], "then": [], "on": "phone"}
+
+    row = build_status([_S()], [e], {9: True}, {9: {"desk"}})[0]
+    assert row["on_now"] is False, "a hand on the desk must not light `phone`"
+
+    row = build_status([_S()], [e], {9: True}, {9: {"phone"}})[0]
+    assert row["on_now"] is True
+
+    # NO ALIAS CASE HERE, deliberately. Aliases die at the detector --
+    # _canonicalised renames every box on receipt -- so "cell phone" can never
+    # reach this far, and accepting it here would be the chip being more
+    # generous than the gate that actually decides. The chip lighting while the
+    # story is refused is worse than the chip never lighting.
+
+    # and with no gate information at all it must claim nothing
+    row = build_status([_S()], [e], {9: True}, None)[0]
+    assert row["on_now"] is False
+
+
+def test_both_screens_read_the_same_flag():
+    """The tablet and the developer page must not disagree about whether the
+    rule is on its object."""
+    from webui.server import PAGE as DEV
+    from webui.booth import PAGE as TABLET
+    assert "s.on_now" in DEV and "onobj.lit" in DEV
+    assert "w.on_now" in TABLET and ".obj.t" in TABLET

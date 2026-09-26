@@ -94,6 +94,9 @@ void sfxByName(const String& n);
 void uiSet(const String& name);
 void uiDraw();
 void uiTick();
+void faceEnter();
+void faceLeave();
+void faceTick();
 void uiTouch();
 bool uiHit(const UiBtn& b, int x, int y);
 
@@ -739,11 +742,81 @@ void uiDraw() {
   for (int i = 0; i < uiNBtn; i++) uiDrawBtn(i);
 }
 
+// ---------------- THE PERFORMING FACE ---------------------------------------
+//
+// One screen that only perform.py ever asks for. Everything else on this board
+// is unchanged: the study build never sends BEAT and never sees this.
+//
+// THE BOARD ANIMATES, THE LAPTOP KEEPS TIME. A screen wants 20-30 fps and the
+// link cannot carry that -- and should not, since the board has a clock of its
+// own. The laptop sends one short line on each beat and the firmware
+// interpolates between them, so the serial cost is a line or two a second
+// however smooth the face is.
+//
+// AND IT FREE-RUNS IF THE BEATS STOP. Same reasoning as the antenna's fallback
+// breath: a face frozen mid-bounce reads as "it broke", a face still moving
+// reads as "still here". After BEAT_STALE with no beat it just breathes.
+//
+// A SPRITE, not fill-then-draw. Clearing the band and then drawing into it
+// shows the clear, which at 20 fps is a flicker for the whole performance. The
+// sprite is 240x120 = 57 KB, built once when the screen is entered and freed
+// when it is left.
+static uint32_t beatAt = 0, beatMs = 667;
+static const uint32_t BEAT_STALE = 3000;
+static M5Canvas faceCv(&M5.Display);
+static bool faceReady = false;
+
+void faceEnter() {
+  if (faceReady) return;
+  faceCv.setColorDepth(16);
+  faceReady = faceCv.createSprite(240, 120) != nullptr;
+  M5.Display.fillScreen(TFT_BLACK);
+}
+
+void faceLeave() {
+  if (!faceReady) return;
+  faceCv.deleteSprite();
+  faceReady = false;
+}
+
+void faceTick() {
+  if (!faceReady) return;
+  static uint32_t last = 0;
+  uint32_t m = millis();
+  if (m - last < 40) return;               // 25 fps is past the flicker fusion
+  last = m;
+
+  float e;
+  if (m - beatAt < BEAT_STALE && beatMs > 100) {
+    // 0 at the beat, decaying over the bar. exp, not linear: a bounce is a hit
+    // and a settle, and a linear ramp reads as a slider being dragged.
+    float u = (float)(m - beatAt) / (float)beatMs;
+    e = expf(-u * 3.5f);
+  } else {
+    e = 0.12f + 0.10f * sinf(m / 900.0f);  // nobody is playing; just breathe
+  }
+
+  faceCv.fillSprite(TFT_BLACK);
+  faceCv.setTextDatum(middle_center);
+  faceCv.setTextColor(M5.Display.color565(aR, aG, aB));
+  // SCALE AND DROP TOGETHER. Growing alone reads as zooming; growing while
+  // sinking a little is weight arriving, which is what a beat is.
+  faceCv.setTextSize(3.2f + 1.5f * e);
+  faceCv.drawString("^o^", 120, 60 + (int)(10.0f * e));
+  faceCv.pushSprite(40, 70);
+}
+
 void uiSet(const String& name) {
-  if (name != uiScreen) { uiScreen = name; uiDown = -1; uiDraw(); }
+  if (name == uiScreen) return;
+  if (uiScreen == "perform") faceLeave();
+  uiScreen = name;
+  uiDown = -1;
+  if (name == "perform") { faceEnter(); return; }   // faceTick owns the pixels
+  uiDraw();
 }
 
 void uiTick() {
+  if (uiScreen == "perform") { faceTick(); return; }
   // only the bar repaints between events, and only its own rectangle: a full
   // redraw at bar rate would stall loop(), which also drives the LED
   if (uiScreen == "recording" && millis() - recDrawnAt > 80) {
@@ -990,6 +1063,13 @@ void handleLine(String line) {
   // there is no way to tell "the sensor failed to init" from "the sensor is
   // fine and nobody is in front of it", and those need opposite fixes.
   else if (cmd == "SCAN") tofScan();
+  // One line per beat. The period comes with it so the board can interpolate
+  // without being told the tempo separately -- and so a tempo change arrives
+  // with the beat that caused it rather than a message later.
+  else if (cmd == "BEAT") {
+    beatAt = millis();
+    if (arg.toInt() > 100) beatMs = arg.toInt();
+  }
   else if (cmd == "DIST") {
     tofStream = (arg.toInt() != 0);
     Serial.printf("IN DIST %s\n", tofStream ? "on" : "off");

@@ -207,6 +207,7 @@ class CoreS3Link:
     def tofbus(self, n):          self.event("TOFBUS", int(n))  # 0=Wire 1=Wire1
     def say(self, n=1):           self.event("SAY", int(n))  # a baked-in line
     def dist(self, on=True):      self.event("DIST", 1 if on else 0)  # the 20 Hz stream
+    def beat(self, period_ms):    self.event("BEAT", int(period_ms))  # one line per beat
 
     def close(self):
         self._stop = True

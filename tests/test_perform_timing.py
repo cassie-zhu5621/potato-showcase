@@ -266,3 +266,53 @@ def test_the_limiter_is_what_the_bang_reports():
     p2 = perf(bpm=60.0)
     p2.amp_i = 3
     assert p2.amp_target == perform.AMPS[3]
+
+
+# --------------------------------------------------------------------------- #
+# the face on the CoreS3
+# --------------------------------------------------------------------------- #
+class FakeLink:
+    def __init__(self):
+        self.beats, self.leds, self.screens = [], [], []
+
+    def beat(self, ms):
+        self.beats.append(ms)
+
+    def led(self, v):
+        self.leds.append(v)
+
+    def ui(self, name):
+        self.screens.append(name)
+
+
+def test_one_line_per_beat_and_no_more():
+    """The board animates and the laptop keeps time. A screen wants 25 fps and
+    the link cannot carry that -- so what goes over it is one short line a beat,
+    however smooth the face is."""
+    p = perf(bpm=120.0, t0=0.0)
+    p.link, p.frozen = FakeLink(), False
+    for k in range(int(2.0 * perform.RATE_HZ)):
+        p._face(k / perform.RATE_HZ)
+    assert len(p.link.beats) == 4          # 120 BPM, two seconds
+    assert p.link.beats[0] == 500          # and it carries the period
+
+
+def test_the_face_takes_no_lead():
+    """Like the light: a screen has nothing to travel, and a face that bounces
+    LEAD_S early is a face that is not on the beat."""
+    p = perf(bpm=60.0, t0=0.0)
+    p.link, p.frozen = FakeLink(), False
+    # a beat falls at t0 + n*period in wall clock; the unshifted phase is what
+    # crosses an integer there
+    assert p.phase_now(1.0) == pytest.approx(1.0)
+    assert p.phase(1.0) != pytest.approx(1.0)
+
+
+def test_frozen_sends_nothing():
+    """Frozen is the end of a phrase. A face still bouncing through it is not
+    an ending."""
+    p = perf(bpm=120.0, t0=0.0)
+    p.link, p.frozen = FakeLink(), True
+    for k in range(int(2.0 * perform.RATE_HZ)):
+        p._face(k / perform.RATE_HZ)
+    assert p.link.beats == []

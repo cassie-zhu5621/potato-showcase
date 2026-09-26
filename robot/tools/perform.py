@@ -20,6 +20,7 @@ listen to the same track, which is a conductor neither of you has to be.
   /       face front again
   B       light on / off       W C R S   warm / cool / red / summon
   M       gesture sounds on / off  (off by default -- see SFX_FOR)
+  E       the big bouncing face on the CoreS3 on / off
   1..6    gestures, quantised
   0       stop the sway, hold still
   V       say the selected line -- music OFF first.  [ ] pick which
@@ -134,6 +135,8 @@ class Perf:
     def __init__(self, player, link=None, verbose=False):
         self.player, self.link, self.verbose = player, link, verbose
         self.light = True
+        self.face = True
+        self._beat_n = -1
         self.sound = False
         self.line = 1
         self.pending_sfx = None
@@ -311,7 +314,25 @@ class Perf:
             if not self.frozen and now >= self.busy_until and self.player:
                 self.player.drive_deg(**self.pose())
             self._pulse(now)
+            self._face(now)
             time.sleep(dt)
+
+    def _face(self, now):
+        """One line to the board on each beat; the board animates between them.
+
+        Sent from the UNSHIFTED phase, like the light: a screen has nothing to
+        travel either, and a face that bounces LEAD_S early is a face that is
+        not on the beat.
+        """
+        if not (self.link and self.face) or self.frozen:
+            return
+        n = int(self.phase_now(now))
+        if n != self._beat_n:
+            self._beat_n = n
+            try:
+                self.link.beat(int(self.period * 1000))
+            except Exception:
+                pass
 
     def _pulse(self, now):
         """A flash on each beat, decaying. No lead -- see LED_PEAK above.
@@ -363,6 +384,9 @@ def main():
             print("no CoreS3 found -- running without the light")
 
     perf = Perf(player, link).start()
+    if link:
+        # the big face, and only here -- no other mode ever asks for it
+        link.ui("perform")
     old = termios.tcgetattr(sys.stdin)
     try:
         tty.setcbreak(sys.stdin.fileno())
@@ -398,6 +422,10 @@ def main():
                     perf.light = not perf.light
                 elif k in ("m", "M"):
                     perf.sound = not perf.sound
+                elif k in ("e", "E"):
+                    perf.face = not perf.face
+                    if perf.link:
+                        perf.link.ui("perform" if perf.face else "idle")
                 elif k == ",":
                     perf.pan_want = max(-PAN_MAX, perf.pan_want - PAN_STEP)
                 elif k == ".":
@@ -441,6 +469,8 @@ def main():
         perf.stop()
         print()
         if link:
+            link.ui("idle")          # hand the screen back the way it was
+            time.sleep(0.2)
             link.close()
         if player:
             player.request("S0_IDLE")

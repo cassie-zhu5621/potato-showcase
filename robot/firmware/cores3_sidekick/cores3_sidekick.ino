@@ -774,7 +774,19 @@ static bool faceReady = false;
 
 static const int FACE_W = 320, FACE_H = 240;
 static const float EYE_R = 34.0f;     // at rest
-static const int EYE_DX = 66, EYE_CY = 118;
+// GEOMETRY CHECKED ACROSS THE WHOLE BEAT, not at rest. The first set put the
+// eyes at 106 and the mouth at 186, which looks fine still and overlaps by
+// 13 px at the peak of the bounce -- exactly the frames nobody sees stopped.
+// These keep 35 px between eye and mouth at their closest and the lowest pixel
+// at 231 of 240.
+static const int EYE_DX = 66, EYE_CY = 92;
+static const int MOUTH_CY = 200;
+
+// A BLINK IS THE CHEAPEST THING THAT MAKES A FACE ALIVE. Two shapes that only
+// ever pulse read as a meter; two shapes that occasionally close read as
+// something with eyelids. Roughly every four seconds, for a tenth of one --
+// irregular, because a blink on a fixed period is a metronome, not a creature.
+static uint32_t blinkAt = 0, blinkEvery = 4000;
 
 void faceEnter() {
   if (faceReady) return;
@@ -822,15 +834,43 @@ void faceTick() {
   // which is weight landing; dropping a few pixels at the same time is where
   // the weight went. A beat is an impact, and an impact has all three.
   float rx = EYE_R * (1.0f + 0.85f * e);
-  float ry = EYE_R * (1.0f + 0.45f * e);
-  int cy = EYE_CY + (int)(14.0f * e);
+  float ry = EYE_R * (1.0f + 0.35f * e);
+  int cy = EYE_CY + (int)(8.0f * e);
   uint16_t col = M5.Display.color565(aR, aG, aB);
   int h = faceCv.height();
   if (cy + (int)ry > h - 2) cy = h - 2 - (int)ry;
 
+  // the blink, on its own clock
+  if (m - blinkAt > blinkEvery) {
+    blinkAt = m;
+    blinkEvery = 2600 + (esp_random() % 3400);
+  }
+  uint32_t since = m - blinkAt;
+  float lid = (since < 110) ? 1.0f - fabsf((float)since - 55.0f) / 55.0f : 0.0f;
+  ry *= (1.0f - 0.88f * lid);           // eyelids come down, width stays
+
   faceCv.fillSprite(TFT_BLACK);
-  faceCv.fillEllipse(FACE_W / 2 - EYE_DX, cy, (int)rx, (int)ry, col);
-  faceCv.fillEllipse(FACE_W / 2 + EYE_DX, cy, (int)rx, (int)ry, col);
+  int ex[2] = {FACE_W / 2 - EYE_DX, FACE_W / 2 + EYE_DX};
+  for (int i = 0; i < 2; i++) {
+    faceCv.fillEllipse(ex[i], cy, (int)rx, (int)ry < 2 ? 2 : (int)ry, col);
+    // THE CATCHLIGHT. One small pale dot up and to the side of centre, and it
+    // is the whole difference between an eye and a hole -- the reason a drawn
+    // eye looks wet. Skipped while the lid is down, because a highlight on a
+    // closed eye is a bug that reads as a glitch.
+    if (lid < 0.3f) {
+      int hr = (int)(rx * 0.26f);
+      faceCv.fillEllipse(ex[i] - (int)(rx * 0.32f), cy - (int)(ry * 0.34f),
+                         hr, hr, TFT_WHITE);
+    }
+  }
+
+  // THE MOUTH, and it opens on the beat rather than pulsing with the eyes. A
+  // face whose parts all do the same thing at the same time is a pattern; one
+  // where the mouth answers the eyes is a face singing along.
+  int mw = (int)(26.0f + 26.0f * e);
+  int mh = (int)(5.0f + 20.0f * e);
+  faceCv.fillEllipse(FACE_W / 2, MOUTH_CY + (int)(6.0f * e), mw, mh, col);
+
   faceCv.pushSprite(0, (FACE_H - h) / 2);
 }
 

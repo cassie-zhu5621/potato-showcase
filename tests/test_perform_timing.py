@@ -358,3 +358,31 @@ def test_the_status_line_does_not_jump_about():
                 p.frozen = False
                 widths.add(len(p.status()))
     assert len(widths) == 1, f"the line changes width: {sorted(widths)}"
+
+
+# --------------------------------------------------------------------------- #
+# reading the keyboard
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("data,want", [
+    ("\x1b[A", ["\x1b[A"]),               # up
+    ("\x1b[B", ["\x1b[B"]),               # down
+    ("f", ["f"]),
+    ("ff", ["f", "f"]),                   # a key held down
+    ("\x1b[A\x1b[A", ["\x1b[A", "\x1b[A"]),
+    ("\x1b[Af", ["\x1b[A", "f"]),
+    ("f\x1b[C", ["f", "\x1b[C"]),
+    ("\x1b", ["\x1b"]),                   # a bare escape, not a sequence
+    (" ", [" "]),
+])
+def test_a_burst_of_input_splits_into_whole_keys(data, want):
+    """THE ARROWS WERE DEAD AND NOTHING LOOKED WRONG.
+
+    sys.stdin is a buffered text stream: read(1) pulled the whole ESC [ A into
+    Python's buffer, and the select() that followed looked at the file
+    descriptor, which was now empty -- so the code concluded there was no
+    sequence and returned a lone ESC, matching nothing. Letters worked, arrows
+    could not, and the mistake is invisible in the source.
+
+    Reading the fd gets the whole burst, and this splits it.
+    """
+    assert perform.split_keys(data) == want

@@ -384,13 +384,42 @@ class Perf:
                 pass
 
 
+def split_keys(data):
+    """A burst of input -> the keys in it, escape sequences kept whole.
+
+    Arrow keys arrive as three bytes, ESC [ A, and a key held down arrives as
+    several keys in one read. Both have to come out as separate, complete
+    keys or the arrows are dead and a held key does nothing.
+    """
+    out, i = [], 0
+    while i < len(data):
+        if data[i] == "\x1b" and i + 2 < len(data) and data[i + 1] == "[":
+            out.append(data[i:i + 3])
+            i += 3
+        else:
+            out.append(data[i])
+            i += 1
+    return out
+
+
 def getch(timeout=0.1):
-    if select.select([sys.stdin], [], [], timeout)[0]:
-        c = sys.stdin.read(1)
-        if c == "\x1b" and select.select([sys.stdin], [], [], 0.01)[0]:
-            return "\x1b" + sys.stdin.read(2)
-        return c
-    return None
+    """Every key waiting, read from the FILE DESCRIPTOR rather than sys.stdin.
+
+    THIS IS WHY THE ARROWS WERE DEAD. sys.stdin is a buffered text stream: the
+    first read(1) pulls the whole ESC [ A into Python's buffer, and select()
+    then looks at the file descriptor, which is empty -- so the old code
+    concluded there was no sequence and returned a lone ESC, matching nothing.
+    Letters worked, arrows never could, and nothing in the code looked wrong.
+
+    os.read goes to the fd, so the whole burst arrives together.
+    """
+    if not select.select([sys.stdin], [], [], timeout)[0]:
+        return []
+    try:
+        data = os.read(sys.stdin.fileno(), 32)
+    except OSError:
+        return []
+    return split_keys(data.decode("utf-8", "ignore"))
 
 
 def main():
@@ -417,13 +446,17 @@ def main():
         # the big face, and only here -- no other mode ever asks for it
         link.ui("perform")
     old = termios.tcgetattr(sys.stdin)
+    quitting = False
     try:
         tty.setcbreak(sys.stdin.fileno())
         last = 0.0
         while True:
-            k = getch()
-            if k:
+            # `break` would only leave the key loop now that there is one, and
+            # Q would stop quitting -- silently, since every other key still
+            # works. A flag, checked below.
+            for k in getch():
                 if k in ("q", "Q"):
+                    quitting = True
                     break
                 elif k == " ":
                     perf.tap()
@@ -479,6 +512,8 @@ def main():
                         perf.link.say(perf.line)
                 elif k in KEY_CLIP:
                     perf.fire(KEY_CLIP[k])
+            if quitting:
+                break
             if time.perf_counter() - last > 0.1:
                 last = time.perf_counter()
                 sys.stdout.write("\r  " + perf.status())

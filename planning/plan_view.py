@@ -6,7 +6,7 @@ WHY THIS FILE EXISTS. noticebot_loop was written to drive the eight-state motion
 machine, and it borrowed attention_ui's STATE slots to show that state machine on
 the main page. That was a mistake: it overwrote the one surface that shows the
 thing the paper is actually about -- the planner's compiled watch-spec, each entry
-lit as its relations become true, the relation ribbon, and the detections. State
+lit as its relations become true, and the detections. State
 monitoring is a debugging need and belongs on its own page (the ROBOT tab).
 
 WHAT IS RESTORED, unchanged in behaviour from attention_system.py:
@@ -22,11 +22,11 @@ WHAT IS RESTORED, unchanged in behaviour from attention_system.py:
     published to the panel and drawn on the frame, because the tiering is a
     judgement the VLM made and the point is that it can be argued with.
   * the overlay: detection boxes BY TIER, BlazePose skeletons, gaze rays,
-    pointing arrows, joint-attention circles, and the bottom relation ribbon
+    pointing arrows and joint-attention circles
   * `fired` entries -- which is what replaces the `f` keyboard stand-in
 
-Nothing here is a reimplementation: the engine, the executor, the ribbon and the
-spec formatter are IMPORTED from the files that already work. A second copy of
+Nothing here is a reimplementation: the engine, the executor and the spec
+formatter are IMPORTED from the files that already work. A second copy of
 the relation logic would drift from the first, and the drift would show up as two
 systems disagreeing about what was noticed -- in the data, not in a traceback.
 
@@ -40,8 +40,7 @@ import math, time
 import cv2
 
 from perception.gaze import draw_text, draw_arrow, draw_circle, draw_pose_skeleton
-from perception.overlay import (draw_relation_ribbon,
-                                C_YELLOW, C_CYAN, C_SKEL, C_MAGENTA, C_GREEN)
+from perception.overlay import (C_YELLOW, C_CYAN, C_SKEL, C_MAGENTA, C_GREEN)
 from perception.perceive import make_detector
 from perception.relations import RelationEngine
 from perception.watch_exec import WatchExecutor
@@ -59,20 +58,7 @@ class PlanView:
 
     def __init__(self, detector="yoloworld", vocab=("person",), conf=0.3,
                  persist=2, cooldown=15.0, tau_gap=3.0, lean_deg=25.0,
-                 synonym_prompt=True, ribbon=False):
-        # THE RELATION RIBBON IS OFF BY DEFAULT, and that is a decision about
-        # audience rather than about pixels. It is burned INTO the frame, so it
-        # reaches every screen the stream reaches -- including the tablet the
-        # visitor is holding, where `1 gaze 2 joint 3 eye 4 point ...` is eleven
-        # abbreviations from a vocabulary nobody in the room has read, printed
-        # over the bottom of the picture they were actually looking at.
-        #
-        # Nothing is lost by hiding it: the developer page renders the same
-        # eleven rows as HTML chips, lit per frame from the same truth map, and
-        # does it legibly. `--ribbon` puts it back for debugging the engine
-        # itself, where seeing a row light up ON the frame that caused it is
-        # the point.
-        self.ribbon = bool(ribbon)
+                 synonym_prompt=True):
         # live relevance state, updated by each plan. `allow` is the closed-YOLO
         # whitelist (synonym-expanded to match whatever labels the detector
         # emits); `want_classes` is the RAW planner nouns for an open-vocab
@@ -154,8 +140,9 @@ class PlanView:
         """-> list of fired entries, AFTER the focus gate.
 
         Safe to call before any plan exists: the relations are still computed and
-        drawn, there is just nothing watching them yet. That is deliberate -- the
-        ribbon is how you check the CV is alive while composing a request.
+        drawn, there is just nothing watching them yet. That is deliberate -- THE
+        PLAN panel lighting up is how you check the CV is alive while composing a
+        request.
 
         THE FOCUS GATE IS THE POINT OF THE RELEVANCE LAYER, so it runs here and
         not in the caller. The VLM enumerates what is in the frame (`seen`), tiers
@@ -198,7 +185,11 @@ class PlanView:
     def draw(self, fr, header=""):
         """The live view, drawn in the same order and colours as before: object
         slots yellow, skeletons green, gaze rays blue (logic), pointing yellow,
-        joint attention red, vocabulary ribbon along the bottom."""
+        joint attention red.
+
+        NO VOCABULARY RIBBON. It used to print rows 1-11 along the bottom, and
+        this one annotated frame is what the visitor's tablet shows too -- see
+        perception/overlay.py, where the reasoning is kept."""
         H, W = fr.shape[:2]
         # Boxes are coloured BY TIER, not uniformly: the tiering is a decision the
         # VLM made and the whole point is that it is inspectable. Yellow thick =
@@ -227,8 +218,6 @@ class PlanView:
             draw_arrow(fr, r0.origin, r0.point_at(0.5 * math.hypot(W, H)), C_CYAN, 12)
         for c in self.viz.get("joint", []):
             draw_circle(fr, c["point"], 26, C_MAGENTA, 10)
-        if self.ribbon:
-            draw_relation_ribbon(fr, W, H, self.truth, self.entries())
         if header:
             draw_text(fr, header, (16, 30), C_GREEN, 0.6, 2)
         return fr

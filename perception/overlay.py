@@ -22,51 +22,22 @@ from perception.gaze import (draw_text, draw_box, draw_arrow, draw_circle,
 
 C_SKEL = (90, 255, 30)
 
-LIVE_ABBR = {1: "gaze", 2: "joint", 3: "eye", 4: "point", 5: "prox", 6: "F-form",
-             7: "appr", 8: "lean", 9: "hands", 10: "group", 11: "turn"}
-
-def draw_relation_ribbon(fr, W, H, truth, entries):
-    """Bottom-of-frame vocabulary strip: rows 1–11 as 'N abbr', lit yellow-green when
-    detected THIS frame; watch-entry groups (≥2 ids) bracketed above with an AND/OR/THEN
-    label that lights blue when its condition holds. Detection-only — no watch/cooldown."""
-    import cv2
-    n = 11
-    margin = 34
-    step = (W - 2 * margin) / (n - 1)
-    xs = {i: int(margin + (i - 1) * step) for i in range(1, n + 1)}
-    base_y = H - 18                                    # the label row
-    for i in range(1, n + 1):                          # 1) the vocabulary labels
-        on = bool(truth.get(i, False))
-        col = C_YELLOW if on else (165, 165, 165)
-        txt = f"{i} {LIVE_ABBR.get(i, '')}"
-        (tw, _), _ = cv2.getTextSize(txt, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-        draw_text(fr, txt, (xs[i] - tw // 2, base_y), col, 0.5, 2 if on else 1)
-
-    level = [0]                                        # 2) the conjunction brackets, stacked up
-    def connect(ids, label, lit):
-        ids = [i for i in ids if i in xs]
-        if len(ids) < 2:
-            return
-        y = base_y - 34 - level[0] * 28
-        lo = min(ids, key=lambda i: xs[i]); hi = max(ids, key=lambda i: xs[i])
-        col = C_CYAN if lit else (110, 110, 110)
-        th = 3 if lit else 1
-        cv2.line(fr, (xs[lo], y), (xs[hi], y), col, th, cv2.LINE_AA)        # the bar
-        for i in ids:                                                       # down-ticks to each
-            cv2.line(fr, (xs[i], y), (xs[i], base_y - 14), col, th, cv2.LINE_AA)
-        mx = (xs[lo] + xs[hi]) // 2
-        (tw, _), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
-        draw_text(fr, label, (mx - tw // 2, y - 7), col, 0.6, 2)
-        level[0] += 1
-
-    for e in entries:
-        on = lambda i: bool(truth.get(i, False))
-        if len(e.get("then", [])) >= 2:
-            connect(e["then"], "THEN", all(on(i) for i in e["then"]))
-        if len(e.get("all", [])) >= 2:
-            connect(e["all"], "AND", all(on(i) for i in e["all"]))
-        if len(e.get("any", [])) >= 2:
-            connect(e["any"], "OR", any(on(i) for i in e["any"]))
+# THE RELATION RIBBON IS GONE, deliberately and not behind a flag.
+#
+# It printed rows 1-11 as `1 gaze 2 joint 3 eye ...` across the bottom of the
+# frame, lit as each fired. The trouble was never the drawing, it was that it
+# was drawn INTO the frame: one annotated stream feeds the developer page and
+# the visitor's tablet alike, so eleven abbreviations from a vocabulary nobody
+# in the room has read ended up over the bottom of the picture a visitor was
+# looking at.
+#
+# Nothing was lost. The developer page renders the same eleven rows as HTML
+# chips, lit per frame from the same truth map, and the tablet shows the one
+# rule that matters in the same words. Both are legible; this was not.
+#
+# A flag was the obvious fix and the wrong one: a debug view that reaches the
+# audience by default, kept alive by a switch nobody remembers on the day, is
+# the failure again with an extra step in front of it.
 
 def make_strip(shots, height=None):
     """The comic strip: N shots -> one horizontal story image.

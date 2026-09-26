@@ -52,13 +52,23 @@ the chirp, and 1.2 s of lag reads as two separate machines.
 """
 from __future__ import annotations
 
-# The relation vocabulary, short. Same ids and same words the developer page
-# uses (webui.server.REL_NAMES); English on purpose -- these are the system's
-# own terms and an onlooker reading over a visitor's shoulder is usually the
-# person who wants to see them.
+# The relation vocabulary, WRITTEN OUT. English on purpose -- these are the
+# system's own terms and an onlooker reading over a visitor's shoulder is
+# usually the person who wants to see them.
+#
+# Not abbreviated, which is the change from the first version. `appr` and
+# `prox` save space the cell does not need and cost the only thing the cell is
+# for: one chip of a rule is the whole of what a visitor learns about how this
+# machine decides, and `appr` teaches them nothing. The developer page may
+# shorten; this one may not.
+#
+# The IDS are the contract -- they are what the planner compiles to and what
+# `truth` is keyed by -- so a test holds them against the relation catalogue.
+# The wording here is free to read however it reads best.
 REL_NAMES = {
-    1: "gaze", 2: "joint", 3: "eye", 4: "point", 5: "prox", 6: "F-form",
-    7: "appr", 8: "lean", 9: "hands-on", 10: "gather", 11: "turn",
+    1: "gazing at", 2: "joint attention", 3: "eye contact", 4: "pointing",
+    5: "proximity", 6: "F-formation", 7: "approaching", 8: "leaning in",
+    9: "hands on", 10: "gathering", 11: "taking turns",
 }
 
 # THE ROBOT'S OWN FACES, copied from the firmware's uiFace(). Deliberately the
@@ -353,11 +363,13 @@ h1{font-weight:600;font-size:clamp(26px,3.4vh,40px);line-height:1.3;margin:0;let
 .spec .lb{font-size:clamp(12px,1.25vw,17px);color:#6f6c65;letter-spacing:.08em}
 .spec .row{display:flex;flex-wrap:wrap;gap:5px;align-items:center;
   justify-content:center}
-/* The rule in the planner's own words. Sentence face, not monospace: it is the
-   one thing in this cell a visitor is meant to READ rather than decode. */
-.spec .said{font-family:-apple-system,"SF Pro Text",Helvetica,Arial,sans-serif;
-  font-size:clamp(13px,1.5vw,21px);line-height:1.3;color:#cdcabf;text-align:center}
-.spec.sat .said{color:#f2f0ea}
+/* Sentence face, not monospace, and the words wrap rather than being cut: the
+   chips read as English now, and "joint attention" ellipsised to "joint att..."
+   would undo the whole reason for writing them out. */
+.rel{font-family:-apple-system,"SF Pro Text",Helvetica,Arial,sans-serif;
+  font-size:clamp(12px,1.35vw,19px);padding:5px 11px;border-radius:10px;
+  border:1px solid #3a3a35;color:#7c796f;white-space:nowrap}
+.rel.t{background:#88e4ea;border-color:#88e4ea;color:#101010;font-weight:700}
 .op{font-size:clamp(11px,1.1vw,15px);color:#55524b}
 .obj{font-size:clamp(12px,1.3vw,18px);padding:4px 9px;border-radius:10px;
   background:#1c1c19;border:1px solid #3a3a35;color:#cfe33a}
@@ -506,22 +518,25 @@ function wall(){MODE='wall';render();}
 function back(){MODE=null;render();}
 const esc=s=>String(s==null?'':s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
 
-// IN WORDS, NOT IN THE VOCABULARY. This used to render the relation ids as
-// chips -- gaze AND eye on person -- which is what the developer page shows and
-// what the planner actually compiled. It was the wrong audience: a visitor
-// standing at a table reads four abbreviations they have never seen, decides
-// the screen is not for them, and looks away. The planner already writes a
-// plain-English label for every entry, so that is what goes here.
+// THE RULE AS IT WAS COMPILED, in words. The chips ARE the watch-spec -- the
+// ids the planner emitted and the executor is testing every frame -- and each
+// one lights the moment its relation is true, so a visitor watching the cell
+// sees the machine decide rather than being told afterwards that it did.
 //
-// The ids are not lost, they moved: the developer page still renders every one
-// of them, lit as they fire, which is where that belongs.
+// Which is exactly why the words are written out. `appr AND prox` is the same
+// rule and teaches nobody anything.
 function specInner(){
   const w=(S.watch||[])[0];
   if(!w) return '<span class=lb>NO RULE YET</span>';
-  const said = (w.label||'').trim();
+  const ids=[...w.all,...w.any,...w.then];
+  const op = w.then.length ? 'THEN' : (w.any.length && !w.all.length ? 'OR' : 'AND');
+  const chips=ids.map((id,k)=>
+    (k?`<span class=op>${op}</span>`:'')+
+    `<span class="rel${w.truth[String(id)]?' t':''}">${esc(S.rel_names[id]||id)}</span>`
+  ).join('');
   return `<span class=lb>${w.sat?'TRUE NOW':'WAITING FOR'}</span>
-    <div class=row><span class=said>${esc(said || 'something worth telling you about')}</span>${
-      w.on?`<span class=op>on</span><span class=obj>${esc(w.on)}</span>`:''}</div>`;
+    <div class=row>${chips}${w.on?`<span class=op>on</span>
+      <span class=obj>${esc(w.on)}</span>`:''}</div>`;
 }
 
 function specCell(){

@@ -252,22 +252,35 @@ def test_the_nod_does_not_get_a_screen_of_its_own():
     assert "phase==='ack'" not in PAGE
 
 
-def test_the_tablet_never_forms_its_own_opinion_of_satisfied():
-    """build_status is the one place an entry becomes a row, and `sat` is its
-    verdict. The tablet shows the rule in WORDS now rather than as relation
-    chips -- a visitor reads `hands-on AND prox` as noise -- but the thing that
-    must not drift is unchanged: whether the rule is TRUE is read, never
-    recomputed here from the id groups."""
+def test_it_reads_the_same_fields_the_live_panel_does():
+    """build_status is the one place an entry becomes a row. Deriving these
+    from the spec separately would give the tablet its own opinion of what is
+    satisfied."""
     from webui.booth import PAGE
     i = PAGE.index("function specInner(")
     block = PAGE[i:i + 900]
-    assert "w.sat" in block, "the verdict comes from build_status"
-    assert "w.label" in block, "and the rule is shown in the planner's words"
-    for k in ("w.all", "w.any", "w.then", "w.truth"):
-        assert k not in block, (
-            f"{k} is back in the tablet -- the id groups are the developer "
-            f"page's business, and recombining them here is how the two "
-            f"screens start disagreeing about what is true")
+    for k in ("w.all", "w.any", "w.then", "w.truth", "w.on", "w.sat"):
+        assert k in block, k
+    assert "THEN" in block and "AND" in block and "OR" in block
+
+
+def test_the_tablet_spells_the_relations_out():
+    """One chip of a rule is the whole of what a visitor learns about how this
+    machine decides, and `appr` teaches them nothing. The developer page may
+    abbreviate; this one may not."""
+    from webui.booth import REL_NAMES
+    for i, name in REL_NAMES.items():
+        assert len(name) >= 6, f"{i}: {name!r} is an abbreviation"
+    assert REL_NAMES[7] == "approaching" and REL_NAMES[5] == "proximity"
+
+
+def test_the_tablet_vocabulary_covers_the_catalogue_exactly():
+    """The WORDS here are free to read however they read best. The IDS are the
+    contract -- the planner compiles to them and `truth` is keyed by them -- so
+    a row added to the catalogue must not silently render as a bare number."""
+    from planning.planner import _CATALOG
+    from webui.booth import REL_NAMES
+    assert set(REL_NAMES) == {r["id"] for r in _CATALOG["relations"]}
 
 
 def test_the_grid_has_six_cells_and_the_last_is_the_rule():
@@ -553,23 +566,20 @@ def test_the_prompt_box_is_16px_so_ios_does_not_zoom_the_page():
     assert "font-size:16px" in css
 
 
-def test_the_relation_ribbon_is_off_unless_asked_for():
-    """It is burned INTO the frame, so it reaches every screen the stream
-    reaches -- including the visitor's tablet, where eleven abbreviations from
-    a vocabulary nobody has read sit over the bottom of the picture.
+def test_the_relation_ribbon_is_gone_from_the_frame_entirely():
+    """It printed rows 1-11 across the bottom of the annotated frame -- and that
+    one frame feeds the developer page and the visitor's tablet alike, so
+    eleven abbreviations from a vocabulary nobody in the room has read sat over
+    the bottom of the picture a visitor was looking at.
 
-    Off by default, `--ribbon` for debugging the relation engine, where seeing
-    a row light up on the frame that caused it is the whole point."""
+    Gone, not behind a flag. A debug view that reaches the audience by default,
+    kept alive by a switch nobody remembers on the day, is the same failure with
+    an extra step in front of it."""
     import inspect
-    from planning.plan_view import PlanView
-    assert inspect.signature(PlanView.__init__).parameters["ribbon"].default is False
-    src = inspect.getsource(PlanView)
-    i = src.index("draw_relation_ribbon(fr")
-    assert "if self.ribbon:" in src[max(0, i - 200):i], \
-        "the ribbon must be drawn behind the flag, not unconditionally"
-
-
-def test_the_loop_can_turn_the_ribbon_back_on():
-    src = open("noticebot_loop.py").read()
-    assert '"--ribbon"' in src
-    assert "ribbon=a.ribbon" in src
+    from planning import plan_view
+    from perception import overlay
+    assert not hasattr(overlay, "draw_relation_ribbon")
+    assert not hasattr(overlay, "LIVE_ABBR")
+    assert "ribbon" not in inspect.signature(plan_view.PlanView.__init__).parameters
+    assert "draw_relation_ribbon" not in inspect.getsource(plan_view.PlanView)
+    assert "--ribbon" not in open("noticebot_loop.py").read()

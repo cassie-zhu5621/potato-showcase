@@ -5,6 +5,12 @@ without touching the firmware again.
 
 Full detail per mode: `DEMO_VLM_RUNBOOK.md`, `PERFORM_RUNBOOK.md`.
 
+**The demo command below is the study command plus `--approach`.** It is
+derived from `STUDY_IPAD_RUNBOOK.md`, which is the one that has actually run a
+session, rather than assembled from the flags that seemed necessary -- which is
+how `--feedback robot` went missing for an evening and made the whole pipeline
+work with a robot that never called.
+
 ---
 
 ## Morning -- once, in this order
@@ -35,8 +41,8 @@ python3 robot/tools/tof_test.py
 - the bar must move when you put a hand in front of the sensor
 
 Ctrl-C it. Below v11, or no `IN TOF` line at all, means the upload did not land
-whatever it reported -- the tool now says so and prints the command with the
-port already filled in.
+whatever it reported -- the tool says so and prints the command with the port
+already filled in.
 
 **Find the camera.** The index moves whenever anything USB is replugged, so
 this is a per-morning check, not a number to write down:
@@ -45,12 +51,10 @@ this is a per-morning check, not a number to write down:
 python3 noticebot_loop.py --list-cams
 ```
 
-Take the one it calls the InnoMaker head camera. Not the Mac's built-in
-(square sensor), not anything that "opens but yields no frame" -- that is
-Continuity Camera and it will hang the loop for 8 s and then fail.
-
-Close Zoom, FaceTime and Photo Booth before running this or the list comes back
-short.
+Take the one it calls the InnoMaker head camera. Not the Mac's built-in (square
+sensor), not anything that "opens but yields no frame" -- that is Continuity
+Camera and it will hang the loop for 8 s and then fail. Close Zoom, FaceTime
+and Photo Booth first or the list comes back short.
 
 **Then check, before people arrive:**
 
@@ -74,8 +78,28 @@ Loop first. It is the one that fails: port busy, camera busy, no network. Start
 it alone so its first lines are on a clean screen.
 
 ```bash
-python3 noticebot_loop.py --serve --cores3 --approach --feedback robot --detector yoloworld --cam 1
+python3 noticebot_loop.py \
+    --cam 1 \
+    --cores3 \
+    --detector yoloworld \
+    --cv-hz 4 \
+    --conf 0.2 \
+    --feedback robot \
+    --approach \
+    --serve
 ```
+
+Every flag, and why it is not optional:
+
+| | |
+|---|---|
+| `--cam 1` | whatever `--list-cams` said this morning. Not a number to memorise |
+| `--cores3` | bare, so it auto-detects by PING. The port moves between sessions |
+| `--detector yoloworld --cv-hz 4` | the detector, and the only one |
+| `--conf 0.2` | **0.3 is too high for a phone in a hand.** Measured: 0.39 and 0.48 at arm's length, right on the edge, blinking in and out several times a second |
+| `--feedback robot` | lets a confirmed finding drive the call. `console` prints the judgment and **moves nothing** |
+| `--approach` | arms the board's ToF to press the button |
+| `--serve` | the web pages, for you and for the audience |
 
 Watch for this in the first few lines, before CV output buries it:
 
@@ -83,13 +107,11 @@ Watch for this in the first few lines, before CV output buries it:
 [cores3] approach trigger ARMED -- walking up presses the button
 ```
 
-**No ARMED line means walking up will do nothing.** Nothing else will look
-wrong.
-
-Same for **`--feedback robot`**, and this one is worse because it fails later:
-without it the whole cycle runs, the judge confirms, `[FEEDBACK]` prints -- and
-the robot never calls. The loop warns at startup; the warning is the line to
-look for if it all works and nothing ever happens.
+**No ARMED line means walking up will do nothing.** And if the loop prints a
+`!! --approach without --feedback robot` warning, stop and add the flag: the
+whole cycle will otherwise run, the judge will confirm, `[FEEDBACK]` will
+print, and the robot will never call. Nothing looks broken. That is the worst
+way for it to be broken and it cost an evening.
 
 Wait for `[gemini] warm in ...`, then the second terminal:
 
@@ -101,7 +123,7 @@ It prints the audience address and then stays quiet, so it is still on screen
 an hour later. Leave that window visible.
 
 **Nobody walks up until both are running.** The ToF is live from the moment the
-board is powered, and the loop takes ten or fifteen seconds to come up. A
+board is powered and the loop takes ten or fifteen seconds to come up. A
 visitor arriving in that gap gets the one behaviour this mode exists to avoid.
 
 ### Performance -- played from the keyboard, beside the fish. One terminal.
@@ -137,22 +159,21 @@ You do not need `lsof` here. It belongs to the section below.
 ## If a mode will not start
 
 Nine times in ten it is the previous one still holding a port in a window you
-forgot about. Find it and Ctrl-C it in its own window -- that is the clean way,
-and it is the only one that needs no commands.
+forgot about. Find it and Ctrl-C it in its own window -- that is the clean way
+and it needs no commands.
 
 **If there is no window to go back to** -- the terminal crashed, or was closed,
-or the process outlived it -- then this:
+or the process outlived it:
 
 ```bash
 pgrep -fl "noticebot_loop|perform.py|attend_test|standing_prompt"
 ```
 
-`pgrep`, not `lsof`, and this is worth knowing on the day: `lsof
-/dev/cu.usbmodem*` finds a process holding the SERIAL port, and misses one
-holding only the camera or the microphone. An orphan with the camera still open
-gives `camera 1 opened but produced no frames in 8s`, which looks like a
-hardware fault and is not one. The `pgrep` line covers all four modes and every
-device at once.
+`pgrep`, not `lsof`. `lsof /dev/cu.usbmodem*` finds a process holding the
+SERIAL port and misses one holding only the camera or the microphone -- and an
+orphan with the camera open gives `camera 1 opened but produced no frames in
+8s`, which looks like a hardware fault and is not one. The `pgrep` line covers
+all four modes and every device at once.
 
 Then, with the pid:
 
@@ -162,15 +183,13 @@ kill -INT <pid>
 
 **`-INT`, not plain `kill`.** SIGTERM ends Python without running the teardown,
 and the teardown is where the unfinished story is written out, the neck is
-returned to idle and **the servos are de-energised**. Killed the other way, the
-motors stay powered holding whatever pose they were in -- which is invisible
-for half an hour and then the horn is too hot to touch. `kill -INT` is exactly
-what Ctrl-C sends.
+returned to idle and **the servos are de-energised**. Killed the other way the
+motors stay powered holding whatever pose they were in, which is invisible for
+half an hour and then the horn is too hot to touch. `kill -INT` is exactly what
+Ctrl-C sends.
 
 Wait two seconds, run `pgrep` again. Only if it is genuinely stuck: `kill -9`,
 and then power-cycle the servo supply, because nothing turned the torque off.
-
-The rest, in the order they happen:
 
 | | |
 |---|---|
@@ -178,17 +197,39 @@ The rest, in the order they happen:
 | `camera N opened but produced no frames` | an orphan has it, or the index moved -- `--list-cams` again |
 | servos do not move | performance starts **frozen** -- press `F`. Otherwise the 5-6 V supply |
 | `!! did not arrive` in the log | supply voltage, every time. Not a software setting |
-| walking up does nothing (demo) | is `approach trigger ARMED` in the loop's first lines? If not, `--approach` did not arrive |
+| walking up does nothing | is `approach trigger ARMED` in the loop's first lines? If not, `--approach` did not arrive |
 | it wakes once and never again | v10 or older on the board. Fixed in v11 -- check `tof_test.py` |
-| the robot performs an error (demo) | `standing_prompt.py` is not running |
-| the face does not appear (performance) | `IN FACE no memory` at startup, or `E` turned it off |
+| the robot performs an error | `standing_prompt.py` is not running |
+| the face does not appear | `IN FACE no memory` at startup, or `E` turned it off |
+
+---
+
+## When it runs but never notices anything
+
+The whole chain works and nothing happens. The loop names the first broken link
+every 8 s -- **read the `[cv]` and `[gate]` lines**, they are ordered so the
+first miss is the one reported:
+
+```
+[cv]   no pose at all -- MediaPipe found nobody
+       -> relations are about PEOPLE. A phone alone lights nothing
+
+[cv]   1 person(s), but the detector does not see phone -- it sees no objects
+       -> the detector, not the geometry. --conf lower, or move closer
+
+[gate] held back -- the relation landed on desk, but this card names phone
+       -> the hand is on the wrong thing, or the noun in the prompt is wrong
+
+[cv]   HAND is on the phone, held 0.3s of the 0.6s needed
+       -> nothing is wrong. Keep still half a second longer
+```
+
+`[FEEDBACK] ...` means the judge **accepted** it. If that prints and the robot
+still does nothing, it is `--feedback robot`.
 
 ---
 
 ## The thirty-second check after any restart
-
-Worth doing once each time the demo comes back up, because it is the whole
-interaction and it takes four steps:
 
 1. walk up -> head comes up
 2. step back **past 1.5 m** and stand there two seconds
@@ -215,7 +256,7 @@ Concrete and about the audience, or the planner has nothing to compile:
 
     tell me when someone comes close to the table
     tell me when someone points at something
-    tell me when two people look at the same thing
+    tell me when someone is holding a phone
 
 ---
 

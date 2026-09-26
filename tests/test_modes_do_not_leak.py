@@ -120,7 +120,21 @@ def test_the_demo_warns_when_it_can_never_call():
 
 
 def test_the_runbooks_pass_feedback_robot():
+    """The demo command is the STUDY command plus --approach, and the study
+    command is the one that has actually run a session. Assembling it from the
+    flags that seem necessary is how --feedback robot went missing: every stage
+    worked, the judge confirmed, and the robot never called.
+
+    Checked over the whole fenced block, not per line -- the command is written
+    across several lines now, and a per-line test passes vacuously on it, which
+    is worse than no test.
+    """
+    import re
     for path in ("docs/SHOWDAY.md", "docs/DEMO_VLM_RUNBOOK.md"):
-        for line in open(path):
-            if "noticebot_loop.py" in line and "--approach" in line:
-                assert "--feedback robot" in line, f"{path}: {line.strip()}"
+        blocks = re.findall(r"```bash\n(.*?)```", open(path).read(), re.S)
+        demo = [b for b in blocks
+                if "noticebot_loop.py" in b and "--approach" in b]
+        assert demo, f"{path}: no demo command at all"
+        for b in demo:
+            for flag in ("--feedback robot", "--detector yoloworld", "--serve"):
+                assert flag in b, f"{path} is missing {flag}:\n{b}"

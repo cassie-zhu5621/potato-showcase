@@ -316,3 +316,45 @@ def test_frozen_sends_nothing():
     for k in range(int(2.0 * perform.RATE_HZ)):
         p._face(k / perform.RATE_HZ)
     assert p.link.beats == []
+
+
+# --------------------------------------------------------------------------- #
+# the status line
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("frozen", [True, False])
+@pytest.mark.parametrize("sound", [True, False])
+@pytest.mark.parametrize("shape", ["nod", "lean", "dip"])
+@pytest.mark.parametrize("pending", [None, (0.0, "S2_ACKNOWLEDGE", 0.0)])
+def test_the_status_line_renders_in_every_state(frozen, sound, shape, pending):
+    """It was one long format call, edited five times as fields were added, and
+    the last edit dropped `pan` from the arguments while leaving its
+    placeholder -- so a string landed on {:+4.0f} and the tool died on its first
+    frame, after opening the servo bus and homing the neck.
+
+    A format string is the one kind of code that looks right until it runs, so
+    this renders it rather than reading it.
+    """
+    p = perf(bpm=93.7, shape=shape)
+    p.frozen, p.sound, p.pending = frozen, sound, pending
+    p.amp_i, p.trim, p.pan, p.line = 3, -6.0, -45.0, 3
+    out = p.status()
+    assert "93.7 BPM" in out
+    assert shape in out
+    assert ("FROZEN" in out) == frozen
+    assert ("snd" in out) == sound
+    assert "pan  -45" in out
+    assert ("S2_ACKNOWLEDGE" in out) == (pending is not None)
+
+
+def test_the_status_line_does_not_jump_about():
+    """It is rewritten in place ten times a second. A field that changes width
+    shuffles everything after it, which is unreadable while playing."""
+    widths = set()
+    for bpm in (60.0, 93.7, 140.0):
+        for trim in (-18.0, 0.0, 27.0):
+            for pan in (-60.0, 0.0, 65.0):
+                p = perf(bpm=bpm)
+                p.trim, p.pan = trim, pan
+                p.frozen = False
+                widths.add(len(p.status()))
+    assert len(widths) == 1, f"the line changes width: {sorted(widths)}"

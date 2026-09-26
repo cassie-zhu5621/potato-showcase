@@ -280,6 +280,35 @@ class Perf:
         self._amp = self._toward(self._amp, self.amp_target, AMP_DPS * dt)
         self.pan = self._toward(self.pan, self.pan_want, PAN_DPS * dt)
 
+    def status(self):
+        """The line under the keys, as a string.
+
+        A METHOD SO IT CAN BE RENDERED IN A TEST. It was one long format call
+        edited five times as fields were added, and the last edit dropped `pan`
+        from the arguments while leaving its placeholder -- so a string landed
+        on `{:+4.0f}` and the whole tool died on its first frame, after opening
+        the servo bus and homing the neck. Nothing here is hard; what is hard is
+        noticing, and a format string is the one kind of code that looks right
+        until it runs.
+
+        Built from pieces rather than one big format for the same reason: a
+        piece that loses its argument cannot silently take the next one's.
+        """
+        beat = self.phase() % 1.0
+        lit = 1 + int(beat * 3)
+        return "  ".join([
+            f"{self.bpm:5.1f} BPM",
+            f"{self.shape:<5}",
+            f"amp {self.amp:4.1f}"
+            + ("!" if self.amp_target < AMPS[self.amp_i] - 0.05 else " "),
+            f"trim {self.trim:+3.0f}",
+            f"pan {self.pan:+4.0f}",
+            "FROZEN" if self.frozen else ("*" * lit + " " * (3 - lit) + "   "),
+            "snd" if self.sound else "   ",
+            f"say{self.line}",
+            f"next:{(self.pending[1] if self.pending else '-'):<16}",
+        ])
+
     # ---------------- the driver ----------------
     def start(self):
         self._th.start()
@@ -452,17 +481,7 @@ def main():
                     perf.fire(KEY_CLIP[k])
             if time.perf_counter() - last > 0.1:
                 last = time.perf_counter()
-                beat = perf.phase() % 1.0
-                pend = perf.pending[1] if perf.pending else "-"
-                sys.stdout.write(
-                    "\r  {:5.1f} BPM  {:5}  amp {:4.1f}d{} trim {:+3.0f}  "
-                    "pan {:+4.0f}  "
-                    "{}  {}{}  next:{:<16}".format(
-                        perf.bpm, perf.shape, perf.amp,
-                        "!" if perf.amp_target < AMPS[perf.amp_i] - 0.05 else " ",
-                        perf.trim,
-                        "FROZEN" if perf.frozen else "  " + "*" * (1 + int(beat * 3)) + " " * (3 - int(beat * 3)),
-                        "snd" if perf.sound else "   ", perf.line, pend))
+                sys.stdout.write("\r  " + perf.status())
                 sys.stdout.flush()
     finally:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old)

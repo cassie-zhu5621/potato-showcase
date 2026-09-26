@@ -12,7 +12,7 @@ Protocol (line-based, 115200, '
                       EVT LED <0-255> | EVT HUE <WARM|COOL|RED|GREEN|ALARM> |
                       EVT SFX <name> | EVT VOL <0-255> | EVT REST | EVT PING
   CoreS3 -> laptop :  IN PTT_DOWN | IN PTT_UP | IN OK | IN STOP | IN BODYTAP |
-                      IN PONG cores3_sidekick v8
+                      IN PONG cores3_sidekick v9
 
 The board cannot be found by name -- macOS calls it usbmodem-<location id> just
 like the servo adapter -- so find_cores3() asks it instead. See below.
@@ -37,7 +37,16 @@ except ImportError:
 # "v3", this check still said "match", and the antenna was still blue. A version
 # that tracks only the protocol cannot answer the one question it is asked --
 # "is the thing in front of me built from the code in front of me".
-FIRMWARE_V = "v8"
+FIRMWARE_V = "v9"
+
+
+def _older(board: str, want: str) -> bool:
+    """Is the board behind this checkout? Missing or unparseable counts as yes:
+    a board that will not say is a board that cannot be trusted to understand."""
+    try:
+        return int(str(board).lstrip("v")) < int(str(want).lstrip("v"))
+    except (TypeError, ValueError):
+        return True
 
 
 def find_cores3(exclude=(), timeout=4.0, baud=115200, verbose=True):
@@ -50,7 +59,7 @@ def find_cores3(exclude=(), timeout=4.0, baud=115200, verbose=True):
 
     OPENING THE PORT DOES RESET THIS BOARD, and the previous version of this
     function asserted the opposite. Measured on the bench: a bare open followed
-    by a read returns `IN HELLO cores3_sidekick v8` -- the greeting from setup()
+    by a read returns `IN HELLO cores3_sidekick v9` -- the greeting from setup()
     -- which only happens if the board rebooted. So the old sequence lost every
     time it mattered:
 
@@ -110,7 +119,16 @@ def find_cores3(exclude=(), timeout=4.0, baud=115200, verbose=True):
                             # and keeps the previous one -- so S8 comes up in S1's
                             # colour and the run looks fine until someone notices
                             # that error and idle are the same.
-                            if ver and ver != FIRMWARE_V:
+                            # OLDER is a problem; NEWER is not. The firmware
+                            # is shared by every mode and grows by addition --
+                            # a feature arrives off by default and only the
+                            # mode that wants it asks. So a board ahead of this
+                            # checkout understands everything it will be sent,
+                            # and warning about it would cry wolf every time
+                            # any one mode was reflashed, which is the fastest
+                            # way to teach someone to ignore the warning that
+                            # matters.
+                            if ver and _older(ver, FIRMWARE_V):
                                 print(f"[cores3] !! board is {ver}, this checkout "
                                       f"expects {FIRMWARE_V}. Colours and screens "
                                       f"added since {ver} will be IGNORED, "
@@ -209,6 +227,26 @@ class CoreS3Link:
     def dist(self, on=True):      self.event("DIST", 1 if on else 0)  # the 20 Hz stream
     def beat(self, period_ms):    self.event("BEAT", int(period_ms))  # one line per beat
     def approach(self, on=True):  self.event("APPROACH", 1 if on else 0)  # ToF -> PTT
+
+    # ----------------------------------------------------------------- #
+    def claim(self, *, dist=False, approach=False, face=False):
+        """Put the board into the state THIS mode wants, whatever the last one
+        left behind.
+
+        The firmware is shared by four modes and every optional thing in it
+        persists until the board is reset: run the demo, then the performance,
+        and the approach gate is still armed and still pressing the button.
+        Telling each mode to tidy up after itself is the arrangement that fails
+        the first time one is killed with Ctrl-C, which is how every session
+        ends. So instead each mode SETS what it wants on the way in, and the
+        modes stop being able to reach each other at all.
+
+        Say everything, including the offs. A default that is currently right
+        is a default that stops being said, and then it stops being right.
+        """
+        self.approach(approach)
+        self.dist(dist)
+        self.ui("perform" if face else "idle")
 
     def close(self):
         self._stop = True

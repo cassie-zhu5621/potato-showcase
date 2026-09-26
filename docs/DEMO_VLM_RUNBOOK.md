@@ -41,13 +41,13 @@ trade.
 
 ## 2. Flash
 
-Firmware **v8** or later, with the approach gate. Same as everything else:
+Firmware **v9** or later. v9 is the one that has the approach gate. Same as everything else:
 
 ```bash
 cd ~/Documents/potatobot/showcase
 lsof /dev/cu.usbmodem*          # kill anything listed
 pio run -t upload
-python3 robot/tools/tof_test.py     # first line must say v8. Ctrl-C after
+python3 robot/tools/tof_test.py     # first line must say v9. Ctrl-C after
 ```
 
 ## 3. Run, in two terminals
@@ -136,7 +136,8 @@ will remember. It polls `/booth.json`, and if the robot has been listening for
 Ctrl-C the companion, then the loop. The loop returns the neck to idle and
 relaxes it. Power down the servo supply before unplugging USB.
 
-**The approach trigger stays armed on the board until it is reset**, so a study
-session started afterwards on the same power-up would also wake to footsteps.
-Power-cycle the CoreS3 between the demo and any study use, or send
-`EVT APPROACH 0`.
+**No power-cycling between modes.** The approach gate does stay armed on the
+board until reset, but every mode claims the board on startup and says all
+three switches including the offs -- so starting the performance or the study
+loop afterwards turns it off, whatever this run left behind. See
+THE_THREE_MODES.md.

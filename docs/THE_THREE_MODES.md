@@ -58,6 +58,32 @@ The gate has to be in the firmware because the loop holds the CoreS3 port --
 no companion process can read the distance at all. It is deliberately dumber
 than `session/proximity.py`; the reasoning is in DEMO_VLM_RUNBOOK §5.
 
+## One board, four modes, and none of them can reach the others
+
+**The firmware is shared and is not part of any mode's freeze.** It grows only
+by addition, every optional thing in it arrives OFF, and a mode gets what it
+asks for and nothing it did not. So reflashing for one mode does not change
+another: `perform-v1` on a v9 board behaves exactly as it did on v8, because
+the only thing v9 added is a gate that starts closed.
+
+**Every switch persists until the board is reset**, which is the part that
+would have bitten. Run the demo and the approach gate stays armed; run the
+performance next and the board is still pressing its own button through it.
+
+Asking each mode to tidy up on the way OUT is the arrangement that fails the
+first time one is killed with Ctrl-C, which is how every session ends. So each
+mode **claims** the board on the way IN -- `link.claim(...)` says all three
+switches including the offs -- and the modes stop being able to reach each
+other at all.
+
+A default that is currently right is a default that stops being said, and then
+it stops being right. Hence "including the offs".
+
+**The version check warns only about an OLDER board.** A board ahead of the
+checkout understands everything it will be sent, and warning about it would cry
+wolf every time any one mode was reflashed -- the fastest way to teach someone
+to ignore the warning that matters.
+
 ## What is deliberately NOT shared
 
 The showcase reflex layer does not go through `session_flow`. It could have —

@@ -13,7 +13,10 @@ as the study loop.
 
 ## 1. Flash, once
 
-Firmware **v8**.
+Firmware **v9** — or anything newer. The firmware is shared by all four modes
+and grows only by addition, with every optional thing off until a mode asks, so
+reflashing for the demo does not change what this one does. `perform.py` claims
+the board on startup and turns off what it does not want.
 
 ```bash
 cd ~/Documents/potatobot/showcase
@@ -29,10 +32,11 @@ writing often enough to be the default suspect.
 old build running and answering exactly as before:
 
 ```bash
-python3 robot/tools/tof_test.py     # first line must say v8. Ctrl-C after.
+python3 robot/tools/tof_test.py     # v9 or newer. Ctrl-C after.
 ```
 
-An older number means the upload did not land, whatever the IDE reported.
+A number BELOW v9 means the upload did not land, whatever the IDE
+reported. Above is fine.
 
 ## 2. Before the doors open
 

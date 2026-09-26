@@ -443,8 +443,10 @@ def main():
 
     perf = Perf(player, link).start()
     if link:
-        # the big face, and only here -- no other mode ever asks for it
-        link.ui("perform")
+        # the big face, and only here. `claim` also turns OFF the distance
+        # stream and the approach gate, so a demo run before this one cannot
+        # leave the board pressing its own button through the performance.
+        link.claim(face=True)
     old = termios.tcgetattr(sys.stdin)
     quitting = False
     try:

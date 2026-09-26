@@ -565,10 +565,13 @@ def main():
 
         link = CoreS3Link(a.cores3, on_input=on_input)
         holder["link"] = link
-        link.event("UI", "idle")     # the board boots to idle; this re-syncs on reconnect
+        # CLAIM THE BOARD FOR THIS MODE. Everything optional in the firmware
+        # persists until reset, so a performance or a bring-up run before this
+        # one could otherwise leave the distance stream flooding the log or the
+        # big face on the screen. Said explicitly, including the offs.
+        link.claim(approach=bool(a.approach))
         link.event("NOTICED", 0)
         if a.approach:
-            link.approach(True)
             print("[cores3] approach trigger ARMED -- walking up presses the button")
     else:
         pending = []

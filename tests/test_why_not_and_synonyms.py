@@ -250,3 +250,53 @@ def test_the_flag_never_touches_matching():
         v.apply_relevance(SPEC)
         assert v.relevance["allow"] == {"person", "phone"}
         assert v.relevance["focus"] == {"person", "phone"}
+
+
+# --------------------------------------------------------------------------- #
+# The gate must name BOTH sides of the miss.
+# --------------------------------------------------------------------------- #
+class _D:
+    def __init__(self, label): self.label = label
+
+
+def _pv():
+    """A PlanView with no detector loaded -- only the reporting is under test."""
+    from planning.plan_view import PlanView
+    pv = PlanView.__new__(PlanView)
+    pv.relevance = {"allow": None, "focus": set(), "want_classes": None,
+                    "classes_ver": 0}
+    pv.viz = {}
+    return pv
+
+
+def test_the_gate_names_what_the_relation_actually_landed_on():
+    """A hand on the desk BESIDE the phone and a phone that was never detected
+    are different problems with different fixes. One sentence for both is the
+    bug this replaced."""
+    pv = _pv()
+    pv.viz = {"dets": [_D("desk"), _D("laptop")], "handson": [(1, "desk")]}
+    msg = pv._gate_miss({"all": [9], "on": "phone", "label": "holding_phone"})
+    assert "desk" in msg and "phone" in msg
+
+
+def test_the_gate_says_so_when_nothing_was_detected_to_land_on():
+    """The relation is true of a person and nothing it could be true ABOUT was
+    boxed. That is the detector, not the geometry -- and what it DID see is the
+    next thing to look at."""
+    pv = _pv()
+    pv.viz = {"dets": [], "handson": []}
+    msg = pv._gate_miss({"all": [9], "on": "phone", "label": "holding_phone"})
+    assert "no objects at all" in msg
+    assert "landed on nothing detected" in msg
+
+
+def test_focus_sides_and_focus_ok_cannot_disagree():
+    """_focus_ok is now _focus_sides plus an intersection. If they ever drift,
+    the log explains a decision that was not the one taken."""
+    from planning.spec_utils import _focus_ok, _focus_sides
+    viz = {"dets": [_D("desk")], "handson": [(1, "desk")]}
+    for on in ("phone", "desk", None):
+        e = {"all": [9], "on": on}
+        want, landed = _focus_sides(e, viz, {"desk"})
+        expect = True if want is None else bool(landed & want)
+        assert _focus_ok(e, viz, {"desk"}) is expect, on

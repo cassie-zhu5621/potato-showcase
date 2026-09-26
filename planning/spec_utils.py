@@ -277,14 +277,31 @@ def _focus_ok(e, viz, focus):
 
     Both sides are canonical by the time they meet: the labels because
     _canonicalised renamed them at the detector, `on` because _expand does."""
+    want, targets = _focus_sides(e, viz, focus)
+    if want is None:
+        return True
+    return bool(targets & want)
+
+
+def _focus_sides(e, viz, focus):
+    """The two sets `_focus_ok` compares -> (want, landed_on), or (None, None)
+    when the gate does not apply.
+
+    Split out so the gate can SAY WHAT IT SAW. "held back -- the relation
+    holds, but not on the object this card names" is true and useless: it names
+    the card and not the miss, so a hand on a desk beside the phone, a phone the
+    detector never boxed, and a phone it boxed as something else all print the
+    same sentence. Naming both sides turns three indistinguishable failures into
+    three different instructions.
+    """
     on = e.get("on")
     want = _expand([on] if isinstance(on, str) else on) if on else set(focus)
     if not want:
-        return True
+        return None, None
     ids = set(e.get("all", [])) | set(e.get("any", [])) | set(e.get("then", []))
     object_directed = ids & {1, 4, 7, 8, 9, 11}
     if not object_directed:
-        return True
+        return None, None
     dets = viz.get("dets", [])
     targets = set()
     allowed_hits = set()
@@ -303,7 +320,7 @@ def _focus_ok(e, viz, focus):
         targets.update(str(row[0]).lower() for row in viz.get("handoff", []))
     if 7 in ids:
         targets.update(str(label).lower() for label in viz.get("approach", []))
-    return bool(targets & want)
+    return want, targets
 
 def spec_summary(spec):
     out = []

@@ -44,7 +44,7 @@ from perception.overlay import (C_YELLOW, C_CYAN, C_SKEL, C_MAGENTA, C_GREEN)
 from perception.perceive import make_detector
 from perception.relations import RelationEngine
 from perception.watch_exec import WatchExecutor
-from planning.spec_utils import (_expand, _FilteredDetector, _focus_ok,
+from planning.spec_utils import (_expand, _FilteredDetector, _focus_ok, _focus_sides,
                                  _verbatim, prompt_terms, spec_summary)
 
 
@@ -171,12 +171,39 @@ class PlanView:
         # a hand resting on it -- and a line every frame at 4 Hz buries the log
         # that the researcher is reading to find out why nothing fired.
         now_blocked = {e.get("label", "") for e in self.executor.blocked}
+        by_label = {e.get("label", ""): e for e in self.executor.blocked}
         for lab in sorted(now_blocked - self._blocked_said):
-            print(f"[gate] {lab} held back -- the relation holds, but not on "
-                  f"the object this card names")
+            print(f"[gate] {lab} held back -- {self._gate_miss(by_label.get(lab))}")
         self._blocked_said = now_blocked
         self.suppressed = sorted(now_blocked)
         return raw
+
+    def _gate_miss(self, e):
+        """Why THIS card was held back, naming both sides.
+
+        Three different failures used to print one sentence: a hand resting on
+        the desk beside the phone, a phone the detector never boxed, and a
+        phone it boxed under a name the entry does not cover. They need three
+        different things done about them -- move the hand, get the object
+        detected, fix the noun -- so the line has to tell them apart.
+        """
+        if not e:
+            return "the relation holds, but not on the object this card names"
+        want, landed = _focus_sides(e, self.viz, self.relevance["focus"])
+        if want is None:
+            return "the relation holds, but not on the object this card names"
+        named = e.get("on") or "any focus object"
+        seen = sorted({str(d.label).lower() for d in (self.viz.get("dets") or [])}
+                      - {"person"})
+        if not landed:
+            # The relation is true of a person, and nothing it could be true
+            # ABOUT was detected. That is a detector problem, not a geometry
+            # one, and the list of what it DID see is the next thing to look at.
+            return (f"the relation holds but landed on nothing detected. "
+                    f"Card wants {named}; detector sees "
+                    f"{', '.join(seen) or 'no objects at all'}")
+        return (f"the relation landed on {', '.join(sorted(landed))}, "
+                f"but this card names {named}")
 
     def entries(self):
         return self.executor.entries if self.executor is not None else []

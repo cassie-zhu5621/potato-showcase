@@ -266,6 +266,8 @@ def _pv():
     pv.relevance = {"allow": None, "focus": set(), "want_classes": None,
                     "classes_ver": 0}
     pv.viz = {}
+    pv.executor = None
+    pv._target_seen = {}
     return pv
 
 
@@ -300,3 +302,34 @@ def test_focus_sides_and_focus_ok_cannot_disagree():
         want, landed = _focus_sides(e, viz, {"desk"})
         expect = True if want is None else bool(landed & want)
         assert _focus_ok(e, viz, {"desk"}) is expect, on
+
+
+def test_a_flickering_detection_does_not_block_a_card_that_is_satisfied():
+    """THE BUG THIS EXISTS FOR, reproduced the only way it shows up: over time.
+
+    `truth` is windowed -- a row stays held for `within` seconds so a dropped
+    frame does not end a contact -- while `viz` is this frame only. So a phone
+    at 0.39 confidence, blinking in and out of the detector several times a
+    second, left the card satisfied on exactly the frames where the gate could
+    see nothing to have landed on. Blocked every time, for minutes, with a hand
+    visibly on a phone on screen.
+
+    One frame cannot show this. Two can.
+    """
+    pv = _pv()
+    e = {"all": [9], "on": "phone", "label": "touching_phone"}
+
+    pv.entries = lambda: [{"within": 2.0}]
+    pv.viz = {"dets": [_D("phone")], "handson": [(1, "phone")]}
+    seen = pv._gate_targets(100.0)
+    assert seen[9] == {"phone"}
+
+    # the next frame drops the box -- the hand has not moved
+    pv.viz = {"dets": [], "handson": []}
+    from planning.spec_utils import _focus_ok
+    assert _focus_ok(e, pv.viz, set()) is False, "the old behaviour, for contrast"
+    assert _focus_ok(e, pv.viz, set(), pv._gate_targets(100.25)) is True
+
+    # and a hand that has genuinely been gone longer than the window is gone.
+    # Nothing here grants latitude the truth did not already have.
+    assert _focus_ok(e, pv.viz, set(), pv._gate_targets(103.0)) is False

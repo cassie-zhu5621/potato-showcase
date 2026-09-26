@@ -269,7 +269,7 @@ class _FilteredDetector:
     def __getattr__(self, k):
         return getattr(object.__getattribute__(self, "base"), k)
 
-def _focus_ok(e, viz, focus):
+def _focus_ok(e, viz, focus, targets_by_id=None):
     """Focus gate at story-open: an object gaze/point entry may only OPEN a story when its target
     is the right object. If the entry names `on`, that specific object is required; otherwise any
     focus object. Person-centric entries (approach/gather/joint/prox/F-form/turn) and truth-only
@@ -277,13 +277,13 @@ def _focus_ok(e, viz, focus):
 
     Both sides are canonical by the time they meet: the labels because
     _canonicalised renamed them at the detector, `on` because _expand does."""
-    want, targets = _focus_sides(e, viz, focus)
+    want, targets = _focus_sides(e, viz, focus, targets_by_id)
     if want is None:
         return True
     return bool(targets & want)
 
 
-def _focus_sides(e, viz, focus):
+def _focus_sides(e, viz, focus, targets_by_id=None):
     """The two sets `_focus_ok` compares -> (want, landed_on), or (None, None)
     when the gate does not apply.
 
@@ -299,28 +299,46 @@ def _focus_sides(e, viz, focus):
     if not want:
         return None, None
     ids = set(e.get("all", [])) | set(e.get("any", [])) | set(e.get("then", []))
-    object_directed = ids & {1, 4, 7, 8, 9, 11}
+    object_directed = ids & OBJECT_DIRECTED
     if not object_directed:
         return None, None
-    dets = viz.get("dets", [])
+    by_id = _frame_targets(viz) if targets_by_id is None else targets_by_id
     targets = set()
-    allowed_hits = set()
-    if 1 in ids: allowed_hits.add("gazing-at")
-    if 4 in ids: allowed_hits.add("pointing-at")
-    if 8 in ids: allowed_hits.add("lean-in")
-    for kind, h in viz.get("hits", []):
-        if kind not in allowed_hits:
-            continue
-        di = h.get("det") if isinstance(h, dict) else None
-        if isinstance(di, int) and 0 <= di < len(dets):
-            targets.add(str(dets[di].label).lower())
-    if 9 in ids:
-        targets.update(str(label).lower() for _, label in viz.get("handson", []))
-    if 11 in ids:
-        targets.update(str(row[0]).lower() for row in viz.get("handoff", []))
-    if 7 in ids:
-        targets.update(str(label).lower() for label in viz.get("approach", []))
+    for rid in object_directed:
+        targets |= set(by_id.get(rid) or ())
     return want, targets
+
+
+OBJECT_DIRECTED = {1, 4, 7, 8, 9, 11}
+_HIT_KIND = {1: "gazing-at", 4: "pointing-at", 8: "lean-in"}
+
+
+def _frame_targets(viz):
+    """-> {relation_id: {label, ...}} -- what each object-directed row landed on
+    THIS frame.
+
+    Pulled out of the gate because the gate's caller needs to remember these.
+    `truth` is windowed ("held within the last 2 s") and viz is instantaneous,
+    and comparing one against the other is a category error that shows up only
+    when the detector flickers -- see PlanView._gate_targets.
+    """
+    dets = viz.get("dets", [])
+    out = {rid: set() for rid in OBJECT_DIRECTED}
+    for kind, h in viz.get("hits", []):
+        di = h.get("det") if isinstance(h, dict) else None
+        if not (isinstance(di, int) and 0 <= di < len(dets)):
+            continue
+        lab = str(dets[di].label).lower()
+        for rid, want_kind in _HIT_KIND.items():
+            if kind == want_kind:
+                out[rid].add(lab)
+    for _, label in viz.get("handson", []):
+        out[9].add(str(label).lower())
+    for row in viz.get("handoff", []):
+        out[11].add(str(row[0]).lower())
+    for label in viz.get("approach", []):
+        out[7].add(str(label).lower())
+    return out
 
 def spec_summary(spec):
     out = []

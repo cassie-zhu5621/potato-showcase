@@ -45,6 +45,7 @@ from perception.perceive import make_detector
 from perception.relations import RelationEngine
 from perception.watch_exec import WatchExecutor
 from planning.spec_utils import (_expand, _FilteredDetector, _focus_ok, _focus_sides,
+                                 _frame_targets,
                                  _verbatim, prompt_terms, spec_summary)
 
 
@@ -64,6 +65,8 @@ class PlanView:
         # emits); `want_classes` is the RAW planner nouns for an open-vocab
         # detector's set_vocab; classes_ver bumps so the detector re-prompts
         # lazily on its next frame rather than being rebuilt.
+        # (relation_id, label) -> when it was last landed on. See _gate_targets.
+        self._target_seen = {}
         self.relevance = {"allow": None, "focus": set(),
                           "want_classes": None, "classes_ver": 0}
         self.engine = RelationEngine(
@@ -163,9 +166,10 @@ class PlanView:
         # output: an entry whose object does not match is NOT SATISFIED, and a
         # card that is not satisfied must not spend a cooldown or an edge. See
         # WatchExecutor.step.
+        by_id = self._gate_targets(t)
         raw, self.statuses = self.executor.step(
             self.truth, t,
-            ok=lambda e: _focus_ok(e, self.viz, self.relevance["focus"]))
+            ok=lambda e: _focus_ok(e, self.viz, self.relevance["focus"], by_id))
         # Say it once per episode, not once per frame. The relation can hold
         # against the wrong object for minutes -- somebody working at a desk with
         # a hand resting on it -- and a line every frame at 4 Hz buries the log
@@ -178,6 +182,46 @@ class PlanView:
         self.suppressed = sorted(now_blocked)
         return raw
 
+    def _gate_targets(self, t):
+        """What each object-directed row has landed on lately -> {rid: {label}}.
+
+        LATELY, NOT THIS FRAME, and that is the fix for a bug that made
+        `hands on phone` unfireable while the screen showed a hand on a phone.
+
+        The two sides of the focus gate were on different clocks. `truth` is
+        WINDOWED -- WatchExecutor._held_within asks whether a row was true
+        within the last `within` seconds (2 s by default), which is what lets a
+        relation survive the detector dropping a frame. `viz` is INSTANTANEOUS:
+        it lists what this one frame landed on. So the executor would call a
+        card satisfied on the strength of a contact 0.4 s ago, and the gate
+        would then ask what that contact landed on RIGHT NOW and be told
+        nothing, because a phone held at arm's length scores 0.39 and blinks in
+        and out of the detector's output several times a second.
+
+        The card was therefore blocked on precisely the frames where it was
+        satisfied, every time, and the log said the two contradictory things
+        that gave it away:
+
+            the relation holds but landed on nothing detected
+            ... detector sees phone
+
+        Remembering targets for the same window the truth uses puts both sides
+        on one clock. It grants no latitude the truth did not already have: a
+        hand that genuinely left the phone stops holding row 9 true, and the
+        card stops being satisfied, whatever this remembers.
+        """
+        win = max([e.get("within", 2.0) for e in self.entries()] or [2.0])
+        for rid, labels in _frame_targets(self.viz).items():
+            for lab in labels:
+                self._target_seen[(rid, lab)] = t
+        out = {}
+        for (rid, lab), seen in list(self._target_seen.items()):
+            if t - seen > win:
+                del self._target_seen[(rid, lab)]
+            else:
+                out.setdefault(rid, set()).add(lab)
+        return out
+
     def _gate_miss(self, e):
         """Why THIS card was held back, naming both sides.
 
@@ -189,7 +233,8 @@ class PlanView:
         """
         if not e:
             return "the relation holds, but not on the object this card names"
-        want, landed = _focus_sides(e, self.viz, self.relevance["focus"])
+        want, landed = _focus_sides(e, self.viz, self.relevance["focus"],
+                                    self._gate_targets(time.time()))
         if want is None:
             return "the relation holds, but not on the object this card names"
         named = e.get("on") or "any focus object"

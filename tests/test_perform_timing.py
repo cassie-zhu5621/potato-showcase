@@ -128,3 +128,82 @@ def test_a_wild_tap_does_not_move_the_tempo(monkeypatch):
         p.tap()
         t[0] += gap
     assert p.bpm == pytest.approx(120.0, rel=0.05)
+
+
+# --------------------------------------------------------------------------- #
+# tapping while it plays
+# --------------------------------------------------------------------------- #
+def test_tapping_while_it_runs_does_not_lurch(monkeypatch):
+    """Setting t0 = now on every tap snaps the phase to zero from wherever the
+    sway had got to, and the neck jumps mid-travel. That made tapping something
+    you had to freeze for -- and an instrument you must stop to retune is not
+    one."""
+    t = [37.4]
+    monkeypatch.setattr(perform.time, "perf_counter", lambda: t[0])
+    p = perf(bpm=90.0, t0=37.0)
+    p.frozen = False
+    before = p.phase() % 1.0
+    p.tap()
+    after = p.phase() % 1.0
+    assert abs(after - before) < 0.2, "the phase jumped; it should converge"
+
+
+def test_tapping_converges_on_the_beat(monkeypatch):
+    """A quarter of the error per tap: locked within about four, which is how
+    long it takes to give it four taps anyway."""
+    t = [100.0]
+    monkeypatch.setattr(perform.time, "perf_counter", lambda: t[0])
+    p = perf(bpm=120.0, t0=100.0 - 0.21)     # a fifth of a beat out
+    p.frozen = False
+    errs = []
+    for _ in range(6):
+        p.tap()
+        ph = p.phase()
+        errs.append(abs(ph - round(ph)))
+        t[0] += p.period
+    assert errs[-1] < errs[0] / 3, f"did not converge: {errs}"
+
+
+def test_frozen_it_snaps(monkeypatch):
+    """Nothing is moving, so there is nothing to lurch -- and starting a piece
+    should put the downbeat exactly where it was tapped."""
+    t = [50.0]
+    monkeypatch.setattr(perform.time, "perf_counter", lambda: t[0])
+    p = perf(t0=49.13)
+    p.frozen = True
+    p.tap()
+    assert p.t0 == 50.0
+
+
+def test_a_tempo_change_does_not_move_the_neck(monkeypatch):
+    """The period is the denominator of the phase, so changing it without
+    re-deriving t0 moves the pose as well and a tempo nudge arrives with a
+    jolt."""
+    t = [0.0]
+    monkeypatch.setattr(perform.time, "perf_counter", lambda: t[0])
+    p = perf(bpm=90.0, t0=-0.3)
+    p.frozen = False
+    for gap in (0.5, 0.5, 0.5):        # tap in a different tempo
+        before = p.phase() % 1.0
+        p.tap()
+        after = p.phase() % 1.0
+        assert abs(after - before) < 0.2, "tempo change jolted the phase"
+        t[0] += gap
+
+
+def test_the_turn_is_ramped_not_jumped():
+    """pan's limit is the camera loom rather than the servo, so it is the axis
+    to be gentle with -- and a 30 degree jump mid-sway is a lurch."""
+    p = perf()
+    p.pan_want = 60.0
+    dt = 1.0 / perform.RATE_HZ
+    step = perform.PAN_DPS * dt
+    assert step < 2.0, "one frame of turn must be small enough to be invisible"
+
+
+def test_the_sway_carries_the_pan():
+    """The oscillator never wrote pan at all, which is why it felt like a
+    missing axis rather than an unused one."""
+    p = perf(shape="lean")
+    p.pan = 25.0
+    assert p.pose()["pan"] == 25.0

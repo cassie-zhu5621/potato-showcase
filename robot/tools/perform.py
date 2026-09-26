@@ -16,6 +16,8 @@ listen to the same track, which is a conductor neither of you has to be.
   ↑ ↓     amplitude
   ← →     nudge the phase, an eighth at a time
   T / G   trim the neck up / down, for looking at something above
+  , .     turn left / right, 15 deg a press. Ramped, never jumped
+  /       face front again
   B       light on / off       W C R S   warm / cool / red / summon
   M       gesture sounds on / off  (off by default -- see SFX_FOR)
   1..6    gestures, quantised
@@ -106,6 +108,22 @@ RATE_HZ = 50.0
 # it happened rather than silently different from the key that was pressed.
 AMP_BPM_LIMIT = 1146.0
 
+# WHERE IT FACES. Not a new servo -- this is the pan it already has, and
+# -70/+76 is already "toward the audience" and "toward the player" with room to
+# spare. What was missing was that the oscillator never wrote pan at all.
+#
+# INCREMENTAL, not five preset stations. The five keys z x c v b are the
+# convention elsewhere in this project, and three of them are already the light
+# and the voice here -- and nudging is the better instrument anyway: you turn
+# it while it plays rather than choosing a place to be.
+#
+# RAMPED, not jumped. drive_deg commands a position and the servo goes there as
+# fast as it can; a 30-degree jump mid-sway is a lurch, and pan's limit is the
+# camera loom rather than the servo, so it is the axis to be gentle with.
+PAN_STEP = 15.0
+PAN_DPS = 40.0
+PAN_MAX = 65.0
+
 
 class Perf:
     def __init__(self, player, link=None, verbose=False):
@@ -121,6 +139,8 @@ class Perf:
         self.amp_i = 1
         self.trim = 0.0                   # neck bias, for looking up
         self.frozen = True                # start still; F to begin
+        self.pan = 0.0
+        self.pan_want = 0.0
         self.taps = []
         self.pending = None               # (fire_at, clip)
         self.busy_until = 0.0
@@ -133,17 +153,35 @@ class Perf:
         return 60.0 / self.bpm
 
     def tap(self):
+        """Tempo from the gaps, phase from where the taps land.
+
+        RE-ANCHORING HARD WAS WRONG WHILE IT RUNS. Setting t0 = now on every
+        tap means the phase jumps to zero from wherever the sway had got to,
+        and the neck lurches mid-travel -- which made tapping something you had
+        to freeze for, and freezing to change tempo is not an instrument.
+
+        Frozen, it snaps: nothing is moving, so there is nothing to lurch.
+        Running, it converges -- a quarter of the error per tap, locked within
+        about four, which is how long it takes to give it four taps anyway.
+        """
         now = time.perf_counter()
+        ph = self.phase(now)                    # before anything changes
         self.taps = [t for t in self.taps if now - t < 3.0] + [now]
         if len(self.taps) >= 3:
             gaps = sorted(b - a for a, b in zip(self.taps, self.taps[1:]))
             med = gaps[len(gaps) // 2]
             if 0.2 < med < 2.0:
+                # PHASE-CONTINUOUS TEMPO CHANGE. The period is the denominator
+                # of the phase, so changing it without re-deriving t0 moves the
+                # neck as well -- a tempo nudge would come with a jolt.
                 self.bpm = 60.0 / med
-        # EVERY TAP IS ALSO A DOWNBEAT. Re-anchoring the phase on each tap is
-        # what lets you pull the robot back into line without stopping -- if it
-        # has drifted against the record, you just tap where the beat really is.
-        self.t0 = now
+                self.t0 = now + LEAD_S - ph * self.period
+
+        if self.frozen:
+            self.t0 = now
+            return
+        err = ph - round(ph)                    # beats, -0.5 .. +0.5
+        self.t0 += 0.25 * err * self.period
 
     def phase(self, at=None):
         """Beats since the origin, evaluated LEAD_S ahead so the motion arrives
@@ -182,13 +220,14 @@ class Perf:
         a = self.amp
         w = -math.cos(2 * math.pi * self.phase())      # -1 on the beat
         if self.shape == "nod":
-            return dict(nod=self.trim + a * w)
+            return dict(pan=self.pan, nod=self.trim + a * w)
         if self.shape == "lean":
             # tilt and nod in OPPOSITION: the body dips and the gaze stays put.
             # The musician's version -- a bassist's head is still while the
             # body moves -- and the same shape as S5A_FOUND's epistemic lean.
-            return dict(tilt=a * w, nod=self.trim - a * w)
-        return dict(tilt=a * w, nod=self.trim + a * w)   # dip: whole body
+            return dict(pan=self.pan, tilt=a * w, nod=self.trim - a * w)
+        return dict(pan=self.pan, tilt=a * w,
+                    nod=self.trim + a * w)               # dip: whole body
 
     # ---------------- gestures ----------------
     def fire(self, clip):
@@ -238,6 +277,12 @@ class Perf:
             # THE PHASE KEEPS RUNNING WHILE A CLIP PLAYS. It is read off the
             # wall clock, not accumulated, so the sway resumes exactly in time
             # instead of wherever it was interrupted.
+            # ramp the turn, whatever else is happening
+            step = PAN_DPS * dt
+            if abs(self.pan_want - self.pan) <= step:
+                self.pan = self.pan_want
+            else:
+                self.pan += step * (1 if self.pan_want > self.pan else -1)
             if not self.frozen and now >= self.busy_until and self.player:
                 self.player.drive_deg(**self.pose())
             self._pulse(now)
@@ -328,6 +373,12 @@ def main():
                     perf.light = not perf.light
                 elif k in ("m", "M"):
                     perf.sound = not perf.sound
+                elif k == ",":
+                    perf.pan_want = max(-PAN_MAX, perf.pan_want - PAN_STEP)
+                elif k == ".":
+                    perf.pan_want = min(PAN_MAX, perf.pan_want + PAN_STEP)
+                elif k == "/":
+                    perf.pan_want = 0.0
                 elif k in ("w", "c", "r", "s"):
                     if perf.link:
                         perf.link.hue({"w": "WARM", "c": "COOL",
@@ -352,6 +403,7 @@ def main():
                 pend = perf.pending[1] if perf.pending else "-"
                 sys.stdout.write(
                     "\r  {:5.1f} BPM  {:5}  amp {:4.1f}d{} trim {:+3.0f}  "
+                    "pan {:+4.0f}  "
                     "{}  {}{}  next:{:<16}".format(
                         perf.bpm, perf.shape, perf.amp,
                         "!" if perf.amp < AMPS[perf.amp_i] - 0.05 else " ",

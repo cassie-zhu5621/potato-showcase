@@ -69,8 +69,21 @@ On startup terminal 1 prints:
 If that line is missing, `--approach` did not reach the board and walking up
 will do nothing.
 
-The laptop page is the loop's own: `http://<this machine>:8000/booth` full
-screen for the audience, `/` for the developer view.
+**The companion prints both addresses** and then stays quiet, so they are still
+on screen an hour later:
+
+```
+  ==============================================================
+   FOR THE AUDIENCE   http://172.16.10.3:8000/booth
+   FOR YOU            http://localhost:8000/
+  ==============================================================
+```
+
+The loop prints them too and then buries them under CV output within seconds.
+The audience one is the address to open on the tablet or the second laptop:
+same wi-fi, **http not https**, and not the `.local` name — iOS refuses mDNS
+often enough, and an autocompleted `https://` fails with a certificate message
+that sends you looking in entirely the wrong place.
 
 ## 4. The standing prompt is the part that matters
 

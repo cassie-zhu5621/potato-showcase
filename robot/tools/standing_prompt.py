@@ -41,10 +41,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import time
 import urllib.error
 import urllib.request
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))))
 
 DEFAULT = "tell me when someone comes close to the table"
 LISTENING = {"S1_ATTEND"}
@@ -63,6 +67,16 @@ def post(base, path, body, timeout=3.0):
 
 
 def main():
+    # LINE BUFFERED, ALWAYS. Python block-buffers stdout the moment it is not a
+    # terminal, so piping this into tee for a log -- which is the one time the
+    # log matters -- holds every line back until 4 KB have piled up. During a
+    # demo that is the difference between watching it work and finding out
+    # afterwards.
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except AttributeError:
+        pass
+
     ap = argparse.ArgumentParser(description="the standing prompt, for a demo")
     ap.add_argument("--host", default="http://127.0.0.1:8000")
     ap.add_argument("--say", default=DEFAULT, help="the standing prompt")
@@ -72,8 +86,28 @@ def main():
     ap.add_argument("--watch", action="store_true", help="print every poll")
     a = ap.parse_args()
 
-    print(f"standing prompt: {a.say!r}")
-    print(f"stepping in after {a.after}s of silence. Ctrl-C to stop.\n")
+    # THE ADDRESSES, HERE, because this is the window that stays still. The
+    # loop prints them too and then scrolls them away under CV output within
+    # seconds -- and the one you need on a tablet is the one you cannot guess.
+    try:
+        from webui.server import lan_address
+        ip = lan_address()
+    except Exception:
+        ip = None
+    port = a.host.rsplit(":", 1)[-1].strip("/")
+    print()
+    print("  " + "=" * 62)
+    print("   FOR THE AUDIENCE   " + (f"http://{ip}:{port}/booth" if ip
+                                      else "no LAN address -- see below"))
+    print(f"   FOR YOU            http://localhost:{port}/")
+    print("  " + "=" * 62)
+    if not ip:
+        print("   This machine has no address on the LAN, so a tablet or")
+        print("   another laptop cannot reach it. Same wi-fi, and http --")
+        print("   not https, and not the .local name.")
+    print()
+    print(f"  standing prompt: {a.say!r}")
+    print(f"  stepping in after {a.after}s of silence. Ctrl-C to stop.\n")
 
     since = None          # when the robot started listening, or None
     served = False        # already answered for this visit

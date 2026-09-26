@@ -1,7 +1,15 @@
 # Performance runbook
 
-**Frozen at tag `perform-v1`.** The robot played from the keyboard, to music,
-beside the floating fish.
+**Frozen at tag `perform-v1.1` — run that one, not `perform-v1`.**
+
+The robot played from the keyboard, to music, beside the floating fish.
+
+`perform-v1` is the same performance, and it is superseded rather than kept as
+an alternative: it predates the modes claiming the board, so it does not
+disarm the demo's approach gate and would play a whole show with the board
+pressing its own button. It also expects firmware v8 and cries wolf on a v9
+one. The only difference in perform.py itself is one line -- `link.ui("perform")`
+became `link.claim(face=True)` -- and nothing about how it plays changed.
 
 Nobody synchronises anything: the fish's pilot and the robot's player both
 listen to the same track. That is a conductor neither of them has to be.

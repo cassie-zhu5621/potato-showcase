@@ -5,7 +5,8 @@ a companion posts a standing prompt so nobody has to speak. Everything else —
 camera, detector, planner, judge, sweep, the report, the tablet page — is the
 study loop, unchanged.
 
-`THE_THREE_MODES.md` says how this differs from the other two.
+`THE_THREE_MODES.md` says how this differs from the other three.
+Full detail here; on the day itself use `SHOWDAY.md`, which is one page.
 
 ---
 

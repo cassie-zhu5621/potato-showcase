@@ -12,6 +12,9 @@ servo bus and the CoreS3, and there is one of each.
 
 ## Switching between them
 
+**On the day itself, use `SHOWDAY.md`** -- one page, flash in the morning and
+switch modes all day. This section is the reasoning behind it.
+
 Ctrl-C the one that is running, start the other. That is all of it.
 
 **No reflash.** The firmware is one build shared by all four, so flashing is a

@@ -15,7 +15,7 @@ Nobody synchronises anything: the fish's pilot and the robot's player both
 listen to the same track. That is a conductor neither of them has to be.
 
 Read `THE_THREE_MODES.md` if it is not obvious why this is not the same program
-as the study loop.
+as the study loop. Full detail here; on the day itself use `SHOWDAY.md`, which is one page.
 
 ---
 

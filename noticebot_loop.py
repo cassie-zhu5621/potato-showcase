@@ -573,6 +573,21 @@ def main():
         link.event("NOTICED", 0)
         if a.approach:
             print("[cores3] approach trigger ARMED -- walking up presses the button")
+            # THE DEMO'S ONE INCOMPATIBLE DEFAULT, said at startup rather than
+            # discovered an hour in. `--feedback console` is the right default
+            # for the study -- it runs the whole pipeline without the robot
+            # acting, which is what you want while a participant is briefed --
+            # and it is silently fatal to a demo: every stage works, the judge
+            # confirms, [FEEDBACK] prints, and the robot never calls. Nothing
+            # looks broken, which is the worst way for it to be broken.
+            #
+            # Warned, not overridden. A flag that quietly means something else
+            # when another flag is present is a worse trap than this one.
+            if a.feedback != "robot":
+                print("[loop] !! --approach without --feedback robot. Somebody "
+                      "walking up will start the whole cycle and the robot will "
+                      "NEVER CALL: confirmed findings stop at the console. Add "
+                      "--feedback robot.")
     else:
         pending = []
 

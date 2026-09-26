@@ -74,7 +74,7 @@ Loop first. It is the one that fails: port busy, camera busy, no network. Start
 it alone so its first lines are on a clean screen.
 
 ```bash
-python3 noticebot_loop.py --serve --cores3 --approach --detector yoloworld --cam 1
+python3 noticebot_loop.py --serve --cores3 --approach --feedback robot --detector yoloworld --cam 1
 ```
 
 Watch for this in the first few lines, before CV output buries it:
@@ -85,6 +85,11 @@ Watch for this in the first few lines, before CV output buries it:
 
 **No ARMED line means walking up will do nothing.** Nothing else will look
 wrong.
+
+Same for **`--feedback robot`**, and this one is worse because it fails later:
+without it the whole cycle runs, the judge confirms, `[FEEDBACK]` prints -- and
+the robot never calls. The loop warns at startup; the warning is the line to
+look for if it all works and nothing ever happens.
 
 Wait for `[gemini] warm in ...`, then the second terminal:
 

@@ -105,3 +105,22 @@ def test_the_firmware_version_matches_the_sketch():
                             "cores3_sidekick.ino")).read()
     vers = set(re.findall(r"cores3_sidekick (v\d+)", ino))
     assert vers == {FIRMWARE_V}, f"sketch says {vers}, link expects {FIRMWARE_V}"
+
+
+def test_the_demo_warns_when_it_can_never_call():
+    """`--feedback console` is the study's right default and the demo's silent
+    death: every stage works, the judge confirms, [FEEDBACK] prints, and the
+    robot never calls. Warned at startup, not overridden -- a flag that quietly
+    means something else in the presence of another flag is a worse trap."""
+    src = open("noticebot_loop.py").read()
+    i = src.index("approach trigger ARMED")
+    block = src[i:i + 1200]
+    assert 'a.feedback != "robot"' in block
+    assert "NEVER CALL" in block
+
+
+def test_the_runbooks_pass_feedback_robot():
+    for path in ("docs/SHOWDAY.md", "docs/DEMO_VLM_RUNBOOK.md"):
+        for line in open(path):
+            if "noticebot_loop.py" in line and "--approach" in line:
+                assert "--feedback robot" in line, f"{path}: {line.strip()}"

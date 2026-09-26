@@ -55,7 +55,7 @@ python3 robot/tools/tof_test.py     # first line must say v11. Ctrl-C after
 
 ```bash
 # 1 -- the loop, as usual, plus --approach
-python3 noticebot_loop.py --serve --cores3 --approach --detector yoloworld
+python3 noticebot_loop.py --serve --cores3 --approach --feedback robot --detector yoloworld
 
 # 2 -- the companion
 python3 robot/tools/standing_prompt.py
@@ -69,6 +69,13 @@ On startup terminal 1 prints:
 
 If that line is missing, `--approach` did not reach the board and walking up
 will do nothing.
+
+**`--feedback robot` is not optional here.** The default is `console`, which is
+right for the study -- it runs the whole pipeline without the robot acting,
+while a participant is being briefed -- and silently fatal to a demo. Every
+stage works, the judge confirms, `[FEEDBACK] ...` prints, and the robot never
+calls. Nothing looks broken. The loop now warns at startup if `--approach` is
+given without it.
 
 **The companion prints both addresses** and then stays quiet, so they are still
 on screen an hour later:

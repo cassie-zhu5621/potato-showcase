@@ -17,6 +17,7 @@ listen to the same track, which is a conductor neither of you has to be.
   ← →     nudge the phase, an eighth at a time
   T / G   trim the neck up / down, for looking at something above
   B       light on / off       W C R S   warm / cool / red / summon
+  M       gesture sounds on / off  (off by default -- see SFX_FOR)
   1..6    gestures, quantised
   0       stop the sway, hold still
   V       say the selected line -- music OFF first.  [ ] pick which
@@ -65,6 +66,17 @@ ACCENT_S = {
 }
 KEY_CLIP = {"1": "S2_ACKNOWLEDGE", "2": "S5A_FOUND", "3": "S5B_BECKON",
             "4": "S6_CORRECT", "5": "S1_ATTEND", "6": "S3_SCAN"}
+
+# TIED TO GESTURES, NEVER TO THE BEAT. A tone on every beat is redundant with
+# the music that is already playing and reads as a notification, not as a
+# creature. These fire with the body doing something the music is not doing.
+#
+# OFF BY DEFAULT (M toggles). A 1 W speaker in a printed shell loses to a room
+# with music in it, so whether this is worth having at all is a question about
+# the venue and cannot be answered here.
+SFX_FOR = {"S5A_FOUND": "EXCITED", "S6_CORRECT": "PUZZLED",
+           "S2_ACKNOWLEDGE": "ACK", "S3_SCAN": "SHUTTER",
+           "S5B_BECKON": "CURIOUS", "S1_ATTEND": "CURIOUS"}
 CLIP_DUR = {"S1_ATTEND": 1.97, "S2_ACKNOWLEDGE": 1.63, "S3_SCAN": 6.13,
             "S4A_SETTLE": 1.20, "S5A_FOUND": 1.73, "S5B_BECKON": 6.53,
             "S6_CORRECT": 2.37, "S7_ERROR": 3.97}
@@ -99,7 +111,9 @@ class Perf:
     def __init__(self, player, link=None, verbose=False):
         self.player, self.link, self.verbose = player, link, verbose
         self.light = True
+        self.sound = False
         self.line = 1
+        self.pending_sfx = None
         self._led_last, self._led_at = -1, 0.0
         self.bpm = 90.0
         self.t0 = time.perf_counter()     # phase origin: a beat falls here
@@ -188,6 +202,11 @@ class Perf:
         while at - lead < time.perf_counter():
             at += self.period
         self.pending = (at - lead, clip, at)
+        # THE SOUND TAKES NO LEAD, for the same reason the light does not: a
+        # speaker has nothing to travel. It fires at the beat itself, while the
+        # clip had to leave early to arrive there.
+        name = SFX_FOR.get(clip)
+        self.pending_sfx = (at, name) if name else None
 
     # ---------------- the driver ----------------
     def start(self):
@@ -202,6 +221,14 @@ class Perf:
         dt = 1.0 / RATE_HZ
         while not self._stop:
             now = time.perf_counter()
+            if self.pending_sfx and now >= self.pending_sfx[0]:
+                at, name = self.pending_sfx
+                self.pending_sfx = None
+                if self.sound and self.link:
+                    try:
+                        self.link.sfx(name)
+                    except Exception:
+                        pass
             if self.pending and now >= self.pending[0]:
                 _, clip, _ = self.pending
                 self.pending = None
@@ -299,6 +326,8 @@ def main():
                     perf.trim = max(-20.0, perf.trim - 3)
                 elif k in ("b", "B"):
                     perf.light = not perf.light
+                elif k in ("m", "M"):
+                    perf.sound = not perf.sound
                 elif k in ("w", "c", "r", "s"):
                     if perf.link:
                         perf.link.hue({"w": "WARM", "c": "COOL",
@@ -323,12 +352,12 @@ def main():
                 pend = perf.pending[1] if perf.pending else "-"
                 sys.stdout.write(
                     "\r  {:5.1f} BPM  {:5}  amp {:4.1f}d{} trim {:+3.0f}  "
-                    "{}  say{}  next:{:<16}".format(
+                    "{}  {}{}  next:{:<16}".format(
                         perf.bpm, perf.shape, perf.amp,
                         "!" if perf.amp < AMPS[perf.amp_i] - 0.05 else " ",
                         perf.trim,
                         "FROZEN" if perf.frozen else "  " + "*" * (1 + int(beat * 3)) + " " * (3 - int(beat * 3)),
-                        perf.line, pend))
+                        "snd" if perf.sound else "   ", perf.line, pend))
                 sys.stdout.flush()
     finally:
         termios.tcsetattr(sys.stdin, termios.TCSADRAIN, old)

@@ -252,16 +252,22 @@ def test_the_nod_does_not_get_a_screen_of_its_own():
     assert "phase==='ack'" not in PAGE
 
 
-def test_it_reads_the_same_fields_the_live_panel_does():
-    """build_status is the one place an entry becomes a row. Deriving these
-    from the spec separately would give the tablet its own opinion of what is
-    satisfied."""
+def test_the_tablet_never_forms_its_own_opinion_of_satisfied():
+    """build_status is the one place an entry becomes a row, and `sat` is its
+    verdict. The tablet shows the rule in WORDS now rather than as relation
+    chips -- a visitor reads `hands-on AND prox` as noise -- but the thing that
+    must not drift is unchanged: whether the rule is TRUE is read, never
+    recomputed here from the id groups."""
     from webui.booth import PAGE
     i = PAGE.index("function specInner(")
     block = PAGE[i:i + 900]
-    for k in ("w.all", "w.any", "w.then", "w.truth", "w.on", "w.sat"):
-        assert k in block, k
-    assert "THEN" in block and "AND" in block and "OR" in block
+    assert "w.sat" in block, "the verdict comes from build_status"
+    assert "w.label" in block, "and the rule is shown in the planner's words"
+    for k in ("w.all", "w.any", "w.then", "w.truth"):
+        assert k not in block, (
+            f"{k} is back in the tablet -- the id groups are the developer "
+            f"page's business, and recombining them here is how the two "
+            f"screens start disagreeing about what is true")
 
 
 def test_the_grid_has_six_cells_and_the_last_is_the_rule():
@@ -513,3 +519,35 @@ def test_the_tap_only_ever_means_not_that_one():
     assert 'flow.state == "S0_IDLE"' not in block
     assert 'player.request("S1_ATTEND")' not in block
     assert 'events.append("tap")' in block
+
+
+def test_the_prompt_row_is_outside_the_part_that_is_re_rendered():
+    """render() rewrites the whole of #app five times a second. An <input>
+    inside that innerHTML is destroyed between keystrokes -- the caret jumps and
+    the text disappears -- which is the same trap #live was pulled out of.
+    """
+    from webui.booth import PAGE
+    body = PAGE[PAGE.index("<body>"):PAGE.index("<script>")]
+    app = body.index("<div id=app>")
+    bar = body.index("<div id=ctxbar>")
+    assert bar > app, "the prompt row must not be nested in #app"
+    render = PAGE[PAGE.index("function render("):PAGE.index("async function poll(")]
+    assert "ctxbar" not in render and "id=ctx" not in render, \
+        "render() must never touch the prompt row"
+
+
+def test_the_prompt_goes_to_the_one_endpoint_that_re_plans():
+    """Same POST /context the developer page and standing_prompt.py use, so a
+    sentence typed on the tablet is accepted from every state -- including
+    S7_ERROR, which is the state it is most often typed to get out of."""
+    from webui.booth import PAGE
+    assert "fetch('/context',{method:'POST'" in PAGE
+    assert "e.key!=='Enter'" in PAGE, "return sends it"
+
+
+def test_the_prompt_box_is_16px_so_ios_does_not_zoom_the_page():
+    """Safari zooms in on a focused input under 16px and a wall-mounted tablet
+    has nobody to pinch it back out."""
+    from webui.booth import PAGE
+    css = PAGE[PAGE.index("#ctx{"):PAGE.index("#ctx:focus")]
+    assert "font-size:16px" in css

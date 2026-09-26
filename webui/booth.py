@@ -353,13 +353,35 @@ h1{font-weight:600;font-size:clamp(26px,3.4vh,40px);line-height:1.3;margin:0;let
 .spec .lb{font-size:clamp(12px,1.25vw,17px);color:#6f6c65;letter-spacing:.08em}
 .spec .row{display:flex;flex-wrap:wrap;gap:5px;align-items:center;
   justify-content:center}
-.rel{font-size:clamp(12px,1.3vw,18px);padding:4px 9px;border-radius:10px;
-  border:1px solid #3a3a35;color:#7c796f}
-.rel.t{background:#88e4ea;border-color:#88e4ea;color:#101010;font-weight:700}
+/* The rule in the planner's own words. Sentence face, not monospace: it is the
+   one thing in this cell a visitor is meant to READ rather than decode. */
+.spec .said{font-family:-apple-system,"SF Pro Text",Helvetica,Arial,sans-serif;
+  font-size:clamp(13px,1.5vw,21px);line-height:1.3;color:#cdcabf;text-align:center}
+.spec.sat .said{color:#f2f0ea}
 .op{font-size:clamp(11px,1.1vw,15px);color:#55524b}
 .obj{font-size:clamp(12px,1.3vw,18px);padding:4px 9px;border-radius:10px;
   background:#1c1c19;border:1px solid #3a3a35;color:#cfe33a}
 .spec.sat{border-color:#d95b5b;background:#201616}
+
+/* THE PROMPT ROW. Slim and at the foot of every screen, including the sleep
+   one -- the moment you most want to retype the standing prompt is before
+   anybody has walked up, and a box that only exists once the robot is already
+   watching is a box you cannot reach when you need it. */
+#ctxbar{flex:none;display:flex;align-items:center;gap:10px;
+  padding:10px 20px calc(10px + env(safe-area-inset-bottom));
+  border-top:1px solid #26262333;background:#121210}
+#ctx{flex:1;min-width:0;background:#1b1b18;color:#f2f0ea;
+  border:1px solid #33332e;border-radius:10px;padding:11px 14px;
+  font-family:-apple-system,"SF Pro Text",Helvetica,Arial,sans-serif;
+  font-size:16px;   /* 16px EXACTLY: iOS Safari zooms the whole page in on any
+                       focused input below 16px, and on a wall-mounted tablet
+                       nothing zooms it back out again. */
+  user-select:text;-webkit-user-select:text}
+#ctx:focus{outline:none;border-color:#cfe33a}
+#ctx::placeholder{color:#5e5b54}
+#ctxok{flex:none;font-size:14px;color:#cfe33a;opacity:0;transition:opacity .2s;
+  font-family:ui-monospace,monospace}
+#ctxok.on{opacity:1}
 
 .bar{font-size:15px;color:#8a867d;display:flex;gap:14px;align-items:center}
 .dot{width:11px;height:11px;border-radius:50%;background:#cfe33a;
@@ -410,6 +432,16 @@ h1{font-weight:600;font-size:clamp(26px,3.4vh,40px);line-height:1.3;margin:0;let
 <div id=top><div id=strip></div>
   <div class="f wallbtn" id=wb onpointerdown="wall()"></div></div>
 <div id=app></div>
+<!-- THE PROMPT ROW LIVES OUT HERE, for the same reason #live does. render()
+     rewrites the whole of #app on every poll -- five times a second -- and an
+     <input> inside that innerHTML is destroyed and rebuilt between keystrokes:
+     the caret jumps, the text vanishes, and it looks like the tablet is broken
+     rather than like a bug. Outside #app it is never touched. -->
+<div id=ctxbar>
+  <input id=ctx autocomplete=off autocapitalize=sentences spellcheck=false
+         placeholder="tell it what to watch for, then press return">
+  <span id=ctxok>sent</span>
+</div>
 <div class=hint id=hint>tap again to go back</div>
 <div id=veil><div class=pop>
   <h2 id=pt>I noticed something</h2><p id=pd></p>
@@ -474,18 +506,22 @@ function wall(){MODE='wall';render();}
 function back(){MODE=null;render();}
 const esc=s=>String(s==null?'':s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
 
+// IN WORDS, NOT IN THE VOCABULARY. This used to render the relation ids as
+// chips -- gaze AND eye on person -- which is what the developer page shows and
+// what the planner actually compiled. It was the wrong audience: a visitor
+// standing at a table reads four abbreviations they have never seen, decides
+// the screen is not for them, and looks away. The planner already writes a
+// plain-English label for every entry, so that is what goes here.
+//
+// The ids are not lost, they moved: the developer page still renders every one
+// of them, lit as they fire, which is where that belongs.
 function specInner(){
   const w=(S.watch||[])[0];
   if(!w) return '<span class=lb>NO RULE YET</span>';
-  const ids=[...w.all,...w.any,...w.then];
-  const op = w.then.length ? 'THEN' : (w.any.length && !w.all.length ? 'OR' : 'AND');
-  const chips=ids.map((id,k)=>
-    (k?`<span class=op>${op}</span>`:'')+
-    `<span class="rel${w.truth[String(id)]?' t':''}">${esc(S.rel_names[id]||id)}</span>`
-  ).join('');
+  const said = (w.label||'').trim();
   return `<span class=lb>${w.sat?'TRUE NOW':'WAITING FOR'}</span>
-    <div class=row>${chips}${w.on?`<span class=op>on</span>
-      <span class=obj>${esc(w.on)}</span>`:''}</div>`;
+    <div class=row><span class=said>${esc(said || 'something worth telling you about')}</span>${
+      w.on?`<span class=op>on</span><span class=obj>${esc(w.on)}</span>`:''}</div>`;
 }
 
 function specCell(){
@@ -594,6 +630,26 @@ function render(){
         : '<span class=dot></span>five directions taken \u2014 deciding which one to watch'}</div>`;
   }
 }
+
+// RETURN SENDS IT, and the same POST /context the developer page and
+// standing_prompt.py use -- so there is one way in, and a sentence typed here
+// re-plans from whatever state the robot is in, including S7_ERROR.
+const ctx=document.getElementById('ctx');
+ctx.addEventListener('keydown',async e=>{
+  if(e.key!=='Enter') return;
+  const v=e.target.value.trim();
+  if(!v) return;
+  e.target.value='';
+  e.target.blur();          // drop the iPad keyboard; it covers half the grid
+  try{
+    await fetch('/context',{method:'POST',body:v});
+    const k=document.getElementById('ctxok');
+    k.classList.add('on'); setTimeout(()=>k.classList.remove('on'),1400);
+  }catch(err){ e.target.value=v; }   // hand it back rather than eat it
+});
+// NOT WHILE SOMEBODY IS TYPING. The body listens for taps to zoom the live
+// view and the page steals focus on re-render; neither should reach the box.
+ctx.addEventListener('pointerdown',e=>e.stopPropagation());
 
 async function poll(){
   try{

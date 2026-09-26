@@ -1,4 +1,4 @@
-# Three modes, one robot
+# Four modes, one robot
 
 Nothing here runs at the same time as anything else here. All three want the
 servo bus and the CoreS3, and there is one of each.
@@ -6,6 +6,7 @@ servo bus and the CoreS3, and there is one of each.
 | | command | what it is |
 |---|---|---|
 | **Study** | `python3 noticebot_loop.py …` | the notice loop: camera, VLM planner, the eight-state cycle. Unchanged |
+| **Demo** | the same, `--approach`, plus `standing_prompt.py` | the whole cycle with the VLM, started by walking up. `DEMO_VLM_RUNBOOK.md` |
 | **Showcase** | `python3 robot/tools/attend_test.py` | somebody comes close, the head comes up. No planner, no network |
 | **Performance** | `python3 robot/tools/perform.py` | played from the keyboard, to music, beside the fish. `PERFORM_RUNBOOK.md` |
 
@@ -44,6 +45,18 @@ needs no change.
 The general rule, worth keeping: **a device does not stream telemetry nobody
 asked for.** Anything added later that chatters — the IMU's tap strength, a mic
 level — gets the same treatment.
+
+## The demo is the study build plus two things, not a fork of it
+
+The board's ToF emits `IN PTT_DOWN` / `IN PTT_UP`, so walking up is
+indistinguishable from pressing the button and `session_flow` never learns a
+sensor exists; and a companion posts a standing prompt over HTTP when nobody
+speaks, so the flow never reaches Error. `--approach` arms the first. With
+neither, the loop is exactly what it was.
+
+The gate has to be in the firmware because the loop holds the CoreS3 port --
+no companion process can read the distance at all. It is deliberately dumber
+than `session/proximity.py`; the reasoning is in DEMO_VLM_RUNBOOK §5.
 
 ## What is deliberately NOT shared
 

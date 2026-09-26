@@ -318,6 +318,14 @@ def main():
                          "transcript source. The flow is identical either way.")
     ap.add_argument("--no-cam", action="store_true", help="servos + CoreS3 only")
     # ---- the VLM compiler + CV layer (same defaults as attention_system.py) ----
+    # DEMO ONLY, and it is a hardware toggle rather than anything that reaches
+    # session_flow: the board's own ToF gate emits IN PTT_DOWN / PTT_UP, so
+    # somebody walking up is indistinguishable here from somebody pressing the
+    # button. Off by default -- a robot that wakes when a person walks past is a
+    # different experiment from one that wakes when it is asked to.
+    ap.add_argument("--approach", action="store_true",
+                    help="let the ToF fire the button (demo build; see "
+                         "docs/DEMO_VLM_RUNBOOK.md)")
     ap.add_argument("--no-cv", action="store_true",
                     help="no detector/pose/relations. THE PLAN panel stays empty "
                          "and findings come only from the 'f' key.")
@@ -559,6 +567,9 @@ def main():
         holder["link"] = link
         link.event("UI", "idle")     # the board boots to idle; this re-syncs on reconnect
         link.event("NOTICED", 0)
+        if a.approach:
+            link.approach(True)
+            print("[cores3] approach trigger ARMED -- walking up presses the button")
     else:
         pending = []
 

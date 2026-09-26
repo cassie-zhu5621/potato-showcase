@@ -338,6 +338,55 @@ void tofInit() {
   Serial.println("IN TOF READY");
 }
 
+// ---------------- THE APPROACH FIRES THE BUTTON ------------------------------
+//
+// For the demo build only: somebody coming close emits IN PTT_DOWN and then
+// IN PTT_UP, so the study loop behaves exactly as if the button had been
+// pressed -- head up, microphone open, Whisper listening -- and nothing in
+// session_flow has to know a sensor exists.
+//
+// IT HAS TO LIVE HERE, not in Python, because the loop holds the CoreS3 port
+// and a companion process cannot read the distance at all. That is the whole
+// reason this exists on the board.
+//
+// OFF UNLESS ASKED. `EVT APPROACH 1`. The study build must not quietly grow a
+// second way in: a robot that wakes when somebody walks past is a different
+// experiment from one that wakes when it is asked to.
+//
+// AND IT IS DELIBERATELY DUMBER than session/proximity.py. That one has
+// hysteresis on both edges, a stillness test, a median filter and a refractory,
+// because it has to tell an arrival from somebody crossing a busy room. This
+// one runs in a demo where the robot is the thing people are walking up TO, so
+// a threshold and a dwell are enough -- and anything cleverer would be a second
+// copy of a tested thing, drifting.
+static bool apprOn = false;
+static uint32_t apprSince = 0, apprLast = 0;
+static bool apprIn = false;
+static const int APPR_ENTER = 900, APPR_EXIT = 1300;   // mm
+static const uint32_t APPR_DWELL = 700, APPR_REFRACTORY = 12000;
+
+void checkApproach(int mm) {
+  if (!apprOn || mm < 0) return;
+  uint32_t m = millis();
+  if (!apprIn) {
+    if (mm > APPR_EXIT) { apprSince = 0; return; }
+    if (mm > APPR_ENTER) return;
+    if (!apprSince) { apprSince = m; return; }
+    if (m - apprSince < APPR_DWELL) return;
+    apprIn = true; apprSince = 0;
+    if (m - apprLast < APPR_REFRACTORY) return;   // one visitor, one wake
+    apprLast = m;
+    // PTT_DOWN then PTT_UP, because that is the pair the loop expects: down
+    // opens the microphone, up starts the clock on the transcript. Sending
+    // only one leaves it recording until the timeout.
+    Serial.println("IN PTT_DOWN");
+    delay(180);
+    Serial.println("IN PTT_UP");
+  } else if (mm > APPR_EXIT) {
+    apprIn = false; apprSince = 0;
+  }
+}
+
 void checkTof() {
   if (!tofOK) return;
   tofCalls++;
@@ -375,6 +424,7 @@ void checkTof() {
   int mm = (tof.ranging_data.range_status == VL53L1X::RangeValid)
            ? (int)tof.ranging_data.range_mm : -1;
   if (tofStream) Serial.printf("IN DIST %d\n", mm);
+  checkApproach(mm);
 }
 #else
 // The same names, so TOFDIAG and the TOF query compile with USE_TOF at 0 and
@@ -387,6 +437,7 @@ static TwoWire* tofBus = &Wire;
 void tofInit() {}
 void checkTof() {}
 void tofScan() { Serial.println("IN SCAN disabled -- USE_TOF is 0"); }
+static bool apprOn = false;
 #endif
 
 void checkTap() {
@@ -1131,6 +1182,11 @@ void handleLine(String line) {
   // there is no way to tell "the sensor failed to init" from "the sensor is
   // fine and nobody is in front of it", and those need opposite fixes.
   else if (cmd == "SCAN") tofScan();
+  else if (cmd == "APPROACH") {
+    apprOn = (arg.toInt() != 0);
+    apprIn = false; apprSince = apprLast = 0;
+    Serial.printf("IN APPROACH %s\n", apprOn ? "on" : "off");
+  }
   // One line per beat. The period comes with it so the board can interpolate
   // without being told the tempo separately -- and so a tempo change arrives
   // with the beat that caused it rather than a message later.

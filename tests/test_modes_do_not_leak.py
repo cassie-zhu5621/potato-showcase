@@ -84,7 +84,7 @@ def test_the_performance_turns_the_approach_gate_OFF():
 
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("board,warn", [
-    ("v7", True), ("v8", True), ("v9", False), ("v10", False),
+    ("v7", True), ("v8", True), ("v9", True), ("v10", False),
     ("v11", False), (None, True), ("weird", True), ("", True),
 ])
 def test_only_an_OLDER_board_is_worth_a_warning(board, warn):

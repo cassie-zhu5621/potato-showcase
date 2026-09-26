@@ -16,7 +16,7 @@ pio run -t upload
 python3 robot/tools/tof_test.py
 ```
 
-`tof_test` must say **v9 or newer** on its first line, and the bar must move
+`tof_test` must say **v10 or newer** on its first line, and the bar must move
 when you put a hand in front of the sensor. Ctrl-C it.
 
 That is the last time the firmware is touched today.

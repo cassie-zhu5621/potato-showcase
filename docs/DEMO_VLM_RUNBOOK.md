@@ -42,13 +42,13 @@ trade.
 
 ## 2. Flash
 
-Firmware **v9** or later. v9 is the one that has the approach gate. Same as everything else:
+Firmware **v10** or later. v9 added the approach gate and v10 made it hold the button long enough to speak into. Same as everything else:
 
 ```bash
 cd ~/Documents/potatobot/showcase
 lsof /dev/cu.usbmodem*          # kill anything listed
 pio run -t upload
-python3 robot/tools/tof_test.py     # first line must say v9. Ctrl-C after
+python3 robot/tools/tof_test.py     # first line must say v10. Ctrl-C after
 ```
 
 ## 3. Run, in two terminals

@@ -71,12 +71,21 @@ def live(args, rows, fired=None):
         fired = []
     t0 = time.time()
     last_print = 0.0
+    # DID THE BOARD EVER MENTION THE SENSOR? Not the same question as whether
+    # readings arrived, and the answer below hangs on it: silence after READY
+    # is a scheduling bug in the firmware, silence with no TOF line at all is
+    # an OLD firmware that has never heard of the sensor. Saying the first when
+    # it is the second sends you to the I2C bus for a fault that is in the
+    # upload.
+    saw = {"tof": False}
 
     def on_line(s):
         nonlocal last_print
         mm = parse_dist(s)
         if mm is None and not s.startswith("IN DIST"):
             if s.startswith("IN TOF") or s.startswith("IN SCAN"):
+                if s.startswith("IN TOF"):
+                    saw["tof"] = True
                 print(f"  {s}")
             return
         t = time.time() - t0
@@ -128,6 +137,23 @@ def live(args, rows, fired=None):
             time.sleep(0.2)
             if (not warned and not rows and time.time() - t_start > 3.0):
                 warned = True
+                if not saw["tof"]:
+                    # STOP HERE. Everything below is about a sensor this board
+                    # has never heard of, and TOFDIAG will not answer either.
+                    print("\n  Three seconds, and the board has not said one")
+                    print("  word about the sensor -- no IN TOF line at all,")
+                    print("  which a v8 or newer board prints whether the unit")
+                    print("  is plugged in or not.")
+                    print("\n  THE FIRMWARE ON THE BOARD IS OLD. The upload did")
+                    print("  not land, whatever it reported. The PING line at")
+                    print("  the top says so too: no version means pre-v3.")
+                    print("\n  `pio run -t upload` picks a port by itself, and")
+                    print("  the servo adapter is also a /dev/cu.usbmodem*.")
+                    print("  Name the board and watch it verify:\n")
+                    print("      pio run -t upload --upload-port %s\n" % port)
+                    print("  'Hash of data verified.' is the line to look for.")
+                    print("  Then run this again: the first line must say v10.\n")
+                    continue
                 print("\n  READY, but three seconds and not one reading.")
                 print("  That is the firmware, not the sensor: it initialised.")
                 print("  asking the board what it is actually doing:\n")

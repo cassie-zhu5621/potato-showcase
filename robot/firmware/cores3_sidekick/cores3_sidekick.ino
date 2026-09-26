@@ -43,12 +43,12 @@
  *                          `hello`. Data, not firmware: one flash teaches the
  *                          command, every later name is a serial line.
  *     EVT REST             end of a run: go quiet, back to idle + warm breath
- *     EVT PING             -> `IN PONG cores3_sidekick v9`
+ *     EVT PING             -> `IN PONG cores3_sidekick v10`
  *
  *   BUMP THE VERSION WITH EVERY FLASH THAT MATTERS. This link is flaky enough
  *   that an upload can fail after the sketch has compiled, and then the board
  *   answers exactly as it did before -- so "is my fix on the board" is not
- *   answerable by behaviour, only by the version. v7 added the ToF; v8 made its stream opt-in and added SAY; v9 adds
+ *   answerable by behaviour, only by the version. v7 added the ToF; v8 made its stream opt-in and added SAY; v9 added the approach gate; v10 holds its button for a speaking window rather than 180 ms; v9 adds
  *   the approach gate. Every one of them arrives OFF -- the firmware is
  *   shared by four modes and may only grow by addition, so a mode gets
  *   what it asks for and nothing it did not.
@@ -362,11 +362,25 @@ void tofInit() {
 // one runs in a demo where the robot is the thing people are walking up TO, so
 // a threshold and a dwell are enough -- and anything cleverer would be a second
 // copy of a tested thing, drifting.
+//
+// THE HOLD IS THE WHOLE POINT AND IT WAS 180 ms, WHICH IS NOT A BUTTON PRESS.
+// The button is a LATCH: down opens the microphone and up closes it, so the
+// gap between them IS the speaking window. 180 ms of microphone transcribes
+// to nothing every single time, `transcript_usable` refuses it, and the flow
+// goes to S7_ERROR before anybody has drawn breath -- which is exactly the one
+// state a showcase must not perform. Held for APPR_HOLD instead, which is a
+// window somebody can say a sentence into.
+//
+// AND IT IS NOT A delay(). Blocking here would stop the screen, the buttons,
+// the tap and the sensor itself for the whole window. The up is owed and is
+// paid from loop(), the same arrangement as the green button's pttHeld latch.
 static bool apprOn = false;
 static uint32_t apprSince = 0, apprLast = 0;
 static bool apprIn = false;
+static uint32_t apprUpAt = 0;          // when the owed PTT_UP falls due, or 0
 static const int APPR_ENTER = 900, APPR_EXIT = 1300;   // mm
 static const uint32_t APPR_DWELL = 700, APPR_REFRACTORY = 12000;
+static const uint32_t APPR_HOLD = 4500;                // the speaking window
 
 void checkApproach(int mm) {
   if (!apprOn || mm < 0) return;
@@ -379,14 +393,22 @@ void checkApproach(int mm) {
     apprIn = true; apprSince = 0;
     if (m - apprLast < APPR_REFRACTORY) return;   // one visitor, one wake
     apprLast = m;
-    // PTT_DOWN then PTT_UP, because that is the pair the loop expects: down
-    // opens the microphone, up starts the clock on the transcript. Sending
-    // only one leaves it recording until the timeout.
+    // PTT_DOWN now, PTT_UP owed. Sending only one leaves the laptop recording
+    // until its timeout; sending both at once leaves it recording nothing.
     Serial.println("IN PTT_DOWN");
-    delay(180);
-    Serial.println("IN PTT_UP");
+    apprUpAt = m + APPR_HOLD;
   } else if (mm > APPR_EXIT) {
     apprIn = false; apprSince = 0;
+  }
+}
+
+// Pay the owed PTT_UP. Called every pass of loop(), and unconditionally: the
+// debt survives the visitor walking away, the gate being disarmed, and the
+// sensor failing, because a laptop left recording is worse than any of them.
+void serviceApproach() {
+  if (apprUpAt && (int32_t)(millis() - apprUpAt) >= 0) {
+    apprUpAt = 0;
+    Serial.println("IN PTT_UP");
   }
 }
 
@@ -1178,7 +1200,7 @@ void handleLine(String line) {
     setAntennaHue(255, 242, 224);   // = WARM. Keep in sync with HUE above.
     uiSet("idle");
   }
-  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v9");
+  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v10");
   // ASKABLE, because the boot line is not readable. USB CDC enumerates after
   // setup() has already run, so `IN TOF READY` and `IN TOF FAIL` are printed
   // into a port nothing is listening to yet and are simply lost. Without this
@@ -1248,7 +1270,7 @@ void setup() {
   tapInit();
   tofInit();
   uiDraw();                 // the idle screen, immediately -- no legacy layout
-  Serial.println("IN HELLO cores3_sidekick v9");
+  Serial.println("IN HELLO cores3_sidekick v10");
 }
 
 void loop() {
@@ -1259,6 +1281,8 @@ void loop() {
   sfxTick();
   checkTap();
   checkTof();
+  serviceApproach();   // outside checkTof: the owed PTT_UP is paid even if the
+                       // sensor stops answering mid-window
 
   static String buf;
   while (Serial.available()) {

@@ -7,7 +7,7 @@ servo bus and the CoreS3, and there is one of each.
 |---|---|---|
 | **Study** | `python3 noticebot_loop.py …` | the notice loop: camera, VLM planner, the eight-state cycle. Unchanged |
 | **Showcase** | `python3 robot/tools/attend_test.py` | somebody comes close, the head comes up. No planner, no network |
-| **Performance** | `python3 robot/tools/perform.py` | played from the keyboard, to music, beside the fish |
+| **Performance** | `python3 robot/tools/perform.py` | played from the keyboard, to music, beside the fish. `PERFORM_RUNBOOK.md` |
 
 ## What the showcase work changed under the study loop
 

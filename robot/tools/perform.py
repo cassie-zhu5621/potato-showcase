@@ -259,6 +259,24 @@ class Perf:
         name = SFX_FOR.get(clip)
         self.pending_sfx = (at, name) if name else None
 
+    @staticmethod
+    def _toward(now_v, want, step):
+        """One frame of travel, and it SNAPS when it arrives. Without the snap
+        it oscillates around the target forever, a step either side of it --
+        which is a tremble the size of one frame, and invisible until something
+        counts how long the ramp took."""
+        if abs(want - now_v) <= step:
+            return want
+        return now_v + step * (1 if want > now_v else -1)
+
+    def ramp(self, dt):
+        """Move the continuous controls one frame toward where they are asked
+        to be. A method rather than four lines in the loop so the test can run
+        the real thing -- a test that re-implements a ramp tests its own copy.
+        """
+        self._amp = self._toward(self._amp, self.amp_target, AMP_DPS * dt)
+        self.pan = self._toward(self.pan, self.pan_want, PAN_DPS * dt)
+
     # ---------------- the driver ----------------
     def start(self):
         self._th.start()
@@ -289,16 +307,7 @@ class Perf:
             # THE PHASE KEEPS RUNNING WHILE A CLIP PLAYS. It is read off the
             # wall clock, not accumulated, so the sway resumes exactly in time
             # instead of wherever it was interrupted.
-            # ramp the amplitude and the turn, whatever else is happening
-            want = self.amp_target
-            astep = AMP_DPS * dt
-            self._amp = (want if abs(want - self._amp) <= astep
-                         else self._amp + astep * (1 if want > self._amp else -1))
-            step = PAN_DPS * dt
-            if abs(self.pan_want - self.pan) <= step:
-                self.pan = self.pan_want
-            else:
-                self.pan += step * (1 if self.pan_want > self.pan else -1)
+            self.ramp(dt)
             if not self.frozen and now >= self.busy_until and self.player:
                 self.player.drive_deg(**self.pose())
             self._pulse(now)

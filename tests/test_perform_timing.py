@@ -197,8 +197,23 @@ def test_the_turn_is_ramped_not_jumped():
     p = perf()
     p.pan_want = 60.0
     dt = 1.0 / perform.RATE_HZ
-    step = perform.PAN_DPS * dt
-    assert step < 2.0, "one frame of turn must be small enough to be invisible"
+    p.ramp(dt)
+    assert 0 < p.pan < 2.0, "one frame of turn must be too small to see"
+    t = dt
+    while p.pan != p.pan_want and t < 5:
+        p.ramp(dt)
+        t += dt
+    assert p.pan == 60.0 and t < 2.5
+
+
+def test_a_ramp_snaps_when_it_arrives():
+    """Without the snap it oscillates around the target forever, one step
+    either side -- a tremble the size of a frame, invisible until something
+    counts how long the ramp took. Which is how this was found."""
+    p = perf()
+    p.pan_want = 0.4                     # smaller than one frame of travel
+    p.ramp(1.0 / perform.RATE_HZ)
+    assert p.pan == 0.4
 
 
 def test_the_sway_carries_the_pan():
@@ -225,9 +240,8 @@ def test_the_swell_takes_about_a_beat():
     p._amp = perform.AMPS[0]
     p.amp_i = 3
     dt, t = 1.0 / perform.RATE_HZ, 0.0
-    while abs(p.amp_target - p._amp) > 0.01 and t < 5:
-        st = perform.AMP_DPS * dt
-        p._amp += st * (1 if p.amp_target > p._amp else -1)
+    while p._amp != p.amp_target and t < 5:
+        p.ramp(dt)                       # the real one, not a copy of it
         t += dt
     assert 0.3 < t / p.period < 2.5, f"{t/p.period:.2f} beats"
 

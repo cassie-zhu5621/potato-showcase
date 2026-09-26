@@ -758,19 +758,40 @@ void uiDraw() {
 // reads as "still here". After BEAT_STALE with no beat it just breathes.
 //
 // A SPRITE, not fill-then-draw. Clearing the band and then drawing into it
-// shows the clear, which at 20 fps is a flicker for the whole performance. The
-// sprite is 240x120 = 57 KB, built once when the screen is entered and freed
-// when it is left.
+// shows the clear, which at 25 fps is a flicker for the whole performance.
+// Full screen, in PSRAM -- 320x240x2 is 150 KB and the internal heap has other
+// uses, but this board has 8 MB of PSRAM doing nothing.
+//
+// SHAPES, NOT TEXT. The first version drew a kaomoji at setTextSize(3.2 + e).
+// That font scales by whole numbers, so a pulse between 3.2 and 4.7 is a jump
+// between 3 and 4 -- two sizes, not a bounce -- and nothing could be bigger
+// than the sprite the string was drawn into. Two filled ellipses scale
+// continuously, fill the screen, and cost less to draw than scaled glyphs.
 static uint32_t beatAt = 0, beatMs = 667;
 static const uint32_t BEAT_STALE = 3000;
 static M5Canvas faceCv(&M5.Display);
 static bool faceReady = false;
 
+static const int FACE_W = 320, FACE_H = 240;
+static const float EYE_R = 34.0f;     // at rest
+static const int EYE_DX = 66, EYE_CY = 118;
+
 void faceEnter() {
   if (faceReady) return;
   faceCv.setColorDepth(16);
-  faceReady = faceCv.createSprite(240, 120) != nullptr;
+  // setPsram(true) BEFORE createSprite. LovyanGFX defaults to internal DMA
+  // RAM, which is contended by the network stack and every task stack, while
+  // this board has 8 MB of PSRAM doing nothing. It falls back to internal on
+  // its own if PSRAM is unavailable, so the half-height retry below is for the
+  // case where neither has room.
+  faceCv.setPsram(true);
+  faceReady = faceCv.createSprite(FACE_W, FACE_H) != nullptr;
+  if (!faceReady) {
+    faceCv.setPsram(false);
+    faceReady = faceCv.createSprite(FACE_W, 160) != nullptr;
+  }
   M5.Display.fillScreen(TFT_BLACK);
+  Serial.printf("IN FACE %s\n", faceReady ? "ready" : "no memory");
 }
 
 void faceLeave() {
@@ -796,14 +817,21 @@ void faceTick() {
     e = 0.12f + 0.10f * sinf(m / 900.0f);  // nobody is playing; just breathe
   }
 
+  // GROW, SQUASH AND DROP TOGETHER, and the three are not decoration.
+  // Growing alone reads as a zoom. Growing WIDER THAN IT GROWS TALL is squash,
+  // which is weight landing; dropping a few pixels at the same time is where
+  // the weight went. A beat is an impact, and an impact has all three.
+  float rx = EYE_R * (1.0f + 0.85f * e);
+  float ry = EYE_R * (1.0f + 0.45f * e);
+  int cy = EYE_CY + (int)(14.0f * e);
+  uint16_t col = M5.Display.color565(aR, aG, aB);
+  int h = faceCv.height();
+  if (cy + (int)ry > h - 2) cy = h - 2 - (int)ry;
+
   faceCv.fillSprite(TFT_BLACK);
-  faceCv.setTextDatum(middle_center);
-  faceCv.setTextColor(M5.Display.color565(aR, aG, aB));
-  // SCALE AND DROP TOGETHER. Growing alone reads as zooming; growing while
-  // sinking a little is weight arriving, which is what a beat is.
-  faceCv.setTextSize(3.2f + 1.5f * e);
-  faceCv.drawString("^o^", 120, 60 + (int)(10.0f * e));
-  faceCv.pushSprite(40, 70);
+  faceCv.fillEllipse(FACE_W / 2 - EYE_DX, cy, (int)rx, (int)ry, col);
+  faceCv.fillEllipse(FACE_W / 2 + EYE_DX, cy, (int)rx, (int)ry, col);
+  faceCv.pushSprite(0, (FACE_H - h) / 2);
 }
 
 void uiSet(const String& name) {

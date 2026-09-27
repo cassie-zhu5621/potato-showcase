@@ -95,7 +95,7 @@ def test_the_menu_takes_more_than_one_and_waits_for_the_button():
     i = src.index("function pick(")
     assert "PICKED.delete" in src[i:i + 200], "tapping toggles"
     assert "render()" in src[i:i + 200], "and redraws rather than submitting"
-    send = src[src.index("async function sendPicks("):][:600]
+    send = src[src.index("async function sendPicks("):][:1400]
     assert "fetch('/context'" in send, "only the button submits"
     assert "join('; ')" in send, "several presets become one context sentence"
 
@@ -324,3 +324,31 @@ def test_render_room_has_six_cells_and_the_sixth_is_the_rule():
     html = _render(st("S4B_WATCH", request="r"))
     assert len(re.findall(r'class="cell\b', html)) == 6
     assert "spec" in html
+
+
+def test_the_confirmation_holds_the_screen_until_the_flow_moves():
+    """THE MENU USED TO BLINK BACK EMPTY for the ~200 ms between the tap and
+    the next poll, so the last thing a visitor saw after pressing the button
+    was their choice gone and `choose one to begin`. It reads as the tap having
+    been thrown away, which is the opposite of what just happened."""
+    src = open(os.path.join(ROOT, "webui", "booth.py")).read()
+    send = src[src.index("async function sendPicks("):][:1400]
+    assert "SENT=text; render();" in send
+    assert send.index("SENT=text") < send.index("fetch('/context'"), \
+        "the holding screen must go up BEFORE the round trip, not after it"
+    assert "PICKED.size || SENT" in send, "and a second tap must do nothing"
+
+
+def test_a_failed_post_gives_the_choice_back():
+    """Holding a screen that says it worked when it did not is worse than the
+    blink was."""
+    src = open(os.path.join(ROOT, "webui", "booth.py")).read()
+    send = src[src.index("async function sendPicks("):][:1400]
+    catch = send[send.index("catch(e)"):]
+    assert "SENT=null" in catch
+    assert "PICKED=new Set()" not in catch, "the ticks must still be there"
+
+
+def test_the_holding_screen_does_not_outlive_the_visitor():
+    src = open(os.path.join(ROOT, "webui", "booth.py")).read()
+    assert "PICKED=new Set(); SENT=null;" in src

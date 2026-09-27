@@ -526,18 +526,34 @@ let S={phase:'sleep'},sent=0;
 // from it on every poll and the selection is the thing that persists.
 const PRESETS = __PRESETS__;
 let PICKED = new Set();
+// WHAT WAS SUBMITTED, while the flow catches up. The tablet polls at 5 Hz and
+// the robot has a nod and a sweep to start, so there is a gap between the tap
+// and the screen changing for the real reason. This fills it.
+let SENT = null;
 
 function pick(i){ PICKED.has(i) ? PICKED.delete(i) : PICKED.add(i); render(); }
 
 async function sendPicks(){
-  if(!PICKED.size) return;
+  if(!PICKED.size || SENT) return;     // and no double-submit on a fast table
   // ONE SENTENCE, because the planner compiles one context into as many watch
   // entries as it needs. Joined in the order they are listed rather than the
   // order they were tapped, so two visitors who chose the same two things get
   // the same plan.
   const text=PRESETS.filter((_,i)=>PICKED.has(i)).join('; ');
-  PICKED=new Set(); render();
-  try{ await fetch('/context',{method:'POST',body:text}); }catch(e){}
+  // HOLD A SCREEN INSTEAD OF BLINKING THE MENU. Clearing the ticks here and
+  // re-rendering put the empty menu back for the ~200 ms until the next poll
+  // saw the new state -- so the last thing the visitor saw after pressing the
+  // button was their choice gone and `choose one to begin`, which reads as the
+  // tap having been thrown away.
+  SENT=text; render();
+  try{
+    await fetch('/context',{method:'POST',body:text});
+    PICKED=new Set();
+  }catch(e){
+    // AND IF IT DID NOT GET THERE, GIVE THEM THEIR CHOICE BACK rather than
+    // holding a screen that says it worked. The ticks were never cleared.
+    SENT=null; render();
+  }
 }
 
 let MODE=null;        // null | 'report' | 'wall'
@@ -694,6 +710,19 @@ function render(){
     // showing them a list while their own words are on their way back reads as
     // the robot having ignored them.
     const said=S.heard||'';
+    if(SENT){
+      // The same shape as the report screen: the tablet stops following the
+      // robot for a moment because the visitor is owed an answer to the thing
+      // they just did. It clears itself when the flow actually moves.
+      a.innerHTML=`<div><h1>Got it</h1>
+        <div class=sub>telling it now</div></div>
+        <div class=grow><div class=picks>`+SENT.split('; ').map(t=>
+          `<div class="pick on"><span class=tick>&#10003;</span>
+             <span>${esc(t)}</span></div>`).join('')+`</div>
+          <div class=lst><i>&#9679;</i><i>&#9679;</i><i>&#9679;</i></div>
+        </div>`;
+      return;
+    }
     if(!said){
       a.innerHTML=`<div><h1>What should it watch for?</h1>
         <div class=sub>pick as many as you like, or type your own below</div></div>
@@ -767,7 +796,7 @@ async function poll(){
     // A NEW VISITOR GETS A BLANK MENU. Leaving the previous person's ticks up
     // is worse than it sounds: they are someone else's request, one tap from
     // being submitted as this person's.
-    if(S.phase==='listen' && n.phase!=='listen' && PICKED.size) PICKED=new Set();
+    if(S.phase==='listen' && n.phase!=='listen'){ PICKED=new Set(); SENT=null; }
     S=n;
     if(changed) render();
     place();

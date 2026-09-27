@@ -366,7 +366,7 @@ is also the way to pull it out of one without touching the laptop.
 
 Concrete and about the audience, or the planner has nothing to compile:
 
-    tell me when someone comes close to the table
+    tell me when there's something interesting
     tell me when someone points at something
     tell me when someone is holding a phone
 

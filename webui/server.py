@@ -14,7 +14,8 @@ Same STATE/LOCK/thumbs contract as web_demo, so attention_demo.publish() works u
 """
 
 from __future__ import annotations
-import json, os, threading, time
+import json
+import time, os, threading, time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 # user_pan: where the participant is sitting, in Blender degrees. Locked by hand
@@ -773,6 +774,18 @@ class H(BaseHTTPRequestHandler):
             # are reading one state -- no handshake needed.
             with LOCK:
                 STATE["pending_ok"] = True
+            self._send(200, "application/json", b'{"ok": true}')
+        elif self.path == "/booth/choosing":
+            # SOMEBODY IS READING THE MENU. The standing prompt exists for a
+            # visitor who does NOTHING, and a tap is not nothing -- without
+            # this it posts its own line at 12 s over the top of somebody
+            # picking their second option, and the robot goes off to scan for
+            # something they did not choose.
+            #
+            # A TIMESTAMP, NOT A FLAG, because the page that set it can walk
+            # away mid-choice and nothing would ever clear a flag.
+            with LOCK:
+                STATE["choosing_at"] = time.time()
             self._send(200, "application/json", b'{"ok": true}')
         elif self.path == "/context":
             n = int(self.headers.get("Content-Length", 0))

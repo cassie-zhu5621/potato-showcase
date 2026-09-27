@@ -336,15 +336,22 @@ If somebody stays and does nothing at all, `standing_prompt.py` posts its own
 line at 12 s so the robot scans rather than errors. Between the two, the error
 state is close to unreachable, which is the intent.
 
-The timeline, since the three numbers get confused:
+The timeline, since the numbers get confused:
 
 ```
  0.0 s   walks up -> head up, tablet shows the menu
  4.5 s   the board releases the button (APPR_HOLD, firmware)
-12.0 s   standing_prompt.py steps in if nothing has happened (--after)
+ ~5  s   Whisper returns '' -- DROPPED in demo mode, it is not a failed
+         request when nobody was asked to speak. Words that were misheard
+         still go through: that error is the robot being honest
+12.0 s   standing_prompt.py steps in, but ONLY if nobody has touched the
+         menu. A tap pushes this out (--after, /booth/choosing)
 19.5 s   the flow would give up -> S7_ERROR (4.5 + STT_TIMEOUT_S)
  any     they walk away -> IN LEFT -> back to idle, no error
 ```
+
+So with the menu in use, nothing on this list can reach the error state while
+somebody is standing there deciding.
 
 Edit the four lines in `webui/booth.py`, `PRESETS`, near the top.
 

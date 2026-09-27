@@ -352,3 +352,46 @@ def test_a_failed_post_gives_the_choice_back():
 def test_the_holding_screen_does_not_outlive_the_visitor():
     src = open(os.path.join(ROOT, "webui", "booth.py")).read()
     assert "PICKED=new Set(); SENT=null;" in src
+
+
+def test_silence_is_not_a_failed_request_while_the_menu_is_up():
+    """THE ERROR THAT ARRIVED WHILE SHE WAS STILL READING.
+
+    The microphone is open for 4.5 s whether or not anyone intends to speak,
+    and at a stand the normal thing a visitor does in those 4.5 s is read the
+    menu. Whisper returns '' at about 5 s, transcript_usable refuses it, and
+    the flow performs S7_ERROR -- not on a timeout, but early, and every single
+    time.
+
+    So in demo mode an EMPTY transcript is dropped and the flow is left
+    listening; the menu, the typed prompt and the standing prompt are all still
+    coming and any of them re-plans from S1_ATTEND.
+    """
+    src = open(os.path.join(ROOT, "noticebot_loop.py")).read()
+    i = src.index("def on_transcript")
+    block = src[i:i + 2200]
+    assert 'a.approach and not ok and not (text or "").strip()' in block
+    assert block.index("a.approach") < block.index("transcripts.append"), \
+        "it has to be dropped before it reaches the flow"
+
+
+def test_words_that_were_misheard_still_reach_the_flow():
+    """Somebody who SPOKE and was misheard is owed the error performance: that
+    is the robot saying it did not understand, which is true and is legible.
+    Swallowing that would make a real failure look like being ignored."""
+    src = open(os.path.join(ROOT, "noticebot_loop.py")).read()
+    i = src.index("def on_transcript")
+    block = src[i:i + 2200]
+    assert '.strip()' in block, "only the EMPTY case is dropped"
+    assert "not ok and not" in block, "not `not ok` alone"
+
+
+def test_the_study_path_is_untouched():
+    """No --approach, no menu, and silence after a held button means what it
+    has always meant. The guard is on the demo flag for exactly this reason."""
+    src = open(os.path.join(ROOT, "noticebot_loop.py")).read()
+    i = src.index("def on_transcript")
+    block = src[i:i + 2200]
+    j = block.index("not ok and not")
+    assert "a.approach and" in block[j - 40:j], \
+        "the drop must be gated on demo mode, not applied to every run"

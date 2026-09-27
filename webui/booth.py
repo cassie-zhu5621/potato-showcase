@@ -53,6 +53,7 @@ the chirp, and 1.2 s of lag reads as two separate machines.
 from __future__ import annotations
 
 import json
+import time
 
 # The relation vocabulary, WRITTEN OUT. English on purpose -- these are the
 # system's own terms and an onlooker reading over a visitor's shoulder is
@@ -213,6 +214,11 @@ def booth_state(STATE, feed_records, sweep_meta):
                    "truth": r.get("on") or {}}
                   for r in (STATE.get("status") or [])],
         "rel_names": REL_NAMES,
+        # Whether anyone is mid-choice, for standing_prompt.py. Short-lived:
+        # each tap refreshes it, and a visitor who wandered off mid-menu stops
+        # holding the companion back a few seconds later.
+        "choosing": bool(time.time() - float(STATE.get("choosing_at") or 0)
+                         < CHOOSING_HOLD_S),
         "describe": STATE.get("describe") or "",
         "noticed": STATE.get("noticed_n") or 0,
         # THE WHOLE WALL, newest first, and a COUNT the page can compare
@@ -235,6 +241,8 @@ def booth_state(STATE, feed_records, sweep_meta):
 # deliberate exception: it is what a visitor reaches for when none of the
 # others is what they meant, and it is worth watching how often the plan it
 # produces is any good.
+CHOOSING_HOLD_S = 15.0   # a tap holds the companion off this long
+
 PRESETS = [
     "tell me when someone drinks a coffee",
     "tell me when someone points at something",
@@ -531,7 +539,14 @@ let PICKED = new Set();
 // and the screen changing for the real reason. This fills it.
 let SENT = null;
 
-function pick(i){ PICKED.has(i) ? PICKED.delete(i) : PICKED.add(i); render(); }
+function pick(i){
+  PICKED.has(i) ? PICKED.delete(i) : PICKED.add(i);
+  render();
+  // Tell the loop somebody is here and deciding, so the standing prompt does
+  // not answer on their behalf while they are halfway through. Fire and
+  // forget: if it fails they lose nothing but the grace period.
+  fetch('/booth/choosing',{method:'POST'}).catch(()=>{});
+}
 
 async function sendPicks(){
   if(!PICKED.size || SENT) return;     // and no double-submit on a fast table

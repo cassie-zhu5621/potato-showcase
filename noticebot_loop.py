@@ -687,6 +687,28 @@ def main():
         if view is not None:
             view.transcript = (text if ok
                                else f"{text or '(silence)'}   [rejected: {why}]")
+        # SILENCE IS NOT A FAILED REQUEST WHEN NOBODY WAS ASKED TO SPEAK.
+        #
+        # The tablet offers a menu, so at a stand the normal thing a visitor
+        # does during the 4.5 s the microphone is open is READ IT. Whisper
+        # returns '' at about 5 s, `transcript_usable` refuses it, and the flow
+        # goes to S7_ERROR while they are still deciding between the second and
+        # third line. It is not a timeout -- it arrives early and it arrives
+        # every time.
+        #
+        # So in demo mode an EMPTY one is dropped on the floor and the flow is
+        # left listening: the menu, the typed prompt and the standing prompt are
+        # all still coming, and any of them re-plans from S1_ATTEND. A transcript
+        # with WORDS in it is passed through unchanged even when it is refused,
+        # because somebody who spoke and was misheard is owed the error
+        # performance -- that is the robot saying it did not understand, which
+        # is true and is legible. Nobody said anything here.
+        #
+        # Study runs are untouched: no --approach, no menu, and silence after a
+        # held button means what it always meant.
+        if a.approach and not ok and not (text or "").strip():
+            print("[stt] silence while the menu is up -- still listening")
+            return
         transcripts.append(("typed" if source == "manual" else "transcript", text))
 
     stt = STT(on_transcript, enabled=not a.no_stt,

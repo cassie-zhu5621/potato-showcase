@@ -158,3 +158,31 @@ def test_it_steps_in_after_the_menu_but_before_the_flow_gives_up():
     assert default >= 8.0, "too short to read a menu and choose"
     assert default <= (hold + ST.STT_TIMEOUT_S) - 5.0, \
         "too close to the flow giving up -- Error would win the race"
+
+
+def test_it_stands_aside_while_somebody_is_choosing():
+    """The companion answers for a visitor who does NOTHING, and a tap is not
+    nothing. Without this it posts its own line at 12 s over the top of someone
+    picking their second option, and the robot goes off to scan for something
+    they did not choose."""
+    src = open(SCRIPT).read()
+    i = src.index('d.get("choosing")')
+    block = src[i:i + 600]
+    assert "since = now" in block, "push the clock"
+    assert "continue" in block
+    # It must PUSH the deadline, not cancel it: one tap then walking away is
+    # still a visitor who has to be covered.
+    assert "served = True" not in block, \
+        "choosing must not mark the visit as dealt with"
+
+
+def test_choosing_is_a_timestamp_not_a_flag():
+    """The page that set it can walk away mid-choice, and nothing would ever
+    clear a flag -- the companion would be muted for the rest of the day."""
+    from webui.booth import CHOOSING_HOLD_S
+    src = open(os.path.join(ROOT, "webui", "booth.py")).read()
+    assert "choosing_at" in src and "time.time() -" in src
+    assert 0 < CHOOSING_HOLD_S <= 30
+    srv = open(os.path.join(ROOT, "webui", "server.py")).read()
+    i = srv.index('/booth/choosing')
+    assert 'STATE["choosing_at"] = time.time()' in srv[i:i + 900]

@@ -122,7 +122,8 @@ def main():
     print(f"  stepping in after {a.after}s of silence. Ctrl-C to stop.\n")
 
     since = None          # when the robot started listening, or None
-    served = False        # already answered for this visit
+    served = False        # this visit is dealt with: they spoke, or we posted
+    aside = False         # "standing aside" already said, once per visit
     last = None
     while True:
         try:
@@ -146,9 +147,21 @@ def main():
         if a.watch:
             print(f"  {state:16} heard={heard[:24]!r:28} request={req[:28]!r}")
 
+        if state in LISTENING and d.get("choosing"):
+            # THEY ARE USING THE MENU. Push the clock, do not cancel it: a
+            # visitor who taps once and then walks away must still be covered,
+            # and `choosing` expires on its own a few seconds after the last
+            # tap.
+            since = now
+            if not aside:
+                aside = True
+                print(f"  {time.strftime('%H:%M:%S')}  somebody is choosing "
+                      f"-- standing aside")
+            time.sleep(0.2)
+            continue
         if state in LISTENING:
             if since is None:
-                since, served = now, False
+                since, served, aside = now, False, False
                 print(f"  {time.strftime('%H:%M:%S')}  listening...")
             elif heard:
                 # They spoke. The loop owns it from here -- including deciding

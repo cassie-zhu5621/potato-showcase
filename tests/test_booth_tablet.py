@@ -619,3 +619,34 @@ def test_a_fourth_rule_does_not_fall_off_the_bottom():
     assert "min-height:0" in rules, "or the flex parent refuses to let it scroll"
     assert ".rules.n3" in css and ".rules.n4" in css, \
         "and the chips shrink with the count"
+
+
+def test_the_showcase_lets_an_abandoned_visit_end():
+    """`ptt_down` is ignored in any state but S0_IDLE, so a robot still
+    watching a request nobody owns is a robot no new visitor can start anything
+    with. A busy table is where it looks most alive and is least reachable.
+
+    0.0 for the study: a 15-minute session is one person's task from beginning
+    to end, and the robot giving up on it would be the experiment interrupting
+    itself."""
+    import robot.states as ST
+    assert ST.VISIT_MAX_S == 180.0
+
+
+def test_a_failed_plan_does_not_become_an_error_at_a_stand():
+    """The visitor asked, watched it sweep for six seconds, and got an error --
+    with the tablet dropping back to the menu, which reads as the request
+    having been thrown away. A planner timeout is a fact about the cloud, not
+    something the robot failed to UNDERSTAND, which is what S7 says.
+
+    The study still errors: there, a planner that failed is something the
+    researcher has to see happen."""
+    src = open(os.path.join(ROOT, "noticebot_loop.py")).read()
+    i = src.index("[planner] failed:")
+    block = src[i:i + 2000]
+    assert "if a.approach:" in block, "gated on demo mode, not applied to both"
+    j = block.index("if a.approach:")
+    demo, study = block[j:], block[j:].split("else:")[-1]
+    assert 'ui_events.append("planned")' in demo, "it goes and watches instead"
+    assert "richest_pan" in demo, "pointed at the busiest part of the room"
+    assert 'plan_failed' in study, "and the study path still reports it"

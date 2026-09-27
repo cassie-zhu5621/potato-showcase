@@ -486,6 +486,28 @@ REJECTED_COOLDOWN_S = 4.0
 # is to stop it re-firing on every frame until the gate clears.
 SUPPRESSED_RETRY_S = 2.0
 
+VISIT_MAX_S = 180.0      # ON for the showcase. 0.0 for the user study.
+                         #
+                         # A TASK BELONGS TO THE PERSON WHO ASKED FOR IT, and
+                         # at a stand that person left several visitors ago.
+                         # The robot goes on watching their request, and --
+                         # because `ptt_down` is ignored in any state but
+                         # S0_IDLE -- nobody else can start one. A busy table
+                         # is therefore the case where it looks most alive and
+                         # is least reachable.
+                         #
+                         # Three minutes of nobody touching it: no finding
+                         # delivered, no OK, no correction, no new request.
+                         # Back to idle, asleep face, and the next person gets
+                         # a wake and a menu.
+                         #
+                         # ANY interaction restarts it, so this cannot end a
+                         # conversation in progress -- it ends an abandoned
+                         # one. 0.0 for the study, where a 15-minute session is
+                         # one person's task from beginning to end and the
+                         # robot giving up on it would be the experiment
+                         # interrupting itself.
+
 REPLAN_PERIOD_S = 0.0    # OFF ON THE EXHIBITION BRANCH. Was 540 for the study.
                          #
                          # A self-directed sweep is a good beat in a 15-minute

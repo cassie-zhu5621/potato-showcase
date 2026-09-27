@@ -1039,7 +1039,35 @@ def main():
             print(f"[planner] failed: {e}")
             if view is not None:
                 view.plan_error = f"planner failed: {e}"
-            ui_events.append(f"plan_failed:{e}")
+            if a.approach:
+                # A SHOWCASE DOES NOT PERFORM THE PLANNER'S BAD DAY.
+                #
+                # The visitor asked for something, watched it sweep the room
+                # for six seconds, and the answer was an error -- with the
+                # tablet dropping back to the menu, which reads as the whole
+                # request having been thrown away. Whatever went wrong (a
+                # timeout, a refused schema, a rate limit) is a fact about the
+                # cloud, and none of it is a thing the robot failed to
+                # UNDERSTAND, which is what S7 says.
+                #
+                # So it goes and watches the richest angle with no spec. It
+                # will not fire a finding -- there is nothing to fire on -- but
+                # it is pointed at the busiest part of the room, holding still,
+                # which is what it looks like when it is working. And
+                # REPLAN_IDLE_S brings it back here in a minute to try the same
+                # request again, which is the actual recovery.
+                #
+                # The study still errors. There, a planner that failed is
+                # something the researcher must see happen.
+                print("[planner] showcase: watching the richest angle anyway "
+                      "rather than performing an error")
+                ui_events.append("planned")
+                if meta and meta.get("richest_pan") is not None:
+                    new_pan = float(meta["richest_pan"])
+                    player.set_pan_deg(new_pan)
+                    ctxd["aimed_pan"] = new_pan
+            else:
+                ui_events.append(f"plan_failed:{e}")
 
     # A finding opens a STORY, not a screenshot. See storyboard.py -- the burst
     # keeps shooting while the moment unfolds, keyframed on truth-vector change,

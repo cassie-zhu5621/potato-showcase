@@ -277,6 +277,26 @@ still does nothing, it is `--feedback robot`.
 
 ---
 
+## It lets go of an abandoned request after three minutes
+
+`VISIT_MAX_S = 180`. Three minutes with **nobody touching it** -- no finding
+delivered, no OK, no correction, no new request -- and it goes back to idle
+with the sleeping face, ready to be woken.
+
+This is the crowded-stand fix and it is less obvious than it looks: a request
+belongs to the person who asked for it, and `ptt_down` is **ignored in any
+state but idle**. So a robot still watching a request whose owner left is a
+robot nobody else can start anything with. A busy table is exactly where it
+looks most alive and is least reachable.
+
+Any interaction restarts the clock, and a judge in flight postpones it, so it
+cannot end a conversation in progress -- only an abandoned one.
+
+**Meanwhile anyone can take over at any time** from the prompt row at the
+bottom of the tablet. That path never waits for the robot to be idle.
+
+---
+
 ## It looks around by itself after a quiet minute
 
 `REPLAN_IDLE_S = 60`. If the angle it is watching produces **nothing** for a

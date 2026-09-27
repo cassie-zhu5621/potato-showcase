@@ -503,12 +503,6 @@ expect(not ok, "high no_speech_prob rejected even with good words")
 ok, _ = transcript_usable("find the mug", avg_logprob=-2.0)
 expect(not ok, "very low avg_logprob rejected -- hallucination")
 
-print("\n" + "=" * 60)
-print(f"{len(fails)} failure(s)" if fails else "all paths pass")
-if __name__ == "__main__":
-    sys.exit(1 if fails else 0)
-if fails:
-    raise AssertionError("; ".join(fails))
 
 
 print("\n--- a judge in flight is not an empty angle ---")
@@ -565,3 +559,79 @@ expect(f.state == "S0_IDLE", f"past {ST.S8_RECOVER_S:.0f}s -> back to idle")
 expect(not f.plan_pending,
        "anything still in flight is abandoned -- a late transcript must not "
        "resurrect a turn the person watched it end")
+
+print("\n--- an abandoned visit goes back to idle (VISIT_MAX_S) ---")
+# A task belongs to the person who asked for it, and at a stand that person
+# left several visitors ago. `ptt_down` is ignored in any state but S0_IDLE, so
+# a robot still watching an abandoned request is a robot nobody else can start
+# anything with -- a busy table is where it looks most alive and is least
+# reachable.
+# ISOLATE THE TIMER UNDER TEST. REPLAN_IDLE_S re-sweeps after 60 s of nothing,
+# so two minutes of quiet moves the robot for the OTHER reason and this section
+# would be reading a state it did not cause. Holding the angle productive would
+# also restart the visit clock -- a finding is somebody being served -- so the
+# only honest isolation is to switch the other one off.
+_VIS, _IDL = ST.VISIT_MAX_S, ST.REPLAN_IDLE_S
+ST.VISIT_MAX_S, ST.REPLAN_IDLE_S = 120.0, 0.0
+
+f = flow()
+run(f, ["ptt_down", "ptt_up", "transcript:watch the desk",
+        "arrived:S3_SCAN", "arrived:S4B_WATCH", "planned"], "")
+CLOCK[0] += ST.VISIT_MAX_S - 5
+f.feed("tick")
+expect(f.state == "S4B_WATCH", "just under -- still watching")
+CLOCK[0] += 10
+out = f.feed("tick")
+expect(f.state == "S0_IDLE", "abandoned -> idle, so the next person can wake it")
+expect(f.transcript is None, "...and the request goes with it")
+expect(("idle", True) in out,
+       "...through the same channel STOP uses, so perception stops too")
+
+# ANY interaction restarts it. This must end an abandoned conversation, never
+# one in progress -- a visitor reading a report has not abandoned anything.
+for ev, label in [("ok", "an OK"), ("tap", "a correction"),
+                  ("finding:cup", "a finding being delivered")]:
+    f = flow()
+    run(f, ["ptt_down", "ptt_up", "transcript:watch the desk",
+            "arrived:S3_SCAN", "arrived:S4B_WATCH", "planned"], "")
+    CLOCK[0] += ST.VISIT_MAX_S - 5
+    run(f, [ev, "arrived:S4B_WATCH"], "")
+    CLOCK[0] += ST.VISIT_MAX_S - 5
+    f.feed("tick")
+    expect(f.state != "S0_IDLE", f"{label} restarts the visit clock")
+
+# A new request from the tablet is a NEW visitor, and starts a fresh visit.
+f = flow()
+run(f, ["ptt_down", "ptt_up", "transcript:watch the desk",
+        "arrived:S3_SCAN", "arrived:S4B_WATCH", "planned"], "")
+CLOCK[0] += ST.VISIT_MAX_S - 5
+run(f, ["typed:tell me when someone is holding a phone",
+        "arrived:S3_SCAN", "arrived:S4B_WATCH", "planned"], "")
+CLOCK[0] += ST.VISIT_MAX_S - 5
+f.feed("tick")
+expect(f.state != "S0_IDLE", "a new request is a new visit, not the old one")
+
+ST.VISIT_MAX_S = 0.0
+f = flow()
+run(f, ["ptt_down", "ptt_up", "transcript:watch the desk",
+        "arrived:S3_SCAN", "arrived:S4B_WATCH", "planned"], "")
+CLOCK[0] += 36000
+f.feed("tick")
+expect(f.state == "S4B_WATCH",
+       "VISIT_MAX_S=0 -> the study never abandons a participant's task")
+ST.VISIT_MAX_S, ST.REPLAN_IDLE_S = _VIS, _IDL
+
+
+# THE SUMMARY GOES LAST, and it did not.
+#
+# It sat in the middle of the file, so everything appended after it -- the
+# judge-in-flight section, S8 giving up, and the abandoned visit -- ran, filled
+# `fails`, and was never looked at again. Under pytest the module imports
+# cleanly and the run is green whatever those sections found. Three sections of
+# coverage that existed, executed, and could not fail.
+print("\n" + "=" * 60)
+print(f"{len(fails)} failure(s)" if fails else "all paths pass")
+if __name__ == "__main__":
+    sys.exit(1 if fails else 0)
+if fails:
+    raise AssertionError("; ".join(fails))

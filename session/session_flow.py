@@ -99,6 +99,7 @@ class SessionFlow:
         self._s8_at = None           # in S8 since, for S8_RECOVER_S
         self._clear_board_on_land = False   # OK pressed; empty the board after the nod
         self._planned_at = None      # the last plan LANDED at, for REPLAN_PERIOD_S
+        self._visit_at = None        # this task was last TOUCHED at, for VISIT_MAX_S
         self.out = []
 
     # ---------------- helpers ----------------
@@ -118,6 +119,16 @@ class SessionFlow:
         # and stops whenever the robot is doing something else.
         self._watch_since = self.now() if state == "S4B_WATCH" else None
         self._s8_at = self.now() if state == "S7_ERROR" else None
+
+    def _touched(self):
+        """Somebody is still here. Restarts the abandoned-visit clock.
+
+        Called from every event that only a PERSON can cause, plus the
+        robot delivering a finding -- a report on screen is a thing a visitor
+        is in the middle of reading, and cutting it off would be the timeout
+        interrupting the one moment the whole robot exists for.
+        """
+        self._visit_at = self.now()
 
     def _replan(self, why):
         """Re-fire S4 on the request already on record.
@@ -169,6 +180,7 @@ class SessionFlow:
                 self._emit("log", f"PTT ignored in {self.state}")
             else:
                 self.transcript = None
+                self._touched()
                 self._go("S1_ATTEND", "PTT pressed")
                 self._ui("recording")
                 self._emit("rec", "start")
@@ -204,6 +216,7 @@ class SessionFlow:
                 self._emit("log", f"transcript arrived in {self.state}, ignored")
                 return self.out
             ok, why = transcript_usable(arg)
+            self._touched()
             self._ptt_up_at = self._ptt_up_first_at = None
             if ok:
                 self.transcript = arg.strip()
@@ -225,6 +238,7 @@ class SessionFlow:
             return self.out
 
         if ev == "tap":
+            self._touched()
             # "not that one". Only meaningful while watching; a tap during the
             # scan would be rejecting a choice that has not been made yet.
             if self.state == "S4B_WATCH":
@@ -277,6 +291,7 @@ class SessionFlow:
             return self.out
 
         if ev == "finding":
+            self._touched()
             if self.state in ("S4B_WATCH",):
                 self.noticed += 1
                 self._emit("noticed", self.noticed)
@@ -286,6 +301,7 @@ class SessionFlow:
             return self.out
 
         if ev == "ok":
+            self._touched()
             if self.state == "S7_ERROR":
                 # THE ERROR SCREEN'S BUTTON IS OK, NOT STOP (firmware uiLayout).
                 # Getting out of S8 is an affirmative act -- "I have seen that it
@@ -497,8 +513,37 @@ class SessionFlow:
                 # Postponed, not cancelled -- the same shape as stt_busy above:
                 # busy may push the deadline out, it may not remove it.
                 self._watch_since = t
+                # AND THE VISIT CLOCK WITH IT, for the same reason and in the
+                # same place so the two cannot drift apart. A verdict in flight
+                # is somebody being served; a visit that expires while the
+                # judge runs goes to idle, clears the task, and the confirmed
+                # finding comes back to a robot that has forgotten what it was
+                # for. That is the stale-candidate bug again, one clock over.
+                self._visit_at = t
             elif (self.state == "S4B_WATCH" and not self.plan_pending
                     and self.transcript):
+                # THE ABANDONED VISIT, CHECKED FIRST. Before asking whether to
+                # look somewhere else for this request, ask whether the request
+                # still belongs to anybody -- re-sweeping for a person who left
+                # ten minutes ago is work done for nobody, and it keeps the
+                # robot out of S0_IDLE, which is the only state a new visitor
+                # can wake it from.
+                vis = getattr(ST, "VISIT_MAX_S", 0) or 0
+                if vis and self._visit_at is not None and t - self._visit_at > vis:
+                    self.transcript = None
+                    self.plan_pending = False
+                    self._visit_at = None
+                    self.noticed = 0
+                    self._emit("noticed", 0)
+                    self._go("S0_IDLE", f"nobody has touched this for "
+                                        f"{vis:.0f}s -- back to idle so the "
+                                        f"next person can start something")
+                    # THE SAME CHANNEL `stop` USES, not a new one. Discarding
+                    # a task has to reach PERCEPTION as well as the motion, or
+                    # the watch-spec keeps evaluating behind an idle face and
+                    # the robot is stopped-looking rather than stopped.
+                    self._emit("idle", True)
+                    return self.out
                 per = getattr(ST, "REPLAN_PERIOD_S", 0) or 0
                 idle = getattr(ST, "REPLAN_IDLE_S", 0) or 0
                 if (per and self._planned_at is not None

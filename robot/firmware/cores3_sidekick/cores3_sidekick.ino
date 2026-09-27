@@ -43,12 +43,12 @@
  *                          `hello`. Data, not firmware: one flash teaches the
  *                          command, every later name is a serial line.
  *     EVT REST             end of a run: go quiet, back to idle + warm breath
- *     EVT PING             -> `IN PONG cores3_sidekick v12`
+ *     EVT PING             -> `IN PONG cores3_sidekick v13`
  *
  *   BUMP THE VERSION WITH EVERY FLASH THAT MATTERS. This link is flaky enough
  *   that an upload can fail after the sketch has compiled, and then the board
  *   answers exactly as it did before -- so "is my fix on the board" is not
- *   answerable by behaviour, only by the version. v7 added the ToF; v8 made its stream opt-in and added SAY; v9 added the approach gate; v10 holds its button for a speaking window rather than 180 ms; v11 lets it re-arm when the room goes quiet instead of waiting for a far reading that never comes; v12 makes SAY restore the volume it borrowed; v9 adds
+ *   answerable by behaviour, only by the version. v7 added the ToF; v8 made its stream opt-in and added SAY; v9 added the approach gate; v10 holds its button for a speaking window rather than 180 ms; v11 lets it re-arm when the room goes quiet instead of waiting for a far reading that never comes; v12 makes SAY restore the volume it borrowed; v13 emits IN LEFT when a visitor wakes it and walks off; v9 adds
  *   the approach gate. Every one of them arrives OFF -- the firmware is
  *   shared by four modes and may only grow by addition, so a mode gets
  *   what it asks for and nothing it did not.
@@ -379,6 +379,7 @@ static uint32_t apprSince = 0, apprLast = 0;
 static bool apprIn = false;
 static uint32_t apprUpAt = 0;          // when the owed PTT_UP falls due, or 0
 static uint32_t apprNearAt = 0;        // last time anybody was inside APPR_EXIT
+static bool apprWoke = false;          // this visit actually pressed the button
 static const int APPR_ENTER = 900, APPR_EXIT = 1300;   // mm
 static const uint32_t APPR_DWELL = 700, APPR_REFRACTORY = 12000;
 static const uint32_t APPR_HOLD = 4500;                // the speaking window
@@ -402,7 +403,22 @@ void checkApproach(int mm) {
   if (mm >= 0 && mm <= APPR_EXIT) apprNearAt = m;
 
   if (apprIn) {
-    if (m - apprNearAt > APPR_GONE) { apprIn = false; apprSince = 0; }
+    if (m - apprNearAt > APPR_GONE) {
+      apprIn = false; apprSince = 0;
+      // THEY WOKE IT AND WALKED OFF. Said out loud, because the laptop cannot
+      // see it: from the flow's side, somebody who left and somebody who is
+      // standing there thinking are the same silence, and the silence ends in
+      // S7_ERROR. An error performed to an empty table is the worst version of
+      // the one state a showcase must not perform -- nobody is even there to
+      // be confused by it, and the next visitor arrives to a robot already
+      // acting out a failure that had nothing to do with them.
+      //
+      // WHAT IT MEANS IS THE LAPTOP'S CALL. This says only what the sensor
+      // knows; noticebot_loop decides whether it matters, because whether
+      // leaving should discard anything depends on the flow state and the
+      // board has no idea what that is.
+      if (apprWoke) { apprWoke = false; Serial.println("IN LEFT"); }
+    }
     return;
   }
   // A dropout mid-approach is no information, so it neither advances the dwell
@@ -419,6 +435,7 @@ void checkApproach(int mm) {
   // until its timeout; sending both at once leaves it recording nothing.
   Serial.println("IN PTT_DOWN");
   apprUpAt = m + APPR_HOLD;
+  apprWoke = true;
 }
 
 // Pay the owed PTT_UP. Called every pass of loop(), and unconditionally: the
@@ -1219,7 +1236,7 @@ void handleLine(String line) {
     setAntennaHue(255, 242, 224);   // = WARM. Keep in sync with HUE above.
     uiSet("idle");
   }
-  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v12");
+  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v13");
   // ASKABLE, because the boot line is not readable. USB CDC enumerates after
   // setup() has already run, so `IN TOF READY` and `IN TOF FAIL` are printed
   // into a port nothing is listening to yet and are simply lost. Without this
@@ -1295,7 +1312,7 @@ void setup() {
   tapInit();
   tofInit();
   uiDraw();                 // the idle screen, immediately -- no legacy layout
-  Serial.println("IN HELLO cores3_sidekick v12");
+  Serial.println("IN HELLO cores3_sidekick v13");
 }
 
 void loop() {

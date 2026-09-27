@@ -37,10 +37,10 @@ old build running and answering exactly as before:
 python3 robot/tools/tof_test.py
 ```
 
-- first line must say **v12 or newer**
+- first line must say **v13 or newer**
 - the bar must move when you put a hand in front of the sensor
 
-Ctrl-C it. Below v12, or no `IN TOF` line at all, means the upload did not land
+Ctrl-C it. Below v13, or no `IN TOF` line at all, means the upload did not land
 whatever it reported -- the tool says so and prints the command with the port
 already filled in.
 
@@ -104,7 +104,7 @@ it alone so its first lines are on a clean screen.
 
 ```bash
 python3 noticebot_loop.py \
-    --cam 1 \
+    --cam 0 \
     --cores3 \
     --detector yoloworld \
     --cv-hz 4 \
@@ -323,9 +323,28 @@ a second language; a spoken sentence that fails to transcribe spends the whole
 ninety seconds performing not-having-understood. Speech still works and still
 wins -- anything actually said lands first and the menu never appears.
 
-If nobody does anything at all for 12 s, `standing_prompt.py` posts its own
-line so the robot goes on to scan rather than to error. That is now a fallback
-for somebody who walked up, looked and walked off -- not the normal path.
+**If they walk off, it goes back to sleep.** The board says `IN LEFT` when the
+visitor who woke it has gone, and before a request exists that returns the
+robot to idle. It used to sit there and then perform an error at an empty
+table, which the next visitor would walk up to.
+
+Once a request EXISTS, leaving means nothing -- the whole point is that it
+watches while you get on with something, so "I left the room" is the normal
+case for a delegated task and never cancels it.
+
+If somebody stays and does nothing at all, `standing_prompt.py` posts its own
+line at 12 s so the robot scans rather than errors. Between the two, the error
+state is close to unreachable, which is the intent.
+
+The timeline, since the three numbers get confused:
+
+```
+ 0.0 s   walks up -> head up, tablet shows the menu
+ 4.5 s   the board releases the button (APPR_HOLD, firmware)
+12.0 s   standing_prompt.py steps in if nothing has happened (--after)
+19.5 s   the flow would give up -> S7_ERROR (4.5 + STT_TIMEOUT_S)
+ any     they walk away -> IN LEFT -> back to idle, no error
+```
 
 Edit the four lines in `webui/booth.py`, `PRESETS`, near the top.
 

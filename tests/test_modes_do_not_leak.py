@@ -90,8 +90,8 @@ def test_the_performance_turns_the_approach_gate_OFF():
 
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("board,warn", [
-    ("v7", True), ("v8", True), ("v9", True), ("v10", True), ("v11", True), ("v12", False),
-    ("v13", False), (None, True), ("weird", True), ("", True),
+    ("v7", True), ("v8", True), ("v9", True), ("v10", True), ("v11", True), ("v12", True), ("v13", False),
+    ("v14", False), (None, True), ("weird", True), ("", True),
 ])
 def test_only_an_OLDER_board_is_worth_a_warning(board, warn):
     """The firmware is shared and grows by addition -- a feature arrives off
@@ -198,3 +198,32 @@ def test_a_spoken_line_gives_the_volume_back():
     assert "getVolume()" in block, "it has to know what to give back"
     assert "setVolume(was)" in block, "and give it back"
     assert "was ? 255 : 0" in block, "muted stays muted"
+
+
+# --------------------------------------------------------------------------- #
+# Walking away is not an error, and is not a cancellation either.
+# --------------------------------------------------------------------------- #
+def test_the_board_says_when_a_visitor_woke_it_and_left():
+    """From the flow's side, somebody who left and somebody standing there
+    thinking are the same silence -- and that silence ends in S7_ERROR,
+    performed to an empty table. Only the sensor can tell them apart."""
+    ino = open(os.path.join(ROOT, "robot", "firmware", "cores3_sidekick",
+                            "cores3_sidekick.ino")).read()
+    i = ino.index("void checkApproach")
+    block = ino[i:ino.index("void serviceApproach")]
+    assert 'Serial.println("IN LEFT")' in block
+    assert "apprWoke" in block, \
+        "only a visit that actually pressed the button can have left one"
+
+
+def test_leaving_is_ignored_once_a_request_exists():
+    """The point of this robot is that it watches while you get on with
+    something. `I left the room` is the NORMAL case for a delegated task, not a
+    cancellation -- so this is gated on the flow state, not on the sensor."""
+    src = open(os.path.join(ROOT, "noticebot_loop.py")).read()
+    i = src.index('elif "IN LEFT" in line:')
+    block = src[i:i + 1600]
+    assert 'flow.state == "S1_ATTEND"' in block
+    j = block.index('events.append("stop")')
+    assert block.index('flow.state == "S1_ATTEND"') < j, \
+        "the state check must come first, or leaving discards a live task"

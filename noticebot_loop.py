@@ -1532,6 +1532,28 @@ def main():
                 elif "PTT_UP" in line:      events.append("ptt_up")
                 elif "IN OK" in line:       events.append("ok")
                 elif "IN STOP" in line:     events.append("stop")
+                elif "IN LEFT" in line:
+                    # THE VISITOR WOKE IT AND WALKED OFF, and it only means
+                    # anything while nothing has been asked for yet.
+                    #
+                    # Before a request exists, the silence that follows is on
+                    # its way to S7_ERROR -- performed to an empty table, so
+                    # nobody is there to be confused by it and the next person
+                    # walks up to a robot already acting out somebody else's
+                    # failure. `stop` is the existing, tested way to say "this
+                    # task is over": it clears the transcript, the plan and the
+                    # noticed count and returns to idle.
+                    #
+                    # AFTER a request exists it must NOT discard anything. The
+                    # point of this robot is that it watches while you get on
+                    # with something -- "I left the room" is the normal case
+                    # for a delegated task, not a cancellation, and treating it
+                    # as one would make the whole thing unusable for what it is
+                    # for. So this is gated on the state, not on the sensor.
+                    if flow.state == "S1_ATTEND":
+                        print("[flow] they walked away before asking -- "
+                              "back to idle rather than to error")
+                        events.append("stop")
                 elif "BODYTAP" in line:
                     # ONE GESTURE, ONE MEANING: "not that one." The flow turns
                     # it into S6 while watching and ignores it everywhere else.

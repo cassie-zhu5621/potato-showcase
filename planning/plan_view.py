@@ -43,6 +43,7 @@ from perception.gaze import draw_text, draw_arrow, draw_circle, draw_pose_skelet
 from perception.overlay import (C_YELLOW, C_CYAN, C_SKEL, C_MAGENTA, C_GREEN)
 from perception.perceive import make_detector
 from perception.relations import RelationEngine
+from robot import states as ST
 from perception.watch_exec import WatchExecutor
 from planning.spec_utils import (_expand, _FilteredDetector, _focus_ok, _focus_sides,
                                  _frame_targets,
@@ -72,7 +73,9 @@ class PlanView:
         self.engine = RelationEngine(
             _FilteredDetector(make_detector(detector, list(vocab), conf=conf),
                               self.relevance),
-            lean_deg=lean_deg)
+            lean_deg=lean_deg,
+            point_ext_deg=getattr(ST, "POINT_EXTENSION_DEG", 140.0),
+            tol_point=getattr(ST, "POINT_TOL_DEG", 15.0))
         self._persist, self._cooldown, self._tau_gap = persist, cooldown, tau_gap
         # WHETHER TO ASK FOR EVERY NAME OF AN OBJECT. The argument for yes is
         # that an open-vocab model finds only what it is prompted for, and the

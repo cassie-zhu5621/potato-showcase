@@ -383,6 +383,33 @@ good, and worth replacing if it is not.
 
 ---
 
+## Showing someone how to set it off
+
+Tell them the ACTION, not the rule. Each one has to be held about two seconds
+-- half a second of contact, two frames, then the judge.
+
+| preset | what to do |
+|---|---|
+| holding a phone | hold it in view of the head camera, still, not flat against your body |
+| drinks a coffee | pick the cup up and hold it. Raising it to your mouth is the clearest |
+| points at something | **stand side-on and point ACROSS the frame**, not at the robot |
+| something interesting | the weak one. Expect a thin plan or none |
+
+**Pointing at the robot does not work and cannot be made to.** The ray is
+computed in the image plane, so an arm aimed at the camera foreshortens to
+nearly a point and hits nothing. Side-on, at an object the detector has boxed.
+
+Extension was loosened to 110 deg for the showcase, so a raised forearm counts
+-- at the study's 140 the everyday gesture emitted no ray at all. Tolerance is
+25 deg. Both are in `robot/states.py`; if pointing starts firing on people
+resting an arm on the table, raise the extension first.
+
+If one refuses to fire, name the object in the prompt -- `points at the cup`
+rather than `points at something`. That binds the rule to the cup instead of
+relying on the VLM having put it in the focus tier.
+
+---
+
 ## Retyping the prompt mid-show
 
 The tablet page has a prompt row along the bottom, on every screen including

@@ -282,12 +282,19 @@ class RelationEngine:
                  tol_gaze=12.0, tol_mutual=25.0,
                  approach_win_s=3.0, approach_frac=0.20,
                  lean_deg=25.0, lean_near_sw=5.0, sustain_s=0.6, event_hold_s=5.0,
-                 touch_grace_frames=2.0):
+                 touch_grace_frames=2.0,
+                 # Relation 4. Defaults are the STUDY's, so an engine built
+                 # without arguments is the one the study ran; the showcase
+                 # passes its own from states.py. See POINT_EXTENSION_DEG there
+                 # for why 140 was excluding visitors rather than false
+                 # positives.
+                 point_ext_deg=140.0, tol_point=15.0):
         self.det = detector
         self.faces = HeadPoseEstimator(max_faces=max_people)   # face/gaze ALWAYS MediaPipe
         self.poses = PoseEstimator(max_people=max_people)
         self.tracker = Tracker()
         self.tol_gaze, self.tol_mutual = tol_gaze, tol_mutual
+        self.point_ext_deg, self.tol_point = point_ext_deg, tol_point
         self.approach_win_s, self.approach_frac = approach_win_s, approach_frac
         self.lean_deg, self.sustain_s, self.event_hold_s = lean_deg, sustain_s, event_hold_s
         self.lean_near_sw = lean_near_sw                 # lean must be near a watched object (shoulder-widths)
@@ -420,10 +427,11 @@ class RelationEngine:
         for p in people:
             for side, (s, e, w) in (("left", (L_SH, L_EL, L_WR)), ("right", (R_SH, R_EL, R_WR))):
                 if p.has(s, e, w):
-                    a = arm_ray_from_points(p.pts[s], p.pts[e], p.pts[w], side=side)
+                    a = arm_ray_from_points(p.pts[s], p.pts[e], p.pts[w], side=side,
+                                            min_extension_deg=self.point_ext_deg)
                     if a:
                         arms.append(a)
-        p_hits = pointing_at(arms, dets) if dets else []
+        p_hits = pointing_at(arms, dets, tol_deg=self.tol_point) if dets else []
         truth[4] = bool(p_hits); viz["arms"] = arms
         viz["hits"] += [("pointing-at", h) for h in p_hits]
 

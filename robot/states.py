@@ -380,6 +380,35 @@ JUDGE_DEADLINE_S = 10.0
 # deadline above) or a report being read, and both are checked separately.
 GATE_STUCK_S = 45.0
 
+# ---- pointing (relation 4), loosened for the showcase -----------------------
+#
+# STUDY VALUES: 140 deg extension, 15 deg tolerance. Restore both to reproduce
+# a session.
+#
+# The extension threshold does NOT do what its docstring claims. "a resting or
+# bent arm emits NO ray -- only a near-straight arm reads as reaching" is half
+# right: an arm hanging at the side is STRAIGHT, about 170 deg, and sails past
+# 140 every time. What actually keeps relation 4 from firing on everybody is
+# the next test -- the ray has to hit a detected box within the tolerance --
+# and a hanging arm points at the floor.
+#
+# So the 140 was not holding back false positives. It was holding back
+# VISITORS, who point with a bent elbow: a raised forearm and a finger, which
+# is what pointing looks like when you are standing at a table rather than
+# gesturing across a room. Their arm never reached 140 and no ray was emitted
+# at all -- not a miss, no participation.
+#
+# 110 admits the raised forearm. 25 deg of tolerance admits an arm that
+# under-points, which extended arms do at anything close.
+#
+# THE COST IS REAL: a forearm resting on a table now emits a ray, and if
+# something detected is in front of it that is a point. The judge is the
+# backstop -- it is asked whether this is worth reporting and a limp arm across
+# a desk is not -- and at a stand a false positive costs a sentence on a screen
+# while a false negative costs the whole interaction.
+POINT_EXTENSION_DEG = 110.0
+POINT_TOL_DEG = 25.0
+
 S7_IGNORED_TIMEOUT_S = 30.0
 
 # How long the loop waits for Whisper before giving up and showing S8. Generous:

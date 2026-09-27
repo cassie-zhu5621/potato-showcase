@@ -257,8 +257,8 @@ def test_it_reads_the_same_fields_the_live_panel_does():
     from the spec separately would give the tablet its own opinion of what is
     satisfied."""
     from webui.booth import PAGE
-    i = PAGE.index("function specInner(")
-    block = PAGE[i:i + 900]
+    i = PAGE.index("function ruleRow(")
+    block = PAGE[i:PAGE.index("function specCell(")]
     for k in ("w.all", "w.any", "w.then", "w.truth", "w.on", "w.sat"):
         assert k in block, k
     assert "THEN" in block and "AND" in block and "OR" in block
@@ -592,3 +592,30 @@ def test_the_relation_ribbon_is_gone_from_the_frame_entirely():
     assert "ribbon" not in inspect.signature(plan_view.PlanView.__init__).parameters
     assert "draw_relation_ribbon" not in inspect.getsource(plan_view.PlanView)
     assert "--ribbon" not in open("noticebot_loop.py").read()
+
+
+def test_the_tablet_shows_every_rule_not_the_first_one():
+    """The menu takes several on purpose -- two things at once is the
+    interesting case, and the button itself says `watch for 2 things`. A
+    visitor who picked three and saw one has been told, on the robot's own
+    screen, that two of their choices were dropped."""
+    from webui.booth import PAGE
+    assert "(S.watch||[])[0]" not in PAGE, "this is the bug: only the first"
+    i = PAGE.index("function specInner(")
+    block = PAGE[i:PAGE.index("function cells(")]
+    assert "ws.map(ruleRow)" in block, "every entry gets a row"
+    assert "ws.some(w=>w.sat)" in block, "and ANY of them can turn the cell"
+    assert "ws.length" in block, "the count is part of the answer"
+
+
+def test_a_fourth_rule_does_not_fall_off_the_bottom():
+    """Showing three of four is the same lie as showing one of three, and it
+    is the kind that looks fine in a screenshot."""
+    import re
+    from webui.booth import PAGE
+    css = re.sub(r"/\*.*?\*/", "", PAGE, flags=re.S)
+    rules = re.search(r"\.rules\{[^}]*\}", css).group(0)
+    assert "overflow-y:auto" in rules
+    assert "min-height:0" in rules, "or the flex parent refuses to let it scroll"
+    assert ".rules.n3" in css and ".rules.n4" in css, \
+        "and the chips shrink with the count"

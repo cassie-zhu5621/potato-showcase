@@ -419,6 +419,21 @@ h1{font-weight:600;font-size:clamp(26px,3.4vh,40px);line-height:1.3;margin:0;let
 .spec .lb{font-size:clamp(12px,1.25vw,17px);color:#6f6c65;letter-spacing:.08em}
 .spec .row{display:flex;flex-wrap:wrap;gap:5px;align-items:center;
   justify-content:center}
+/* ONE LINE PER RULE, stacked, and scrollable rather than clipped -- a fourth
+   rule that silently falls off the bottom is the same lie as showing one. */
+.rules{display:flex;flex-direction:column;gap:7px;width:100%;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;min-height:0}
+.rule{display:flex;flex-wrap:wrap;gap:5px;align-items:center;
+  justify-content:center;padding:5px 4px;border-radius:9px}
+/* The one that is true right now, against the others. The cell border already
+   went red; this says WHICH of them did it, which with three rules up is the
+   only thing the border cannot tell you. */
+.rule.sat{background:#2a1a1a}
+/* Shrink with the count instead of letting the last one fall off. */
+.rules.n2 .rel,.rules.n2 .obj{font-size:clamp(11px,1.15vw,16px);padding:4px 8px}
+.rules.n3 .rel,.rules.n3 .obj{font-size:clamp(10px,1.0vw,14px);padding:3px 7px}
+.rules.n4 .rel,.rules.n4 .obj{font-size:clamp(9px,0.9vw,13px);padding:3px 6px}
+.rules.n3 .op,.rules.n4 .op{font-size:clamp(9px,0.85vw,12px)}
 /* Sentence face, not monospace, and the words wrap rather than being cut: the
    chips read as English now, and "joint attention" ellipsised to "joint att..."
    would undo the whole reason for writing them out. */
@@ -628,23 +643,43 @@ const esc=s=>String(s==null?'':s).replace(/[<>&]/g,c=>({'<':'&lt;','>':'&gt;','&
 //
 // Which is exactly why the words are written out. `appr AND prox` is the same
 // rule and teaches nobody anything.
-function specInner(){
-  const w=(S.watch||[])[0];
-  if(!w) return '<span class=lb>NO RULE YET</span>';
+// EVERY RULE, NOT THE FIRST ONE.
+//
+// This read `S.watch[0]` from a build where one spoken sentence made one
+// entry, so the first was the only one. The menu takes several on purpose --
+// two things at once is the interesting case and the button says `watch for 2
+// things` -- and the cell went on showing one of them. A visitor who picked
+// three and saw one has been told, on the robot's own screen, that two of
+// their choices were dropped.
+function ruleRow(w){
   const ids=[...w.all,...w.any,...w.then];
   const op = w.then.length ? 'THEN' : (w.any.length && !w.all.length ? 'OR' : 'AND');
   const chips=ids.map((id,k)=>
     (k?`<span class=op>${op}</span>`:'')+
     `<span class="rel${w.truth[String(id)]?' t':''}">${esc(S.rel_names[id]||id)}</span>`
   ).join('');
-  return `<span class=lb>${w.sat?'TRUE NOW':'WAITING FOR'}</span>
-    <div class=row>${chips}${w.on?`<span class=op>on</span>
-      <span class="obj${w.on_now?' t':''}">${esc(w.on)}</span>`:''}</div>`;
+  return `<div class="rule${w.sat?' sat':''}">${chips}${w.on?`<span class=op>on</span>
+    <span class="obj${w.on_now?' t':''}">${esc(w.on)}</span>`:''}</div>`;
+}
+
+function specInner(){
+  const ws=S.watch||[];
+  if(!ws.length) return '<span class=lb>NO RULE YET</span>';
+  const anySat=ws.some(w=>w.sat);
+  // THE COUNT IS PART OF THE ANSWER. "watching for 3" is what tells somebody
+  // their second and third choices arrived, even before they read them.
+  const head=anySat?'TRUE NOW'
+                   :`WATCHING FOR ${ws.length} THING${ws.length>1?'S':''}`;
+  // Sized by how many there are: three rules in a sixth of the grid cannot be
+  // read at the size one rule is comfortable at, and shrinking all of them is
+  // better than letting the third fall off the bottom.
+  return `<span class=lb>${head}</span>
+    <div class="rules n${Math.min(ws.length,4)}">${ws.map(ruleRow).join('')}</div>`;
 }
 
 function specCell(){
-  const w=(S.watch||[])[0];
-  return `<div class="cell spec${w&&w.sat?' sat':''}">${specInner()}</div>`;
+  const anySat=(S.watch||[]).some(w=>w.sat);
+  return `<div class="cell spec${anySat?' sat':''}">${specInner()}</div>`;
 }
 
 function cells(){

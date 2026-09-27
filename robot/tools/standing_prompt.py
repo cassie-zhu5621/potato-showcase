@@ -25,6 +25,18 @@ talks to it the way the developer page does -- over HTTP -- so nothing in
 session_flow, the planner or the flow's screens had to be touched, and the
 study loop with neither --approach nor this running is exactly what it was.
 
+TWELVE SECONDS, NOT THREE, SINCE THE TABLET GREW A MENU. This used to be the
+only way a silent visitor got past Attend, so it fired as soon as it safely
+could. Now the tablet offers four things to choose from and takes multiple, and
+three seconds is not enough time to read four lines, let alone pick two -- it
+would post over the top of somebody mid-choice and re-plan out from under them.
+
+So its job has changed: it is the fallback for a visitor who does NOTHING --
+walked up, looked, walked off -- rather than the normal path. The ceiling is
+the loop's own STT timeout: PTT is held for 4.5 s and the transcript wait is
+STT_TIMEOUT_S (15 s) after that, so anything under ~19 s beats Error. 12 leaves
+room for both to be tuned without this having to be remembered.
+
 THE PROMPT ITSELF IS THE PART THAT MATTERS, and it is not a technical choice.
 Something vague -- "tell me if anything interesting happens" -- gives the
 planner nothing to compile into a watch-spec, and what it produces is either
@@ -80,7 +92,7 @@ def main():
     ap = argparse.ArgumentParser(description="the standing prompt, for a demo")
     ap.add_argument("--host", default="http://127.0.0.1:8000")
     ap.add_argument("--say", default=DEFAULT, help="the standing prompt")
-    ap.add_argument("--after", type=float, default=3.0,
+    ap.add_argument("--after", type=float, default=12.0,
                     help="seconds of listening to nothing before stepping in. "
                          "Must be under the loop's STT timeout, or Error wins")
     ap.add_argument("--watch", action="store_true", help="print every poll")

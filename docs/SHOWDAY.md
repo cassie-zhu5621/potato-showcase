@@ -310,6 +310,33 @@ If step 3 fails, the board is on v10 or older.
 
 ---
 
+## What a visitor actually does
+
+```
+walks up          the head comes up, the tablet asks what to watch for
+taps one or more  four presets. Ticks stay -- two at once is the good case
+presses the button  -> got it, looking around, then watching
+```
+
+**They do not have to speak.** The room is loud and half of them are speaking
+a second language; a spoken sentence that fails to transcribe spends the whole
+ninety seconds performing not-having-understood. Speech still works and still
+wins -- anything actually said lands first and the menu never appears.
+
+If nobody does anything at all for 12 s, `standing_prompt.py` posts its own
+line so the robot goes on to scan rather than to error. That is now a fallback
+for somebody who walked up, looked and walked off -- not the normal path.
+
+Edit the four lines in `webui/booth.py`, `PRESETS`, near the top.
+
+**"tell me if there's something interesting" is the weak one.** Vague requests
+give the planner nothing to compile and it returns something thin or nothing at
+all. It is on the list because it is what people reach for when none of the
+others is what they meant -- worth watching how often the plan behind it is any
+good, and worth replacing if it is not.
+
+---
+
 ## Retyping the prompt mid-show
 
 The tablet page has a prompt row along the bottom, on every screen including

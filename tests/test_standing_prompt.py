@@ -138,10 +138,23 @@ def test_it_survives_the_loop_not_being_there(loop):
     assert run(loop, play) == []
 
 
-def test_it_steps_in_well_before_the_flow_gives_up():
-    """The default has to be inside the loop's own speech timeout, or Error
-    wins the race and the companion is decoration."""
+def test_it_steps_in_after_the_menu_but_before_the_flow_gives_up():
+    """Squeezed from both sides, and both sides moved.
+
+    BELOW: the tablet now offers four things and takes several, so three
+    seconds -- which was right when this was the only way past Attend -- posts
+    over the top of somebody mid-choice and re-plans out from under them. Long
+    enough to read four lines and pick two.
+
+    ABOVE: the loop's own clock. PTT is held APPR_HOLD (4.5 s) and the
+    transcript wait is STT_TIMEOUT_S after that, so anything under their sum
+    beats Error. A margin, because both are tuned on the day and neither is
+    tuned with this file open.
+    """
     import robot.states as ST
     src = open(SCRIPT).read()
     default = float(src.split('"--after", type=float, default=')[1].split(",")[0])
-    assert default < ST.STT_TIMEOUT_S / 2
+    hold = 4.5          # APPR_HOLD in cores3_sidekick.ino
+    assert default >= 8.0, "too short to read a menu and choose"
+    assert default <= (hold + ST.STT_TIMEOUT_S) - 5.0, \
+        "too close to the flow giving up -- Error would win the race"

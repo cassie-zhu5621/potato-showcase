@@ -61,14 +61,55 @@ def test_the_nod_does_not_get_a_screen_of_its_own():
     assert st("S2_ACKNOWLEDGE")["phase"] == st("S3_SCAN")["phase"]
 
 
-def test_there_is_no_menu_left():
-    """The request is spoken on this build. A tappable list of sentences would
-    decide for the participant the one thing the study asks them to decide."""
+def test_the_menu_is_back_for_the_showcase_but_not_the_old_one():
+    """THE STUDY REMOVED A MENU ON PURPOSE and this build puts one back, so the
+    reason has to be said rather than quietly reversed.
+
+    The study's reason: a tappable list of sentences decides for the
+    participant the one thing the study asks them to decide, which is what they
+    want noticed. That still holds -- for a study.
+
+    A showcase asks nobody anything. The room is loud, half the visitors are
+    speaking a second language, and ninety seconds is the whole interaction: a
+    spoken sentence that fails to transcribe spends that budget performing
+    not-having-understood. The list is the fallback and SPEECH STILL WINS --
+    anything actually said lands first and the loop takes it.
+
+    What must NOT come back is the old implementation: a separate /booth/choose
+    route with its own state. The menu posts the same /context every other
+    input uses, so there is one way a request enters the flow.
+    """
     src = open(os.path.join(ROOT, "webui", "booth.py")).read()
     for gone in ("CHOICES", "english_for", "/booth/choose", "S.choices",
                  "request_ja", "booth_choice_ja"):
         assert gone not in src, gone
-    assert "choices" not in st("S1_ATTEND")
+    assert "choices" not in st("S1_ATTEND"), \
+        "the presets are baked into the page; they are not per-poll state"
+    assert "PRESETS" in src and "fetch('/context'" in src
+
+
+def test_the_menu_takes_more_than_one_and_waits_for_the_button():
+    """The interesting requests are two things at once, and a tap that fired
+    immediately would allow exactly one."""
+    src = open(os.path.join(ROOT, "webui", "booth.py")).read()
+    i = src.index("function pick(")
+    assert "PICKED.delete" in src[i:i + 200], "tapping toggles"
+    assert "render()" in src[i:i + 200], "and redraws rather than submitting"
+    send = src[src.index("async function sendPicks("):][:600]
+    assert "fetch('/context'" in send, "only the button submits"
+    assert "join('; ')" in send, "several presets become one context sentence"
+
+
+def test_the_selection_survives_the_re_render_and_not_the_visitor():
+    """render() rewrites #app five times a second, so a tick held in the DOM is
+    erased between one tap and the next -- the same trap #live and the prompt
+    row were pulled out of. And the NEXT visitor must not inherit ticks that
+    are one tap from being submitted as their request."""
+    src = open(os.path.join(ROOT, "webui", "booth.py")).read()
+    body = src[src.index("<body>"):src.index("<script>")]
+    assert "PICKED" not in body, "the selection must not live in the markup"
+    assert "let PICKED" in src
+    assert "n.phase!=='listen'" in src and "PICKED=new Set()" in src
 
 
 def test_the_choose_route_is_gone_from_the_server_too():

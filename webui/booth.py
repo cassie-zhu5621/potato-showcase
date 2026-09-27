@@ -52,6 +52,8 @@ the chirp, and 1.2 s of lag reads as two separate machines.
 """
 from __future__ import annotations
 
+import json
+
 # The relation vocabulary, WRITTEN OUT. English on purpose -- these are the
 # system's own terms and an onlooker reading over a visitor's shoulder is
 # usually the person who wants to see them.
@@ -224,6 +226,22 @@ def booth_state(STATE, feed_records, sweep_meta):
     }
 
 
+# WHAT THE MENU OFFERS. Edited here and nowhere else.
+#
+# CONCRETE AND HIGH-FREQUENCY, and about the AUDIENCE -- the audience is the
+# thing guaranteed to be present and moving. A vague request gives the planner
+# nothing to compile into a watch-spec and it returns garbage or nothing, which
+# routes to the one state a showcase must not perform. The last line is the
+# deliberate exception: it is what a visitor reaches for when none of the
+# others is what they meant, and it is worth watching how often the plan it
+# produces is any good.
+PRESETS = [
+    "tell me when someone drinks a coffee",
+    "tell me when someone points at something",
+    "tell me when someone is holding a phone",
+    "tell me if there's something interesting",
+]
+
 PAGE = """<!doctype html><html lang=en><head><meta charset=utf-8>
 <meta name=viewport content="width=device-width,initial-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name=apple-mobile-web-app-capable content=yes>
@@ -293,6 +311,30 @@ h1{font-weight:600;font-size:clamp(26px,3.4vh,40px);line-height:1.3;margin:0;let
 .lst i:nth-child(3){animation-delay:.44s}
 @keyframes blink{0%,100%{opacity:.2}50%{opacity:1}}
 .card:active small{color:#3a3a20}
+
+/* THE MENU, shown while it is listening. A stand is loud and half the visitors
+   are speaking a second language, so asking for a spoken sentence and then
+   performing not-having-understood is a worse first impression than a list.
+   Speech still works: anything said lands first and the loop takes it. */
+.picks{flex:1;display:flex;flex-direction:column;gap:12px;min-height:0;
+  overflow-y:auto;-webkit-overflow-scrolling:touch}
+.pick{background:#1d1d1a;border:3px solid #33332e;border-radius:20px;
+  padding:clamp(14px,2.2vh,26px) clamp(16px,2.5vw,30px);color:#e8e6e0;
+  font-size:clamp(18px,2.6vh,30px);line-height:1.25;cursor:pointer;
+  display:flex;align-items:center;gap:16px}
+.pick:active{border-color:#8a867d}
+/* CHOSEN, NOT SUBMITTED -- the difference is the whole reason this screen
+   exists. A tap that fired immediately would let them pick exactly one thing,
+   and the interesting requests are two things at once. */
+.pick.on{border-color:#cfe33a;background:#232616}
+.tick{flex:none;width:clamp(26px,3.4vh,38px);height:clamp(26px,3.4vh,38px);
+  border-radius:9px;border:2px solid #4a4a44;display:flex;align-items:center;
+  justify-content:center;font-size:clamp(16px,2.2vh,24px);color:#141414}
+.pick.on .tick{background:#cfe33a;border-color:#cfe33a}
+.go{background:#cfe33a;color:#141414;border:0;border-radius:16px;
+  padding:20px 0;width:100%;font-weight:700;font-size:23px;flex:none}
+.go[disabled]{background:#262623;color:#5e5b54}
+.go:active{background:#e6f96a}
 
 .grid{flex:1;display:grid;grid-template-columns:repeat(3,1fr);gap:12px;min-height:0}
 .cell{position:relative;background:#1d1d1a;border:3px solid #2a2a27;
@@ -478,6 +520,26 @@ let S={phase:'sleep'},sent=0;
 // tablet back to the room grid with it threw that away and looked like the OK
 // had cancelled something. MODE overrides `phase` while it is set; null means
 // follow the robot again.
+// WHAT IS TICKED LIVES OUT HERE, like #live and the prompt row, because render()
+// rewrites the whole of #app five times a second. A tick kept in the DOM would
+// be erased between one tap and the next; kept here, the cards are rebuilt
+// from it on every poll and the selection is the thing that persists.
+const PRESETS = __PRESETS__;
+let PICKED = new Set();
+
+function pick(i){ PICKED.has(i) ? PICKED.delete(i) : PICKED.add(i); render(); }
+
+async function sendPicks(){
+  if(!PICKED.size) return;
+  // ONE SENTENCE, because the planner compiles one context into as many watch
+  // entries as it needs. Joined in the order they are listed rather than the
+  // order they were tapped, so two visitors who chose the same two things get
+  // the same plan.
+  const text=PRESETS.filter((_,i)=>PICKED.has(i)).join('; ');
+  PICKED=new Set(); render();
+  try{ await fetch('/context',{method:'POST',body:text}); }catch(e){}
+}
+
 let MODE=null;        // null | 'report' | 'wall'
 let WAIT_FROM=0;      // how many stories existed when OK was pressed
 let BIG=false;        // the live view, expanded
@@ -627,6 +689,27 @@ function render(){
     return;
   }
   if(S.phase==='listen'){
+    // SPEECH WINS IF THERE IS ANY. The menu is the fallback for a loud room,
+    // not a replacement: a visitor who did speak gets the old screen, because
+    // showing them a list while their own words are on their way back reads as
+    // the robot having ignored them.
+    const said=S.heard||'';
+    if(!said){
+      a.innerHTML=`<div><h1>What should it watch for?</h1>
+        <div class=sub>pick as many as you like, or type your own below</div></div>
+        <div class=grow>
+          <div class=picks>`+PRESETS.map((p,i)=>
+            `<div class="pick${PICKED.has(i)?' on':''}" onpointerdown="pick(${i})">
+               <span class=tick>${PICKED.has(i)?'&#10003;':''}</span>
+               <span>${esc(p)}</span></div>`).join('')+`</div>
+          <button class=go ${PICKED.size?'':'disabled'} onpointerdown="sendPicks()">
+            ${PICKED.size?`watch for ${PICKED.size} thing${PICKED.size>1?'s':''}`
+                         :'choose one to begin'}</button>
+        </div>`;
+      return;
+    }
+  }
+  if(S.phase==='listen'){
     // WHAT IT HEARD, WHILE THERE IS STILL TIME TO SAY IT AGAIN. Empty means the
     // button is down and nothing has come back yet; rejected text is shown and
     // marked, because the robot is about to perform not understanding and this
@@ -681,6 +764,10 @@ async function poll(){
     const r=await fetch('/booth.json',{cache:'no-store'});
     const n=await r.json();
     const changed = JSON.stringify(n)!==JSON.stringify(S);
+    // A NEW VISITOR GETS A BLANK MENU. Leaving the previous person's ticks up
+    // is worse than it sounds: they are someone else's request, one tap from
+    // being submitted as this person's.
+    if(S.phase==='listen' && n.phase!=='listen' && PICKED.size) PICKED=new Set();
     S=n;
     if(changed) render();
     place();
@@ -695,4 +782,4 @@ async function poll(){
   }catch(e){}
 }
 setInterval(poll,200); poll();
-</script></body></html>"""
+</script></body></html>""".replace("__PRESETS__", json.dumps(PRESETS))

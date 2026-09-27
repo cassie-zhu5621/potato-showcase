@@ -89,6 +89,10 @@ the moment the move failed:
 
 That is the last time the firmware is touched today.
 
+If you are going to test for a while before the doors open, and there are
+people working nearby, add `--mute` -- see **Testing next to people** below. It
+cannot be left behind.
+
 ---
 
 ## The two modes
@@ -155,6 +159,28 @@ python3 robot/tools/perform.py
 ```
 
 Starts frozen. `F` to begin, `SPACE` to tap the beat.
+
+---
+
+## Testing next to people
+
+Add `--mute` -- to the loop, or to `attend_test.py`, which is the one you run
+twenty times in a row while tuning:
+
+```bash
+python3 robot/tools/attend_test.py --mute
+```
+
+The chirps fire on every state change, which over an afternoon of debugging is
+a lot of them.
+
+**It does not stick.** Any mode started without `--mute` says the volume out
+loud on the way in and the sound comes back, so a muted afternoon cannot leave
+you with a silent robot on the day -- which is the failure this shape is chosen
+to avoid, because a robot with no voice looks like a broken speaker and the
+mode you are running is not where the setting was made.
+
+---
 
 ---
 
@@ -248,26 +274,6 @@ first miss is the one reported:
 
 `[FEEDBACK] ...` means the judge **accepted** it. If that prints and the robot
 still does nothing, it is `--feedback robot`.
-
----
-
-## Testing next to people
-
-Add `--mute` -- to the loop, or to `attend_test.py`, which is the one you run
-twenty times in a row while tuning:
-
-```bash
-python3 robot/tools/attend_test.py --mute
-```
-
-The chirps fire on every state change, which over an afternoon of debugging is
-a lot of them.
-
-**It does not stick.** Any mode started without `--mute` says the volume out
-loud on the way in and the sound comes back, so a muted afternoon cannot leave
-you with a silent robot on the day -- which is the failure this shape is chosen
-to avoid, because a robot with no voice looks like a broken speaker and the
-mode you are running is not where the setting was made.
 
 ---
 

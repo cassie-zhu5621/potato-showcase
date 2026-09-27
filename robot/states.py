@@ -373,6 +373,13 @@ S8_RECOVER_S = 16.0      # S8 gives up and returns to S0_IDLE after this long.
 #   past 10 s. `judge_agreed` records which, so the rate is in the data.
 JUDGE_DEADLINE_S = 10.0
 
+# The candidate gate silences everything downstream while it is set, so a stuck
+# one looks exactly like a robot that has stopped noticing. Every path that sets
+# it has a path that clears it -- and it still sat closed for minutes. Bounded
+# rather than argued about. Generous: it must never pre-empt a slow judge (the
+# deadline above) or a report being read, and both are checked separately.
+GATE_STUCK_S = 45.0
+
 S7_IGNORED_TIMEOUT_S = 30.0
 
 # How long the loop waits for Whisper before giving up and showing S8. Generous:

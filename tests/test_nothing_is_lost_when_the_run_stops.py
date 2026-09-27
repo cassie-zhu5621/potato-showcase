@@ -186,8 +186,13 @@ def test_the_backoff_resets_when_the_situation_changes():
 
 
 def test_the_loop_gives_back_what_the_busy_gate_drops():
+    # ANCHORED ON THE MECHANISM, not on the sentence. This used to search for
+    # the literal log line, so rewording the message -- which happened the day
+    # the gate was found stuck, because the old one named the symptom and never
+    # the holder -- broke a test that is about cooldowns and says nothing about
+    # wording.
     src = noticebot_loop.__loader__.get_source("noticebot_loop")
-    i = src.index("suppressed later group of")
+    i = src.index("ST.SUPPRESSED_RETRY_S)")
     assert "recool" in src[i - 900:i + 200]
 
 
@@ -195,7 +200,7 @@ def test_the_loop_backs_off_on_rejection_but_not_on_suppression():
     """A rejection cost a VLM call and got an answer; a gate collision cost
     nothing and got no answer. Only the first escalates."""
     src = noticebot_loop.__loader__.get_source("noticebot_loop")
-    i = src.index("suppressed later group of")
+    i = src.index("ST.SUPPRESSED_RETRY_S)")
     assert "backoff" not in src[i - 900:i + 200]
     assert src.count("backoff=True") == 2, "both rejection sites"
 
@@ -266,3 +271,50 @@ def test_an_entry_from_another_spec_is_not_matched():
     ex = WatchExecutor(SPEC, persist=1, cooldown=15)
     ex.step({9: True}, 0.0)
     assert ex.recool({"all": [7], "on": "whiteboard"}, 2.0) is False
+
+
+# --------------------------------------------------------------------------- #
+# The candidate gate silences everything downstream. It cannot stay shut.
+# --------------------------------------------------------------------------- #
+def test_a_judge_worker_that_dies_does_not_die_holding_the_gate():
+    """It was a bare `finally` that only decremented `inflight`, so any
+    exception in the worker -- a provider error, a schema change, a bad frame --
+    left `busy` True for the rest of the session. Nothing else clears it except
+    a report, and no report can happen while it is set."""
+    src = noticebot_loop.__loader__.get_source("noticebot_loop")
+    i = src.index("def confirm_candidate_group")
+    block = src[i:i + 1400]
+    assert "except Exception" in block
+    j = block.index("except Exception")
+    assert 'candidate_gate["busy"] = False' in block[j:], \
+        "the gate must be released on the way out"
+    assert "judge worker failed" in block[j:], "and it must say so"
+
+
+def test_the_gate_has_a_bound_not_an_argument():
+    """Every path that sets it has a path that clears it -- which was true
+    before the evening it sat closed for minutes while the log printed the
+    symptom at frame rate. A stuck gate is indistinguishable from a robot that
+    has stopped noticing, which is the whole product."""
+    import robot.states as ST
+    src = noticebot_loop.__loader__.get_source("noticebot_loop")
+    assert ST.GATE_STUCK_S > ST.JUDGE_DEADLINE_S, \
+        "the watchdog must never pre-empt a slow judge"
+    i = src.index("GATE_STUCK_S")
+    block = src[i - 900:i + 400]
+    for legit in ('candidate_gate["inflight"]', 'candidate_gate["awaiting"] is None',
+                  'candidate_gate["winner"]', '"S5A_FOUND", "S5B_BECKON"'):
+        assert legit in block, f"{legit} is a legitimate holder and must be checked"
+    assert "time.time()" in block, \
+        "not `now` -- that is defined inside the camera branch"
+
+
+def test_the_suppressed_line_names_the_holder_and_is_rate_limited():
+    """Forty identical lines that name the symptom and never the cause is how
+    a gate stays stuck for two minutes without anybody being able to say why."""
+    src = noticebot_loop.__loader__.get_source("noticebot_loop")
+    i = src.index("ST.SUPPRESSED_RETRY_S:.0f")
+    block = src[i - 1200:i + 200]
+    assert 'candidate_gate["said"]' in block, "rate limited"
+    assert "busy_since" in block, "says how long"
+    assert "in flight" in block and "reporting" in block, "says who"

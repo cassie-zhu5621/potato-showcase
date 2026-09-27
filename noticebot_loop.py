@@ -1147,7 +1147,7 @@ def main():
     # the deadline finds `fired_early` on its own candidate and records rather
     # than fires.
     candidate_gate = {"busy": False, "winner": None, "inflight": 0,
-                      "awaiting": None}
+                      "awaiting": None, "busy_since": None, "said": 0.0}
     from planning.sweep_plan import Sweep
     if a.name and link:
         # Sent, not greeted: a restart is a researcher action mid-session, and
@@ -1196,6 +1196,18 @@ def main():
         candidate_gate["inflight"] += 1
         try:
             _confirm_candidate_group(candidate)
+        except Exception as exc:
+            # A WORKER THAT DIES MUST NOT DIE HOLDING THE GATE. This was a bare
+            # `finally` that only decremented `inflight`, so any exception in
+            # here -- a provider error, a schema change, a bad frame -- left
+            # `busy` True for the rest of the session. Nothing else clears it
+            # except a report, and no report can happen while it is set: every
+            # later card is suppressed, once per frame, forever. The log fills
+            # with `gate busy` and says nothing about why.
+            candidate_gate["busy"] = False
+            candidate_gate["awaiting"] = None
+            print(f"[confirm] judge worker failed: "
+                  f"{type(exc).__name__}: {str(exc)[:160]}")
         finally:
             candidate_gate["inflight"] -= 1
 
@@ -1520,6 +1532,37 @@ def main():
                     candidate_gate["winner"] = None
                 last_state = snap["state"]
 
+            # ---- THE GATE CANNOT STAY SHUT. A watchdog, and it should never
+            # fire: every path that sets `busy` has a path that clears it. That
+            # is exactly the argument that was true before this session, and
+            # the gate still sat closed for minutes while the log printed the
+            # symptom at frame rate.
+            #
+            # The gate is the one piece of state that silences EVERYTHING
+            # downstream -- a stuck one is indistinguishable from a robot that
+            # has stopped noticing, which is the whole product. So it gets a
+            # bound rather than an argument.
+            #
+            # Only when nothing can legitimately be holding it: no call in
+            # flight, nothing awaiting a verdict, and no report on screen. Those
+            # three are the legitimate holders and each has its own clock.
+            if (candidate_gate["busy"] and not candidate_gate["inflight"]
+                    and candidate_gate["awaiting"] is None
+                    and not candidate_gate["winner"]
+                    and flow.state not in ("S5A_FOUND", "S5B_BECKON")
+                    and candidate_gate.get("busy_since") is not None
+                    and time.time() - candidate_gate["busy_since"] > ST.GATE_STUCK_S):
+                # ITS OWN CLOCK, deliberately. `now` is defined inside the
+                # camera branch, and a gate that only unsticks itself when a
+                # camera is attached is a watchdog with the same single point
+                # of failure as the thing it is watching.
+                print(f"[watch] !! the candidate gate was stuck for "
+                      f"{time.time() - candidate_gate['busy_since']:.0f}s with nothing "
+                      f"holding it -- releasing. This is a bug upstream; the "
+                      f"line above says what was suppressed meanwhile.")
+                candidate_gate["busy"] = False
+                candidate_gate["busy_since"] = None
+
             # The recording bar is the only live confirmation a participant gets
             # that the robot is hearing them, and nothing was sending it -- so it
             # sat at zero and read as frozen even when the mic was working. 10 Hz
@@ -1715,10 +1758,25 @@ def main():
                     if view is not None and view.executor is not None:
                         for entry in entries:
                             view.executor.recool(entry, ST.SUPPRESSED_RETRY_S)
-                    print(f"[watch] suppressed later group of {len(entries)} card(s): "
-                          f"gate busy -- retrying in {ST.SUPPRESSED_RETRY_S:.0f}s")
+                    # NAME THE HOLDER, and say it once every few seconds. The
+                    # old line repeated the symptom at frame rate and never the
+                    # cause, so a gate stuck for two minutes and a gate busy
+                    # for two seconds printed the same thing forty times.
+                    if now - candidate_gate["said"] > 5.0:
+                        candidate_gate["said"] = now
+                        held = (f"{now - candidate_gate['busy_since']:.0f}s"
+                                if candidate_gate.get("busy_since") else "?")
+                        who = ("a judge call in flight"
+                               if candidate_gate["inflight"] else
+                               f"reporting {candidate_gate['winner']!r}"
+                               if candidate_gate["winner"] else
+                               "a verdict that has not come back")
+                        print(f"[watch] suppressed {len(entries)} card(s): "
+                              f"gate held {held} by {who} "
+                              f"-- retrying in {ST.SUPPRESSED_RETRY_S:.0f}s")
                 else:
                     candidate_gate["busy"] = True
+                    candidate_gate["busy_since"] = now
                     labels = [entry.get("label") for entry in entries]
                     print(f"[watch] same-moment candidate group: {labels}")
                     for entry in entries:

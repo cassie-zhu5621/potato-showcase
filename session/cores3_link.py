@@ -12,7 +12,7 @@ Protocol (line-based, 115200, '
                       EVT LED <0-255> | EVT HUE <WARM|COOL|RED|GREEN|ALARM> |
                       EVT SFX <name> | EVT VOL <0-255> | EVT REST | EVT PING
   CoreS3 -> laptop :  IN PTT_DOWN | IN PTT_UP | IN OK | IN STOP | IN BODYTAP |
-                      IN PONG cores3_sidekick v11
+                      IN PONG cores3_sidekick v12
 
 The board cannot be found by name -- macOS calls it usbmodem-<location id> just
 like the servo adapter -- so find_cores3() asks it instead. See below.
@@ -37,7 +37,7 @@ except ImportError:
 # "v3", this check still said "match", and the antenna was still blue. A version
 # that tracks only the protocol cannot answer the one question it is asked --
 # "is the thing in front of me built from the code in front of me".
-FIRMWARE_V = "v11"
+FIRMWARE_V = "v12"
 
 
 def _older(board: str, want: str) -> bool:
@@ -59,7 +59,7 @@ def find_cores3(exclude=(), timeout=4.0, baud=115200, verbose=True):
 
     OPENING THE PORT DOES RESET THIS BOARD, and the previous version of this
     function asserted the opposite. Measured on the bench: a bare open followed
-    by a read returns `IN HELLO cores3_sidekick v11` -- the greeting from setup()
+    by a read returns `IN HELLO cores3_sidekick v12` -- the greeting from setup()
     -- which only happens if the board rebooted. So the old sequence lost every
     time it mattered:
 
@@ -229,7 +229,7 @@ class CoreS3Link:
     def approach(self, on=True):  self.event("APPROACH", 1 if on else 0)  # ToF -> PTT
 
     # ----------------------------------------------------------------- #
-    def claim(self, *, dist=False, approach=False, face=False):
+    def claim(self, *, dist=False, approach=False, face=False, volume=100):
         """Put the board into the state THIS mode wants, whatever the last one
         left behind.
 
@@ -243,9 +243,16 @@ class CoreS3Link:
 
         Say everything, including the offs. A default that is currently right
         is a default that stops being said, and then it stops being right.
+
+        VOLUME IS IN HERE FOR THE SAME REASON, and it is the switch most likely
+        to be left behind: `--mute` is used while testing beside people who are
+        working, and a board left at 0 is a robot that has lost its voice with
+        nothing on screen to say so. 100 is the firmware's own startup value, so
+        a mode that says nothing about sound gets sound.
         """
         self.approach(approach)
         self.dist(dist)
+        self.volume(volume)
         self.ui("perform" if face else "idle")
 
     def close(self):

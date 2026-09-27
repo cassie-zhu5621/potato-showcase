@@ -42,13 +42,13 @@ trade.
 
 ## 2. Flash
 
-Firmware **v11** or later. v9 added the approach gate, v10 gave it a speaking window, v11 fixed it re-arming. Same as everything else:
+Firmware **v12** or later. v9 added the approach gate, v10 gave it a speaking window, v11 fixed it re-arming, v12 makes a spoken line give the volume back. Same as everything else:
 
 ```bash
 cd ~/Documents/potatobot/showcase
 lsof /dev/cu.usbmodem*          # kill anything listed
 pio run -t upload
-python3 robot/tools/tof_test.py     # first line must say v11. Ctrl-C after
+python3 robot/tools/tof_test.py     # first line must say v12. Ctrl-C after
 ```
 
 ## 3. Run, in two terminals

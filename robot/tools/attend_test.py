@@ -52,6 +52,9 @@ def main():
                     help="no servo bus. The gate's own latency, with nothing "
                          "mechanical in front of it")
     ap.add_argument("--log", metavar="CSV", help="record the trace as well")
+    ap.add_argument("--mute", action="store_true",
+                    help="no sound. This one is run dozens of times in a row "
+                         "while tuning, usually next to somebody working")
     ap.add_argument("--bus", type=int, choices=(0, 1), default=None,
                     help="re-init the ToF on I2C controller 0 (Wire) or 1. "
                          "The flashed default is 0")
@@ -165,7 +168,8 @@ def main():
     time.sleep(0.4)
     link.tof()
     time.sleep(0.5)
-    link.claim(dist=True)    # the stream on, the approach gate off, plain screen
+    # the stream on, the approach gate off, plain screen, and sound as asked
+    link.claim(dist=True, volume=0 if a.mute else 100)
     time.sleep(0.3)
     if a.bus is not None:
         print(f"  re-initialising the ToF on {'Wire1' if a.bus else 'Wire'}...")

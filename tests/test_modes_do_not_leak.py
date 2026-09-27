@@ -8,7 +8,7 @@ that fails the first time one is killed with Ctrl-C -- which is how every
 session ends.
 
 So each mode SETS what it wants on the way IN, and these tests hold that: every
-tool claims the board, and every claim says all three, including the offs.
+tool claims the board, and every claim says all FOUR, including the offs.
 """
 from __future__ import annotations
 
@@ -44,6 +44,7 @@ class Recorder:
     approach = CoreS3Link.approach
     dist = CoreS3Link.dist
     ui = CoreS3Link.ui
+    volume = CoreS3Link.volume
     claim = CoreS3Link.claim
 
 
@@ -59,14 +60,19 @@ def test_a_claim_says_all_three_including_the_offs():
     r = Recorder()
     r.claim()
     cmds = [c for c, _ in r.sent]
-    assert "APPROACH" in cmds and "DIST" in cmds and "UI" in cmds
+    for c in ("APPROACH", "DIST", "UI", "VOL"):
+        assert c in cmds, c
 
 
 @pytest.mark.parametrize("kw,want", [
-    (dict(), {"APPROACH": "0", "DIST": "0", "UI": "idle"}),
-    (dict(face=True), {"APPROACH": "0", "DIST": "0", "UI": "perform"}),
-    (dict(dist=True), {"APPROACH": "0", "DIST": "1", "UI": "idle"}),
-    (dict(approach=True), {"APPROACH": "1", "DIST": "0", "UI": "idle"}),
+    (dict(), {"APPROACH": "0", "DIST": "0", "UI": "idle", "VOL": "100"}),
+    (dict(face=True), {"APPROACH": "0", "DIST": "0", "UI": "perform", "VOL": "100"}),
+    (dict(dist=True), {"APPROACH": "0", "DIST": "1", "UI": "idle", "VOL": "100"}),
+    (dict(approach=True), {"APPROACH": "1", "DIST": "0", "UI": "idle", "VOL": "100"}),
+    # MUTE IS A CLAIM LIKE ANY OTHER, which is the point: a board left at 0 by
+    # a --mute run is a robot with no voice and nothing on screen to say so.
+    # The next mode says 100 on the way in and it comes back.
+    (dict(volume=0), {"APPROACH": "0", "DIST": "0", "UI": "idle", "VOL": "0"}),
 ])
 def test_a_claim_sets_exactly_what_was_asked(kw, want):
     r = Recorder()
@@ -84,8 +90,8 @@ def test_the_performance_turns_the_approach_gate_OFF():
 
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("board,warn", [
-    ("v7", True), ("v8", True), ("v9", True), ("v10", True), ("v11", False),
-    ("v12", False), (None, True), ("weird", True), ("", True),
+    ("v7", True), ("v8", True), ("v9", True), ("v10", True), ("v11", True), ("v12", False),
+    ("v13", False), (None, True), ("weird", True), ("", True),
 ])
 def test_only_an_OLDER_board_is_worth_a_warning(board, warn):
     """The firmware is shared and grows by addition -- a feature arrives off
@@ -158,3 +164,37 @@ def test_a_low_bus_voltage_is_named_not_nominated():
         "both verdicts, or the line still needs interpreting"
     assert "except Exception" in block, \
         "an unreadable bus must not turn a failed move into a crash"
+
+
+def test_mute_does_not_outlive_the_run_that_asked_for_it():
+    """The switch most likely to be left behind. --mute is for testing beside
+    people who are working; a board left at 0 afterwards is a robot that has
+    lost its voice with nothing on screen to say why, and the obvious place to
+    look -- the mode you are now running -- is not where it was set."""
+    muted = Recorder(); muted.claim(volume=0)
+    assert ("VOL", "0") in muted.sent
+    after = Recorder(); after.claim()
+    assert ("VOL", "100") in after.sent, "the next mode must say it out loud"
+
+
+def test_a_muted_run_does_not_claim_to_have_played_sounds():
+    """Counting a sound that was suppressed ends the run with `sounds: 23` and
+    sends the next reader of the log looking for a speaker fault."""
+    src = open(os.path.join(ROOT, "noticebot_loop.py")).read()
+    i = src.index("def on_sfx")
+    block = src[i:i + 700]
+    assert "a.mute" in block
+    assert block.index("a.mute") < block.index('counts["sfx"] += 1'), \
+        "the counter must come after the mute check, not before"
+
+
+def test_a_spoken_line_gives_the_volume_back():
+    """SAY set 255 and left it there, so one `V` in a performance re-tuned every
+    chirp after it -- and now that --mute exists it could un-mute a session."""
+    ino = open(os.path.join(ROOT, "robot", "firmware", "cores3_sidekick",
+                            "cores3_sidekick.ino")).read()
+    i = ino.index("playWav(VOICE_WAV")
+    block = ino[max(0, i - 500):i + 300]
+    assert "getVolume()" in block, "it has to know what to give back"
+    assert "setVolume(was)" in block, "and give it back"
+    assert "was ? 255 : 0" in block, "muted stays muted"

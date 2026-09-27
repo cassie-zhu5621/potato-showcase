@@ -37,10 +37,10 @@ old build running and answering exactly as before:
 python3 robot/tools/tof_test.py
 ```
 
-- first line must say **v11 or newer**
+- first line must say **v12 or newer**
 - the bar must move when you put a hand in front of the sensor
 
-Ctrl-C it. Below v11, or no `IN TOF` line at all, means the upload did not land
+Ctrl-C it. Below v12, or no `IN TOF` line at all, means the upload did not land
 whatever it reported -- the tool says so and prints the command with the port
 already filled in.
 
@@ -121,6 +121,7 @@ Every flag, and why it is not optional:
 | `--feedback robot` | lets a confirmed finding drive the call. `console` prints the judgment and **moves nothing** |
 | `--approach` | arms the board's ToF to press the button |
 | `--serve` | the web pages, for you and for the audience |
+| `--mute` | **testing only.** No chirps, for working next to people. Take it off before the doors open |
 
 Watch for this in the first few lines, before CV output buries it:
 
@@ -247,6 +248,26 @@ first miss is the one reported:
 
 `[FEEDBACK] ...` means the judge **accepted** it. If that prints and the robot
 still does nothing, it is `--feedback robot`.
+
+---
+
+## Testing next to people
+
+Add `--mute` -- to the loop, or to `attend_test.py`, which is the one you run
+twenty times in a row while tuning:
+
+```bash
+python3 robot/tools/attend_test.py --mute
+```
+
+The chirps fire on every state change, which over an afternoon of debugging is
+a lot of them.
+
+**It does not stick.** Any mode started without `--mute` says the volume out
+loud on the way in and the sound comes back, so a muted afternoon cannot leave
+you with a silent robot on the day -- which is the failure this shape is chosen
+to avoid, because a robot with no voice looks like a broken speaker and the
+mode you are running is not where the setting was made.
 
 ---
 

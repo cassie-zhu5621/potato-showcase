@@ -313,6 +313,11 @@ def main():
                          "By default a new session_feed/e2e_<timestamp> directory "
                          "is created for every process start.")
     ap.add_argument("--list-cams", action="store_true")
+    # For testing beside people who are working. The chirps are on every state
+    # change, which is a lot of them over an afternoon of debugging.
+    ap.add_argument("--mute", action="store_true",
+                    help="no sound from the robot. The board is set back to "
+                         "audible by any mode started without it")
     ap.add_argument("--no-stt", action="store_true",
                     help="skip Whisper; the web UI text box is then the only "
                          "transcript source. The flow is identical either way.")
@@ -533,9 +538,15 @@ def main():
             holder["link"].led(level)
 
     def on_sfx(name):
-        if holder.get("link"):
-            counts["sfx"] += 1
-            holder["link"].sfx(name)
+        # MUTED AT THE SOURCE AS WELL AS AT THE BOARD. `claim(volume=0)` is
+        # already enough to make it silent, and stopping here too means the
+        # counter at shutdown reports what was actually played -- otherwise a
+        # muted run ends with "sounds: 23" and the next person to read the log
+        # spends a while wondering why they heard none of them.
+        if a.mute or not holder.get("link"):
+            return
+        counts["sfx"] += 1
+        holder["link"].sfx(name)
 
     player = ClipPlayer(bus, a.clips, on_led=on_led, on_sfx=on_sfx)
     cam = None if a.no_cam else HeadCam(a.cam)
@@ -569,7 +580,9 @@ def main():
         # persists until reset, so a performance or a bring-up run before this
         # one could otherwise leave the distance stream flooding the log or the
         # big face on the screen. Said explicitly, including the offs.
-        link.claim(approach=bool(a.approach))
+        link.claim(approach=bool(a.approach), volume=0 if a.mute else 100)
+        if a.mute:
+            print("[cores3] MUTED -- no chirps. Drop --mute for the real thing")
         link.event("NOTICED", 0)
         if a.approach:
             print("[cores3] approach trigger ARMED -- walking up presses the button")

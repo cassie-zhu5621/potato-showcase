@@ -1526,10 +1526,29 @@ def main():
                                      args=(ctxd.get("request", ""),
                                            ctxd.get("plan_generation", 0)),
                                      daemon=True).start()
-                if (snap["state"] == "S4B_WATCH"
-                        and last_state in ("S5A_FOUND", "S5B_BECKON")):
+                REPORTING = ("S5A_FOUND", "S5B_BECKON")
+                if last_state in REPORTING and snap["state"] not in REPORTING:
+                    # WHEN THE REPORT ENDS, BY WHATEVER ROUTE. This asked for
+                    # S5B -> S4B_WATCH, which is the route taken when the
+                    # finding is IGNORED for 30 s. Pressing OK -- the normal
+                    # case, and the one the whole gesture exists for -- goes
+                    # S5B -> S2_ACKNOWLEDGE -> S4B_WATCH, because the robot
+                    # nods before it goes back to watching. `last_state` at
+                    # S4B_WATCH is then S2_ACKNOWLEDGE, the condition never
+                    # matched, and the gate stayed shut for the rest of the
+                    # session.
+                    #
+                    # So: every card after the first confirmed finding was
+                    # suppressed, and the robot could report exactly one thing
+                    # per run. Acknowledging it -- being a good visitor -- was
+                    # what broke it.
+                    #
+                    # Written as "left the reporting states" rather than as a
+                    # list of destinations, because the destinations are a
+                    # property of the flow and will grow again.
                     candidate_gate["busy"] = False
                     candidate_gate["winner"] = None
+                    candidate_gate["busy_since"] = None
                 last_state = snap["state"]
 
             # ---- THE GATE CANNOT STAY SHUT. A watchdog, and it should never
@@ -1544,11 +1563,16 @@ def main():
             # bound rather than an argument.
             #
             # Only when nothing can legitimately be holding it: no call in
-            # flight, nothing awaiting a verdict, and no report on screen. Those
-            # three are the legitimate holders and each has its own clock.
+            # flight, nothing awaiting a verdict, and no report on screen.
+            #
+            # `winner` IS NOT ON THAT LIST, and adding it was how this watchdog
+            # failed the first time it was needed. It is not a holder, it is a
+            # NAME for the report in progress -- part of the same state that
+            # gets stuck, so gating on it meant the one stuck-gate shape that
+            # actually happened could never be released. The report on screen
+            # is the flow's state, and the flow is the thing that knows.
             if (candidate_gate["busy"] and not candidate_gate["inflight"]
                     and candidate_gate["awaiting"] is None
-                    and not candidate_gate["winner"]
                     and flow.state not in ("S5A_FOUND", "S5B_BECKON")
                     and candidate_gate.get("busy_since") is not None
                     and time.time() - candidate_gate["busy_since"] > ST.GATE_STUCK_S):
@@ -1561,6 +1585,7 @@ def main():
                       f"holding it -- releasing. This is a bug upstream; the "
                       f"line above says what was suppressed meanwhile.")
                 candidate_gate["busy"] = False
+                candidate_gate["winner"] = None
                 candidate_gate["busy_since"] = None
 
             # The recording bar is the only live confirmation a participant gets

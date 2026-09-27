@@ -622,6 +622,38 @@ expect(f.state == "S4B_WATCH",
 ST.VISIT_MAX_S, ST.REPLAN_IDLE_S = _VIS, _IDL
 
 
+
+print("\n--- pressing OK leaves the reporting states via the nod ---")
+# THE ROUTE THAT BROKE THE CANDIDATE GATE. The loop released the gate on
+# `S5B_BECKON -> S4B_WATCH`, which is what happens when a finding is IGNORED
+# for 30 s. Acknowledging it -- the normal case -- goes through S2_ACKNOWLEDGE,
+# so `last_state` at S4B_WATCH was S2 and the release never ran: one report per
+# run, and being a good visitor was what broke it.
+#
+# Recorded here, in the flow's own tests, because the route is the flow's fact.
+f = flow()
+run(f, ["ptt_down", "ptt_up", "transcript:watch the desk",
+        "arrived:S3_SCAN", "arrived:S4B_WATCH", "planned"], "")
+run(f, ["finding:cup", "arrived:S5A_FOUND", "arrived:S5B_BECKON"], "")
+expect(f.state == "S5B_BECKON", "reporting")
+out = f.feed("ok")
+expect(f.state == "S2_ACKNOWLEDGE",
+       "OK nods FIRST -- it does not go straight back to watching")
+expect(("ack_then", "S4B_WATCH") in out, "...and lands on watching after the nod")
+run(f, ["arrived:S4B_WATCH"], "")
+expect(f.state == "S4B_WATCH", "so the report ended via S2, not via S5B")
+
+# The ignored route, for contrast: this one DID release the gate, which is why
+# the bug only showed up for visitors who answered.
+f = flow()
+run(f, ["ptt_down", "ptt_up", "transcript:watch the desk",
+        "arrived:S3_SCAN", "arrived:S4B_WATCH", "planned"], "")
+run(f, ["finding:cup", "arrived:S5A_FOUND", "arrived:S5B_BECKON"], "")
+CLOCK[0] += ST.S7_TIMEOUT_S + 1 if hasattr(ST, "S7_TIMEOUT_S") else 31
+f.feed("tick")
+expect(f.state != "S5B_BECKON", "an ignored finding also leaves the report")
+
+
 # THE SUMMARY GOES LAST, and it did not.
 #
 # It sat in the middle of the file, so everything appended after it -- the

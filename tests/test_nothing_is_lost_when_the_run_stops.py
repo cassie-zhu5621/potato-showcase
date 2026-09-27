@@ -303,8 +303,15 @@ def test_the_gate_has_a_bound_not_an_argument():
     i = src.index("GATE_STUCK_S")
     block = src[i - 900:i + 400]
     for legit in ('candidate_gate["inflight"]', 'candidate_gate["awaiting"] is None',
-                  'candidate_gate["winner"]', '"S5A_FOUND", "S5B_BECKON"'):
+                  '"S5A_FOUND", "S5B_BECKON"'):
         assert legit in block, f"{legit} is a legitimate holder and must be checked"
+    # AND `winner` MUST NOT BE ONE. It is not a holder, it is a NAME for the
+    # report in progress -- part of the same state that gets stuck. Gating on
+    # it meant the one stuck-gate shape that actually happened (OK pressed, so
+    # the report ended via S2_ACKNOWLEDGE and the release never ran) could
+    # never be released by the watchdog either. The flow's state is the holder.
+    assert 'not candidate_gate["winner"]' not in block, \
+        "the watchdog cannot gate on a field that is part of the stuck state"
     assert "time.time()" in block, \
         "not `now` -- that is defined inside the camera branch"
 
@@ -318,3 +325,22 @@ def test_the_suppressed_line_names_the_holder_and_is_rate_limited():
     assert 'candidate_gate["said"]' in block, "rate limited"
     assert "busy_since" in block, "says how long"
     assert "in flight" in block and "reporting" in block, "says who"
+
+
+def test_the_gate_is_released_when_the_report_ends_by_any_route():
+    """It asked for S5B -> S4B_WATCH, which is the route taken when a finding
+    is IGNORED. Pressing OK -- the normal case, and the thing the whole gesture
+    exists for -- goes S5B -> S2_ACKNOWLEDGE -> S4B_WATCH, because the robot
+    nods first. So the gate stayed shut after the first confirmed finding and
+    the robot could report exactly one thing per run.
+
+    Being a good visitor was what broke it.
+    """
+    src = noticebot_loop.__loader__.get_source("noticebot_loop")
+    i = src.index("REPORTING = (")
+    block = src[i:i + 1800]
+    assert 'last_state in REPORTING and snap["state"] not in REPORTING' in block, \
+        "leaving the reporting states, not arriving at one named destination"
+    assert 'candidate_gate["busy"] = False' in block
+    assert 'candidate_gate["busy_since"] = None' in block, \
+        "or the watchdog inherits a stale clock"

@@ -392,20 +392,28 @@ Tell them the ACTION, not the rule. Each one has to be held about two seconds
 |---|---|
 | holding a phone | hold it in view of the head camera, still, not flat against your body |
 | drinks a coffee | pick the cup up and hold it. Raising it to your mouth is the clearest |
-| points at something | **stand side-on and point ACROSS the frame**, not at the robot |
+| more people gather | **have a second person step into frame and stay.** The easiest one by far |
 | something interesting | the weak one. Expect a thin plan or none |
 
-**Pointing at the robot does not work and cannot be made to.** The ray is
-computed in the image plane, so an arm aimed at the camera foreshortens to
-nearly a point and hits nothing. Side-on, at an object the detector has boxed.
+**`gather` is the reliable one, so lead with it.** It watches the number of
+people in frame changing and holding -- no object has to be detected, and it is
+the only preset that does not depend on a small thing being boxed in somebody's
+hand. At a busy stand it fires on its own.
 
-Extension was loosened to 110 deg for the showcase, so a raised forearm counts
--- at the study's 140 the everyday gesture emitted no ray at all. Tolerance is
-25 deg. Both are in `robot/states.py`; if pointing starts firing on people
-resting an arm on the table, raise the extension first.
+Both people have to be whole enough to read as bodies, and the new count has to
+hold for about a second and a half. Somebody walking through does not count;
+somebody arriving and staying does.
 
-If one refuses to fire, name the object in the prompt -- `points at the cup`
-rather than `points at something`. That binds the rule to the cup instead of
+**Pointing is not on the menu.** It needs a visible shoulder, elbow and wrist,
+a ray past the extension test, and a detected box within tolerance -- and the
+gesture everybody tries first, aiming at the robot, cannot work: the ray is
+computed in the image plane, so an arm pointed at the camera foreshortens to a
+point and hits nothing. It is still in the vocabulary, so `points at the cup`
+typed into the prompt row can still compile; it is just not offered as a
+one-tap promise.
+
+If a preset refuses to fire, name the object in the prompt -- `holding the red
+cup` rather than `holding something`. That binds the rule to the cup instead of
 relying on the VLM having put it in the focus tier.
 
 ---

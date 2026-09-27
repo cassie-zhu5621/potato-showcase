@@ -395,3 +395,34 @@ def test_the_study_path_is_untouched():
     j = block.index("not ok and not")
     assert "a.approach and" in block[j - 40:j], \
         "the drop must be gated on demo mode, not applied to every run"
+
+
+def test_the_menu_only_offers_things_that_actually_fire():
+    """A preset that mostly does not fire teaches a visitor that the robot
+    mostly does not work, and they have ninety seconds to form that opinion.
+
+    POINTING is the one this rule is written from. It needs a visible
+    shoulder/elbow/wrist, a ray in the IMAGE PLANE past the extension test, and
+    a detected box within tolerance -- and the gesture everybody makes first,
+    aiming at the robot, cannot work at all: an arm pointed at the camera
+    foreshortens to a point and hits nothing. It stays in the vocabulary, where
+    a typed prompt can still reach it, and out of the menu.
+    """
+    from webui.booth import PRESETS
+    joined = " ".join(PRESETS).lower()
+    assert "point" not in joined, (
+        "pointing cannot be made reliable from the front and must not be "
+        "offered as a one-tap promise")
+
+
+def test_the_menu_does_not_depend_entirely_on_object_detection():
+    """Three of four presets needed a small object boxed in a hand -- a phone
+    at 0.39 confidence, a cup half behind fingers -- so a bad detector frame
+    took the whole menu down at once. `gathering` is about PEOPLE: no object,
+    and arity `none` means the focus gate passes it through untouched."""
+    from planning.planner import _CATALOG
+    from webui.booth import PRESETS
+    arity = {r["key"]: r["object_arity"] for r in _CATALOG["relations"]}
+    assert arity["gathering"] == "none"
+    assert any("gather" in p.lower() for p in PRESETS), \
+        "at least one preset must not need an object detected to fire"

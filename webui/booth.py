@@ -235,7 +235,22 @@ def booth_state(STATE, feed_records, sweep_meta):
 # WHAT THE MENU OFFERS. Edited here and nowhere else.
 #
 # CONCRETE AND HIGH-FREQUENCY, and about the AUDIENCE -- the audience is the
-# thing guaranteed to be present and moving. A vague request gives the planner
+# thing guaranteed to be present and moving.
+#
+# POINTING WAS HERE AND IS NOT ANY MORE. It needs three things to line up at
+# once -- a visible shoulder/elbow/wrist, a ray in the IMAGE PLANE that clears
+# the extension test, and a detected box within tolerance -- and the one
+# everybody does naturally, aiming at the robot, cannot work at all, because an
+# arm pointed at the camera foreshortens to a point and hits nothing. Loosening
+# the extension from 140 to 110 deg was not enough. It stays in the vocabulary
+# and out of the menu: a preset that mostly does not fire teaches a visitor
+# that the robot mostly does not work.
+#
+# `gathering` replaces it because it is the opposite: it is about people, needs
+# no object detected and no object gate at all (arity `none`, so the focus gate
+# passes it straight through), and the thing it watches for -- the number of
+# people co-present changing -- is what a crowded stand does continuously
+# without anyone being asked. A vague request gives the planner
 # nothing to compile into a watch-spec and it returns garbage or nothing, which
 # routes to the one state a showcase must not perform. The last line is the
 # deliberate exception: it is what a visitor reaches for when none of the
@@ -245,7 +260,7 @@ CHOOSING_HOLD_S = 15.0   # a tap holds the companion off this long
 
 PRESETS = [
     "tell me when someone drinks a coffee",
-    "tell me when someone points at something",
+    "tell me when more people gather around",
     "tell me when someone is holding a phone",
     "tell me if there's something interesting",
 ]

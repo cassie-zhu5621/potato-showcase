@@ -426,3 +426,28 @@ def test_the_menu_does_not_depend_entirely_on_object_detection():
     assert arity["gathering"] == "none"
     assert any("gather" in p.lower() for p in PRESETS), \
         "at least one preset must not need an object detected to fire"
+
+
+def test_the_tablet_never_tells_a_visitor_to_press_a_button():
+    """There is no button in this version -- walking up presses it, in the
+    firmware, on their behalf. The study build said `hold the button on the
+    robot` and that was right there: there was one, and the participant had
+    been shown it by a moderator.
+
+    A stranger at a stand has not been shown anything. Telling them to press
+    something they cannot find is worse than saying nothing: they look for it,
+    do not find it, and decide the robot is broken -- in the first four seconds,
+    which are the only ones you get.
+
+    Checked against the RENDERED text, not the source, because the reasoning
+    for all of this lives in comments that do say `button`.
+    """
+    import re
+    from webui.booth import PAGE
+    body = PAGE[PAGE.index("<body>"):]
+    # strip tags and //-comments: what is left is close to what is read
+    visible = re.sub(r"<[^>]+>", " ", body)
+    visible = "\n".join(l for l in visible.split("\n")
+                         if not l.strip().startswith("//"))
+    for phrase in ("hold the button", "press the button", "button on the robot"):
+        assert phrase not in visible.lower(), phrase

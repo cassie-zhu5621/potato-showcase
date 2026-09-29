@@ -8,11 +8,12 @@ answers it, and nothing else about the robot changes to make it possible.
     the robot   motion, light, sound, a face, and the request itself
     this page   which way it is looking, and the report afterwards
 
-THE REQUEST IS NOT ON THIS PAGE. It is spoken, holding the button on the robot,
-in the participant's own words. The exhibition build (demo-expo-2026) put three
-tappable sentences here instead, because a stranger at a stand has ninety
-seconds and no briefing; a participant has a moderator and seven minutes, and a
-menu would decide for them the one thing the study is asking them to decide.
+THE REQUEST IS ON THIS PAGE AGAIN, for the showcase. In the study it was spoken
+-- holding the button on the robot, in the participant's own words -- and a menu
+would have decided for them the one thing the study was asking them to decide.
+A stranger at a stand is not being asked anything, has ninety seconds, no
+briefing and a loud room, so the menu is back and the button is gone: walking up
+presses it for them. Speech still wins when there is any.
 What the page shows during that moment is what Whisper HEARD -- large, as it
 lands -- so a misread is visible while it can still just be said again, instead
 of being discovered three states later when the head turns the wrong way.
@@ -22,7 +23,12 @@ carries the state, and a page swap is reserved for a change in what the
 participant can DO:
 
     sleep    a sleeping face and one line. Nothing is asked of the tablet here;
-             the way in is the button on the robot, and the page says so.
+             the way in is WALKING UP TO IT -- the board's ToF presses the
+             button on the visitor's behalf -- and the page says so. It said
+             "hold the button" for the study build, where there was one and the
+             participant had been shown it. A stranger at a stand has not, and
+             telling them to press something they cannot find is worse than
+             saying nothing.
     listen   the sentence, as Whisper returns it. Rejected text is shown too,
              marked -- the robot is about to perform not having understood, and
              a participant who can read what it thought it heard understands
@@ -311,7 +317,7 @@ h1{font-weight:600;font-size:clamp(26px,3.4vh,40px);line-height:1.3;margin:0;let
    from where they are sitting, and centred with nothing beside it. clamp()
    keeps it right on an iPad mini and a 12.9 alike without a media query.
    NOT a touch target: nothing on this screen is tappable, because the way to
-   correct a misread is to hold the button and say it again. */
+   correct a misread is to say it again, or to choose from the menu. */
 .heard{background:#1d1d1a;border:3px solid #33332e;border-radius:28px;
   padding:28px;color:#f2f0ea;text-align:center;
   font-weight:800;font-size:clamp(34px,min(6.4vw,8vh),86px);line-height:1.24;
@@ -325,8 +331,10 @@ h1{font-weight:600;font-size:clamp(26px,3.4vh,40px);line-height:1.3;margin:0;let
 .heard small{font-weight:400;font-size:clamp(15px,2vw,26px);color:#8a867d;
   letter-spacing:.04em}
 .heard.no small{color:#a2625c}
-/* WAITING FOR THE FIRST WORD. Three dots that breathe, so a held button with
-   nothing said into it yet still looks like a machine that is receiving. */
+/* WAITING FOR THE FIRST WORD. Three dots that breathe, so an open microphone
+   with nothing said into it yet still looks like a machine that is receiving.
+   Only reached when somebody HAS spoken and it came back unusable -- silence
+   shows the menu instead. */
 .lst{font-family:ui-monospace,monospace;color:#6f6c65;
   font-size:clamp(30px,5vw,64px);letter-spacing:.3em}
 .lst i{font-style:normal;animation:blink 1.4s ease-in-out infinite}
@@ -765,7 +773,7 @@ function render(){
   if(S.phase==='sleep'){
     a.innerHTML=`<div class=sleep>
         <div class=sface>(-_-)<i>z z z</i></div>
-        <div class=stap>hold the button on the robot<br>and tell it what to watch for</div>
+        <div class=stap>step up to the robot<br>and it will ask what to watch for</div>
       </div>`;
     return;
   }
@@ -810,10 +818,10 @@ function render(){
     // is what makes that performance legible rather than puzzling.
     const t=S.heard||'';
     a.innerHTML=`<div><h1>${t?(S.heard_ok?'I heard':'I did not catch that'):'Listening'}</h1>
-      <div class=sub>keep holding the button while you speak</div></div>
+      <div class=sub>say it out loud, or choose below</div></div>
       <div class=grow>
         <div class="heard${t&&!S.heard_ok?' no':''}">`+(t
-          ? esc(t)+(S.heard_ok?'':'<small>hold the button and say it again</small>')
+          ? esc(t)+(S.heard_ok?'':'<small>say it again, or choose from the list</small>')
           : `<div class=lst><i>\u25cf</i><i>\u25cf</i><i>\u25cf</i></div>`)
         +`</div></div>`;
   } else {

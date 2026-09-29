@@ -100,6 +100,7 @@ class SessionFlow:
         self._clear_board_on_land = False   # OK pressed; empty the board after the nod
         self._planned_at = None      # the last plan LANDED at, for REPLAN_PERIOD_S
         self._visit_at = None        # this task was last TOUCHED at, for VISIT_MAX_S
+        self._attend_at = None       # in S1_ATTEND since, for ATTEND_MAX_S
         self.out = []
 
     # ---------------- helpers ----------------
@@ -119,6 +120,7 @@ class SessionFlow:
         # and stops whenever the robot is doing something else.
         self._watch_since = self.now() if state == "S4B_WATCH" else None
         self._s8_at = self.now() if state == "S7_ERROR" else None
+        self._attend_at = self.now() if state == "S1_ATTEND" else None
 
     def _touched(self):
         """Somebody is still here. Restarts the abandoned-visit clock.
@@ -417,6 +419,29 @@ class SessionFlow:
             # truthy version silently disabled both timeouts whenever the first
             # action happened at the clock's origin. It only shows up in a test
             # with a fake clock -- on real hardware monotonic() is never 0.
+            # NOBODY ASKED FOR ANYTHING. Checked before the speech timeout,
+            # which is the only other way out of S1_ATTEND and which ends in
+            # S7_ERROR -- the robot performing not-having-understood at a
+            # visitor who never said a word. Sleeping is not a failure and does
+            # not read as one.
+            att = getattr(ST, "ATTEND_MAX_S", 0) or 0
+            if self.stt_busy:
+                # SOMEBODY IS SPEAKING RIGHT NOW. Whisper running on a real
+                # sentence is the one case where nothing has arrived and the
+                # visitor is anything but idle; sleeping through it would drop
+                # the request mid-transcription. Postponed, not cancelled --
+                # the same shape the STT deadline below uses, and for the same
+                # reason.
+                self._attend_at = t
+            if (att and self.state == "S1_ATTEND" and not self.transcript
+                    and not self.plan_pending
+                    and self._attend_at is not None
+                    and t - self._attend_at > att):
+                self._attend_at = None
+                self._ptt_up_at = self._ptt_up_first_at = None
+                self._go("S0_IDLE", f"{att:.0f}s and nobody asked for "
+                                    f"anything -- back to sleep")
+                return self.out
             hard = (self._ptt_up_first_at is not None
                     and t - self._ptt_up_first_at > ST.STT_HARD_TIMEOUT_S)
             if self.stt_busy and not hard:

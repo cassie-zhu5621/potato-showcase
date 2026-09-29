@@ -91,6 +91,12 @@ run(f, ["ptt_down", "ptt_up", "transcript:find the blue mug"], "")
 expect(f.state == "S2_ACKNOWLEDGE", "the corrected text goes straight through")
 
 print("\n--- STT timeout: 15s of nothing -> S8 ---")
+# THE MECHANISM, with the constant supplied. ATTEND_MAX_S is shorter on this
+# branch and would pre-empt every case below -- which is the point of it, and
+# is asserted separately. Switched off here so this section is about the timer
+# it names.
+_ATT = ST.ATTEND_MAX_S
+ST.ATTEND_MAX_S = 0.0
 f = flow()
 run(f, ["ptt_down", "ptt_up"], "")
 CLOCK[0] = 10.0
@@ -346,6 +352,55 @@ out = f.feed("tick")
 expect(("pan_next", True) in out,
        "no answer in 15s -> ask for the NEXT-best angle, not the rejected one")
 expect(f.state == "S4B_WATCH", "and it goes back to watching")
+
+ST.ATTEND_MAX_S = _ATT
+
+print("\n--- standing there and asking for nothing -> back to sleep ---")
+# At a stand most of the people who trip the sensor do this: walk up, look at
+# the robot, look at the tablet, walk off. The only exits from S1_ATTEND were a
+# request or the speech timeout into S7_ERROR -- the robot performing
+# not-having-understood at somebody who never said a word.
+f = flow()
+run(f, ["ptt_down", "ptt_up"], "")
+CLOCK[0] += ST.ATTEND_MAX_S - 2
+f.feed("tick")
+expect(f.state == "S1_ATTEND", "still listening just under the limit")
+CLOCK[0] += 4
+f.feed("tick")
+expect(f.state == "S0_IDLE", "nobody asked for anything -> asleep, not an error")
+
+# It must be UNREACHABLE by standing still, not merely usually first.
+expect(ST.ATTEND_MAX_S < 4.5 + ST.STT_TIMEOUT_S,
+       f"asleep at {ST.ATTEND_MAX_S:.0f}s beats S7 at "
+       f"{4.5 + ST.STT_TIMEOUT_S:.0f}s (hold + STT timeout)")
+
+# Speaking is not standing still, even before any words come back.
+f = flow()
+run(f, ["ptt_down", "ptt_up"], "")
+f.stt_busy = True
+# EVERYTHING HERE STAYS UNDER STT_HARD_TIMEOUT_S. Busy may postpone both
+# deadlines; it may not postpone forever, and the hard ceiling firing would be
+# a different timer doing its job correctly while this section took the credit.
+CLOCK[0] = 10.0
+f.feed("tick")
+expect(f.state == "S1_ATTEND",
+       "a transcription in flight is not an idle visitor")
+f.stt_busy = False
+CLOCK[0] = 10.0 + ST.ATTEND_MAX_S - 1
+f.feed("tick")
+expect(f.state == "S1_ATTEND",
+       "...and the clock restarts from when it ended, not from before it")
+CLOCK[0] = 10.0 + ST.ATTEND_MAX_S + 1
+expect(CLOCK[0] < ST.STT_HARD_TIMEOUT_S, "...still under the hard ceiling")
+f.feed("tick")
+expect(f.state == "S0_IDLE", "...and then runs out like any other")
+
+# A request arriving at the last moment is served, not slept through.
+f = flow()
+run(f, ["ptt_down", "ptt_up"], "")
+CLOCK[0] += ST.ATTEND_MAX_S - 1
+run(f, ["transcript:watch the desk"], "")
+expect(f.state == "S2_ACKNOWLEDGE", "asked in time -- taken")
 
 print("\n--- a planner that never answers ---")
 f = flow()

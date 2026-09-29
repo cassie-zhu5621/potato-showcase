@@ -293,6 +293,29 @@ PAN_RETARGETABLE = ("S4B_WATCH", "S4A_SETTLE")
 # the person is busy, which is the premise of notice delegation. The finding is
 # already in the feed, so the robot goes back to watching instead of escalating.
 # That is the difference between a colleague and an alarm.
+ATTEND_MAX_S = 15.0      # ON for the showcase. 0.0 for the user study.
+                         #
+                         # SOMEBODY IS STANDING THERE AND NOT ASKING FOR
+                         # ANYTHING. At a stand that is most of the people who
+                         # trip the sensor: they walk up, look at the robot,
+                         # look at the tablet, and go on with their day. The
+                         # flow had no way to end that -- the only exits from
+                         # S1_ATTEND were a request, or the speech timeout into
+                         # S7_ERROR, which performs not-having-understood at
+                         # somebody who never said anything.
+                         #
+                         # Fifteen seconds and back to sleep, which is not a
+                         # failure and does not look like one. Waking is cheap:
+                         # they can step back and in again, or use the tablet.
+                         #
+                         # SHORTER THAN THE ERROR PATH ON PURPOSE (4.5 s of held
+                         # button + STT_TIMEOUT_S = 19.5 s), so this is what
+                         # they see and S7 is not reachable by standing still.
+                         #
+                         # 0.0 for the study: a participant who has been briefed
+                         # and is thinking is not somebody to give up on, and
+                         # the moderator is there.
+
 S8_RECOVER_S = 16.0      # S8 gives up and returns to S0_IDLE after this long.
                          # = FOUR PASSES of its own 3.97 s loop, and the loop is
                          # the unit that matters here: the participant is not

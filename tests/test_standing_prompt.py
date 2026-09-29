@@ -186,3 +186,24 @@ def test_choosing_is_a_timestamp_not_a_flag():
     srv = open(os.path.join(ROOT, "webui", "server.py")).read()
     i = srv.index('/booth/choosing')
     assert 'STATE["choosing_at"] = time.time()' in srv[i:i + 900]
+
+
+def test_the_companion_cannot_silently_pre_empt_the_sleep_rule():
+    """TWO CLOCKS THAT MEAN OPPOSITE THINGS about the same silence.
+
+    ATTEND_MAX_S says: fifteen seconds with nobody asking for anything, go back
+    to sleep. `--after` says: twelve seconds with nobody asking for anything,
+    ask on their behalf. Whichever is shorter wins every time, and the other is
+    dead code that reads as live.
+
+    This does not decide which is right -- it refuses to let them be set so the
+    conflict is invisible.
+    """
+    import robot.states as ST
+    src = open(SCRIPT).read()
+    default = float(src.split('"--after", type=float, default=')[1].split(",")[0])
+    if ST.ATTEND_MAX_S and default:
+        assert default < ST.ATTEND_MAX_S or default == 0, (
+            f"--after={default:g}s never fires: the flow sleeps at "
+            f"ATTEND_MAX_S={ST.ATTEND_MAX_S:g}s first. Set one of them to 0 "
+            f"and mean it.")

@@ -25,17 +25,27 @@ talks to it the way the developer page does -- over HTTP -- so nothing in
 session_flow, the planner or the flow's screens had to be touched, and the
 study loop with neither --approach nor this running is exactly what it was.
 
-TWELVE SECONDS, NOT THREE, SINCE THE TABLET GREW A MENU. This used to be the
-only way a silent visitor got past Attend, so it fired as soon as it safely
-could. Now the tablet offers four things to choose from and takes multiple, and
-three seconds is not enough time to read four lines, let alone pick two -- it
-would post over the top of somebody mid-choice and re-plan out from under them.
+OFF BY DEFAULT NOW (`--after 0`), AND THAT IS THE POINT OF THIS FILE'S HISTORY.
 
-So its job has changed: it is the fallback for a visitor who does NOTHING --
-walked up, looked, walked off -- rather than the normal path. The ceiling is
-the loop's own STT timeout: PTT is held for 4.5 s and the transcript wait is
-STT_TIMEOUT_S (15 s) after that, so anything under ~19 s beats Error. 12 leaves
-room for both to be tuned without this having to be remembered.
+It was written when a silent visitor had no way out of Attend except S7_ERROR,
+so it answered for them: three seconds, then twelve once the tablet grew a menu
+and three was not long enough to read one.
+
+Two things then made it redundant. The menu means a visitor who wants something
+has a way to say so without speaking -- which was the whole problem. And
+ATTEND_MAX_S means a visitor who wants nothing gets a robot that goes back to
+sleep, which is not an error and does not look like one.
+
+What is left is a companion that answers on behalf of somebody who has just
+demonstrated, for fifteen seconds, that they are not asking. It would send the
+robot off to scan and watch for three minutes on a request nobody made, and at
+a busy stand it would do that for every passer-by.
+
+ATTEND_MAX_S AND `--after` ARE TWO CLOCKS ON ONE SILENCE, and the shorter one
+wins every time -- so leaving both on does not get both behaviours, it gets the
+shorter one and a dead setting that reads as live. `--after 10` brings this
+back for a session where the full pipeline has to be seen without anyone
+touching the tablet; a test refuses a value that ATTEND_MAX_S would beat.
 
 THE PROMPT ITSELF IS THE PART THAT MATTERS, and it is not a technical choice.
 Something vague -- "tell me if anything interesting happens" -- gives the
@@ -92,9 +102,10 @@ def main():
     ap = argparse.ArgumentParser(description="the standing prompt, for a demo")
     ap.add_argument("--host", default="http://127.0.0.1:8000")
     ap.add_argument("--say", default=DEFAULT, help="the standing prompt")
-    ap.add_argument("--after", type=float, default=12.0,
+    ap.add_argument("--after", type=float, default=0.0,
                     help="seconds of listening to nothing before stepping in. "
-                         "Must be under the loop's STT timeout, or Error wins")
+                         "0 (the default) = never; the flow sleeps instead. "
+                         "Must be under ATTEND_MAX_S to have any effect at all")
     ap.add_argument("--watch", action="store_true", help="print every poll")
     a = ap.parse_args()
 
@@ -118,8 +129,18 @@ def main():
         print("   another laptop cannot reach it. Same wi-fi, and http --")
         print("   not https, and not the .local name.")
     print()
-    print(f"  standing prompt: {a.say!r}")
-    print(f"  stepping in after {a.after}s of silence. Ctrl-C to stop.\n")
+    if a.after:
+        print(f"  standing prompt: {a.say!r}")
+        print(f"  stepping in after {a.after}s of silence. Ctrl-C to stop.\n")
+    else:
+        # OFF IS OFF, AND IT SAYS SO. `now - since >= 0` is true on the very
+        # first poll, so an unguarded 0 posts IMMEDIATELY -- the loudest
+        # possible opposite of what it reads as. Guarded above; announced here,
+        # because a companion that has been told to do nothing and prints its
+        # usual banner looks exactly like one that is about to act.
+        print("  the standing prompt is OFF (--after 0). Nobody will be "
+              "answered for:\n  a visitor who asks for nothing gets a robot "
+              "that goes back to sleep.\n  --after 10 turns it back on.\n")
 
     since = None          # when the robot started listening, or None
     served = False        # this visit is dealt with: they spoke, or we posted
@@ -170,7 +191,7 @@ def main():
                     served = True
                     print(f"  {time.strftime('%H:%M:%S')}  they said "
                           f"{heard[:40]!r} -- standing aside")
-            elif not served and now - since >= a.after:
+            elif a.after and not served and now - since >= a.after:
                 served = True
                 try:
                     post(a.host, "/context", a.say)

@@ -138,7 +138,7 @@ def test_it_survives_the_loop_not_being_there(loop):
     assert run(loop, play) == []
 
 
-def test_it_steps_in_after_the_menu_but_before_the_flow_gives_up():
+def test_a_value_that_is_given_lands_between_the_menu_and_the_sleep_rule():
     """Squeezed from both sides, and both sides moved.
 
     BELOW: the tablet now offers four things and takes several, so three
@@ -154,6 +154,8 @@ def test_it_steps_in_after_the_menu_but_before_the_flow_gives_up():
     import robot.states as ST
     src = open(SCRIPT).read()
     default = float(src.split('"--after", type=float, default=')[1].split(",")[0])
+    if not default:
+        return          # off is off; the companion is opt-in now
     hold = 4.5          # APPR_HOLD in cores3_sidekick.ino
     assert default >= 8.0, "too short to read a menu and choose"
     assert default <= (hold + ST.STT_TIMEOUT_S) - 5.0, \
@@ -207,3 +209,29 @@ def test_the_companion_cannot_silently_pre_empt_the_sleep_rule():
             f"--after={default:g}s never fires: the flow sleeps at "
             f"ATTEND_MAX_S={ST.ATTEND_MAX_S:g}s first. Set one of them to 0 "
             f"and mean it.")
+
+
+def test_the_companion_is_off_by_default():
+    """It was written when a silent visitor had no way out of Attend except
+    S7_ERROR. Two things made it redundant: the MENU, so somebody who wants
+    something can say so without speaking, and ATTEND_MAX_S, so somebody who
+    wants nothing gets a robot that goes back to sleep.
+
+    What is left is a companion that answers on behalf of a person who has just
+    spent fifteen seconds demonstrating they are not asking -- and then sends
+    the robot off to watch for three minutes on a request nobody made, for
+    every passer-by at a busy stand."""
+    src = open(SCRIPT).read()
+    default = float(src.split('"--after", type=float, default=')[1].split(",")[0])
+    assert default == 0.0
+
+
+def test_it_does_nothing_at_all_when_off():
+    """Off has to mean off in the loop, not just in the help text."""
+    src = open(SCRIPT).read()
+    i = src.index("now - since >= a.after")
+    guard = src[max(0, i - 120):i]
+    assert "a.after and" in guard, \
+        "0 must short-circuit before the comparison -- `now - since >= 0` is " \
+        "true on the first poll, so an unchecked 0 posts IMMEDIATELY, which " \
+        "is the loudest possible opposite of off"

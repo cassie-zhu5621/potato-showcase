@@ -97,10 +97,7 @@ cannot be left behind.
 
 ## The two modes
 
-### Demo -- the whole cycle with the VLM. Two terminals.
-
-Loop first. It is the one that fails: port busy, camera busy, no network. Start
-it alone so its first lines are on a clean screen.
+### Demo -- the whole cycle with the VLM. One terminal.
 
 ```bash
 python3 noticebot_loop.py \
@@ -139,18 +136,20 @@ whole cycle will otherwise run, the judge will confirm, `[FEEDBACK]` will
 print, and the robot will never call. Nothing looks broken. That is the worst
 way for it to be broken and it cost an evening.
 
-Wait for `[gemini] warm in ...`, then the second terminal:
+**Nobody walks up until it has printed `[gemini] warm in ...`.** The ToF is
+live from the moment the board is powered and the loop takes ten or fifteen
+seconds to come up.
 
-```bash
-python3 robot/tools/standing_prompt.py
-```
+**`standing_prompt.py` is no longer part of this.** It answered on a silent
+visitor's behalf, back when the only other way out of Attend was an error. The
+menu now covers somebody who wants something, and the sleep rule covers
+somebody who wants nothing -- so it was left answering for people who had just
+spent fifteen seconds showing they were not asking, and sending the robot off
+to watch for three minutes on a request nobody made.
 
-It prints the audience address and then stays quiet, so it is still on screen
-an hour later. Leave that window visible.
-
-**Nobody walks up until both are running.** The ToF is live from the moment the
-board is powered and the loop takes ten or fifteen seconds to come up. A
-visitor arriving in that gap gets the one behaviour this mode exists to avoid.
+`python3 robot/tools/standing_prompt.py --after 10` brings it back for a
+session where the whole pipeline has to be seen with nobody touching the
+tablet. It prints the audience address either way.
 
 ### Performance -- played from the keyboard, beside the fish. One terminal.
 
@@ -188,7 +187,6 @@ mode you are running is not where the setting was made.
 
 ```
 Ctrl-C            everything that is running
-                  (demo = two windows, both of them)
         wait two seconds
 start the other
 ```
@@ -247,7 +245,7 @@ and then power-cycle the servo supply, because nothing turned the torque off.
 | `!! did not arrive` in the log | the line itself now says which: a voltage under load, or torque off / jammed |
 | walking up does nothing | is `approach trigger ARMED` in the loop's first lines? If not, `--approach` did not arrive |
 | it wakes once and never again | v10 or older on the board. Fixed in v11 -- check `tof_test.py` |
-| the robot performs an error | `standing_prompt.py` is not running |
+| the robot performs an error | it should be close to unreachable now -- read the reason it prints and tell Cassie |
 | the face does not appear | `IN FACE no memory` at startup, or `E` turned it off |
 
 ---
@@ -352,9 +350,11 @@ Once a request EXISTS, leaving means nothing -- the whole point is that it
 watches while you get on with something, so "I left the room" is the normal
 case for a delegated task and never cancels it.
 
-If somebody stays and does nothing at all, `standing_prompt.py` posts its own
-line at 12 s so the robot scans rather than errors. Between the two, the error
-state is close to unreachable, which is the intent.
+**If somebody stays and does nothing, it goes back to sleep at 15 s.** Standing
+in front of it is not asking for anything, and at a stand that is most of the
+people who trip the sensor: they walk up, look, and go on with their day.
+Sleeping is not a failure and does not read as one -- and waking it again costs
+a step back and a step in.
 
 The timeline, since the numbers get confused:
 
@@ -364,14 +364,15 @@ The timeline, since the numbers get confused:
  ~5  s   Whisper returns '' -- DROPPED in demo mode, it is not a failed
          request when nobody was asked to speak. Words that were misheard
          still go through: that error is the robot being honest
-12.0 s   standing_prompt.py steps in, but ONLY if nobody has touched the
-         menu. A tap pushes this out (--after, /booth/choosing)
+15.0 s   nobody asked for anything -> BACK TO SLEEP (ATTEND_MAX_S). Not an
+         error, and short enough that the error below is unreachable by
+         standing still
 19.5 s   the flow would give up -> S7_ERROR (4.5 + STT_TIMEOUT_S)
  any     they walk away -> IN LEFT -> back to idle, no error
 ```
 
-So with the menu in use, nothing on this list can reach the error state while
-somebody is standing there deciding.
+Between the menu, the sleep rule and `IN LEFT`, a visitor cannot reach the
+error state by anything they do or fail to do.
 
 Edit the four lines in `webui/booth.py`, `PRESETS`, near the top.
 

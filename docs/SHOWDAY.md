@@ -109,7 +109,7 @@ cannot be left behind.
 
 ```bash
 python3 noticebot_loop.py \
-    --cam 0 \
+    --cam 1 \
     --cores3 \
     --detector yoloworld \
     --cv-hz 4 \

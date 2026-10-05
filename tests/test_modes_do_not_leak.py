@@ -284,3 +284,19 @@ def test_palm_uses_a_shorter_dwell_than_a_walking_body():
     exit_ = int(re.search(r"PALM_EXIT = (\d+)", ino).group(1))
     assert enter < exit_, "hysteresis, or it chatters on the boundary"
     assert enter <= 300, "a hand, not a body leaning on the table"
+
+
+def test_the_demo_command_and_its_table_agree_about_the_camera():
+    """The block is copy-pasted at 9am; the table beside it is read later, when
+    something is wrong. They said `--cam 0` and `--cam 1`, which is a morning
+    spent on a camera that opens and yields nothing.
+
+    The index itself is a per-morning fact -- `--list-cams` decides it -- so
+    this does not police the number, only that the page tells one story."""
+    import re
+    doc = open(os.path.join(ROOT, "docs", "SHOWDAY.md")).read()
+    block = re.search(r"```bash\n([^`]*?--approach[^`]*?)```", doc, re.S).group(1)
+    in_cmd = re.search(r"--cam (\d+)", block).group(1)
+    in_table = re.search(r"\|\s*`--cam (\d+)`\s*\|", doc).group(1)
+    assert in_cmd == in_table, (
+        f"the command says --cam {in_cmd} and the table says --cam {in_table}")

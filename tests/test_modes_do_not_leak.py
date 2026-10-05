@@ -41,6 +41,7 @@ class Recorder:
     def event(self, cmd, arg=""):
         self.sent.append((cmd, str(arg)))
 
+    _WAKE = CoreS3Link._WAKE
     approach = CoreS3Link.approach
     dist = CoreS3Link.dist
     ui = CoreS3Link.ui
@@ -90,8 +91,8 @@ def test_the_performance_turns_the_approach_gate_OFF():
 
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("board,warn", [
-    ("v7", True), ("v8", True), ("v9", True), ("v10", True), ("v11", True), ("v12", True), ("v13", False),
-    ("v14", False), (None, True), ("weird", True), ("", True),
+    ("v7", True), ("v8", True), ("v9", True), ("v10", True), ("v11", True), ("v12", True), ("v13", True), ("v14", False),
+    ("v15", False), (None, True), ("weird", True), ("", True),
 ])
 def test_only_an_OLDER_board_is_worth_a_warning(board, warn):
     """The firmware is shared and grows by addition -- a feature arrives off
@@ -119,8 +120,8 @@ def test_the_demo_warns_when_it_can_never_call():
     robot never calls. Warned at startup, not overridden -- a flag that quietly
     means something else in the presence of another flag is a worse trap."""
     src = open("noticebot_loop.py").read()
-    i = src.index("approach trigger ARMED")
-    block = src[i:i + 1200]
+    i = src.index("[cores3] wake ARMED")
+    block = src[i:i + 1400]
     assert 'a.feedback != "robot"' in block
     assert "NEVER CALL" in block
 
@@ -227,3 +228,59 @@ def test_leaving_is_ignored_once_a_request_exists():
     j = block.index('events.append("stop")')
     assert block.index('flow.state == "S1_ATTEND"') < j, \
         "the state check must come first, or leaving discards a live task"
+
+
+# --------------------------------------------------------------------------- #
+# The wake is a MODE, and palm is the showcase's.
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("asked,want", [
+    (False, "0"), (None, "0"), ("off", "0"),
+    (True, "1"), ("approach", "1"),
+    ("palm", "2"),
+])
+def test_the_wake_mode_reaches_the_board_as_a_number(asked, want):
+    r = Recorder()
+    r.approach(asked)
+    assert ("APPROACH", want) in r.sent
+
+
+def test_an_unknown_wake_mode_is_refused_rather_than_silently_off():
+    """`approach("plam")` mapping to 0 would be a demo that never wakes and
+    never says why -- the exact shape of the --feedback console evening."""
+    r = Recorder()
+    with pytest.raises(ValueError):
+        r.approach("plam")
+
+
+def test_palm_is_the_default_and_approach_is_still_reachable():
+    src = open(os.path.join(ROOT, "noticebot_loop.py")).read()
+    i = src.index('"--wake"')
+    block = src[i:i + 600]
+    assert '"palm", "approach"' in block and 'default="palm"' in block
+
+
+def test_the_palm_gate_refuses_a_saturated_zero():
+    """A lens with something flat against it, or still wearing its film, reads
+    0. A metre from the approach threshold that is harmless noise; at 250 mm it
+    is a permanent wake, and the robot greets an empty table all day."""
+    ino = open(os.path.join(ROOT, "robot", "firmware", "cores3_sidekick",
+                            "cores3_sidekick.ino")).read()
+    block = ino[ino.index("void checkApproach"):ino.index("void serviceApproach")]
+    assert "palm && mm == 0" in block
+    assert "(palm ? 0 : -1)" in block, \
+        "and a zero must not refresh the near-clock either, or it never leaves"
+
+
+def test_palm_uses_a_shorter_dwell_than_a_walking_body():
+    """700 ms exists to let a walking body settle. A hand is already where it
+    is going; 300 ms rejects a sleeve going past and still feels immediate."""
+    ino = open(os.path.join(ROOT, "robot", "firmware", "cores3_sidekick",
+                            "cores3_sidekick.ino")).read()
+    import re
+    palm = int(re.search(r"PALM_DWELL = (\d+)", ino).group(1))
+    appr = int(re.search(r"APPR_DWELL = (\d+)", ino).group(1))
+    assert palm < appr
+    enter = int(re.search(r"PALM_ENTER = (\d+)", ino).group(1))
+    exit_ = int(re.search(r"PALM_EXIT = (\d+)", ino).group(1))
+    assert enter < exit_, "hysteresis, or it chatters on the boundary"
+    assert enter <= 300, "a hand, not a body leaning on the table"

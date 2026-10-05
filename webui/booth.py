@@ -23,8 +23,10 @@ carries the state, and a page swap is reserved for a change in what the
 participant can DO:
 
     sleep    a sleeping face and one line. Nothing is asked of the tablet here;
-             the way in is WALKING UP TO IT -- the board's ToF presses the
-             button on the visitor's behalf -- and the page says so. It said
+             the way in is A HAND HELD IN FRONT OF THE SENSOR -- the board's
+             ToF presses the button on the visitor's behalf -- and the page
+             says so. Walking up was the way in before, and the sensor could
+             not tell an arrival from somebody passing behind them. It said
              "hold the button" for the study build, where there was one and the
              participant had been shown it. A stranger at a stand has not, and
              telling them to press something they cannot find is worse than
@@ -773,7 +775,7 @@ function render(){
   if(S.phase==='sleep'){
     a.innerHTML=`<div class=sleep>
         <div class=sface>(-_-)<i>z z z</i></div>
-        <div class=stap>step up to the robot<br>and it will ask what to watch for</div>
+        <div class=stap>hold your hand in front of it<br>to wake it up</div>
       </div>`;
     return;
   }

@@ -315,6 +315,11 @@ def main():
     ap.add_argument("--list-cams", action="store_true")
     # For testing beside people who are working. The chirps are on every state
     # change, which is a lot of them over an afternoon of debugging.
+    ap.add_argument("--wake", choices=["palm", "approach"], default="palm",
+                    help="how --approach wakes it. palm (default): a hand held "
+                         "in front of the sensor, which is a deliberate act. "
+                         "approach: somebody walks up, which at a stand fires "
+                         "on passers-by and is held shut by a crowd")
     ap.add_argument("--mute", action="store_true",
                     help="no sound from the robot. The board is set back to "
                          "audible by any mode started without it")
@@ -580,12 +585,16 @@ def main():
         # persists until reset, so a performance or a bring-up run before this
         # one could otherwise leave the distance stream flooding the log or the
         # big face on the screen. Said explicitly, including the offs.
-        link.claim(approach=bool(a.approach), volume=0 if a.mute else 100)
+        link.claim(approach=(a.wake if a.approach else False),
+                   volume=0 if a.mute else 100)
         if a.mute:
             print("[cores3] MUTED -- no chirps. Drop --mute for the real thing")
         link.event("NOTICED", 0)
         if a.approach:
-            print("[cores3] approach trigger ARMED -- walking up presses the button")
+            print(f"[cores3] wake ARMED ({a.wake}) -- "
+                  + ("a hand held in front of the sensor presses the button"
+                     if a.wake == "palm" else
+                     "walking up presses the button"))
             # THE DEMO'S ONE INCOMPATIBLE DEFAULT, said at startup rather than
             # discovered an hour in. `--feedback console` is the right default
             # for the study -- it runs the whole pipeline without the robot

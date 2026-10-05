@@ -43,7 +43,7 @@
  *                          `hello`. Data, not firmware: one flash teaches the
  *                          command, every later name is a serial line.
  *     EVT REST             end of a run: go quiet, back to idle + warm breath
- *     EVT PING             -> `IN PONG cores3_sidekick v13`
+ *     EVT PING             -> `IN PONG cores3_sidekick v14`
  *
  *   BUMP THE VERSION WITH EVERY FLASH THAT MATTERS. This link is flaky enough
  *   that an upload can fail after the sketch has compiled, and then the board
@@ -374,19 +374,43 @@ void tofInit() {
 // AND IT IS NOT A delay(). Blocking here would stop the screen, the buttons,
 // the tap and the sensor itself for the whole window. The up is owed and is
 // paid from loop(), the same arrangement as the green button's pttHeld latch.
-static bool apprOn = false;
+// 0 = off, 1 = APPROACH (somebody walks up), 2 = PALM (a hand held in front).
+//
+// PALM IS THE SHOWCASE DEFAULT, and the reason is not sensitivity -- the
+// approach gate works, it just cannot tell what it is seeing. It fires on a
+// body crossing its cone at a metre, which at a stand is everybody walking
+// past, and it is held closed by the same crowd standing around the table, so
+// the two failures are a robot that wakes at nobody and then will not wake for
+// anybody. Neither is fixable by moving a threshold: both are the sensor
+// answering the question it was asked.
+//
+// A hand at 25 cm is a different question. Nobody's body is there by accident
+// -- people stand half a metre back from a table edge -- so a reading that
+// close is a deliberate act, which is what a wake should be. It also gives the
+// visitor something to DO, and a thing to be told on a sign, which "stand here
+// and wait" never was.
+static int apprMode = 0;
 static uint32_t apprSince = 0, apprLast = 0;
 static bool apprIn = false;
 static uint32_t apprUpAt = 0;          // when the owed PTT_UP falls due, or 0
 static uint32_t apprNearAt = 0;        // last time anybody was inside APPR_EXIT
 static bool apprWoke = false;          // this visit actually pressed the button
-static const int APPR_ENTER = 900, APPR_EXIT = 1300;   // mm
+static const int APPR_ENTER = 900, APPR_EXIT = 1300;   // mm, mode 1
+static const int PALM_ENTER = 250, PALM_EXIT = 350;    // mm, mode 2
 static const uint32_t APPR_DWELL = 700, APPR_REFRACTORY = 12000;
+// SHORTER THAN THE APPROACH DWELL. 700 ms exists to let a walking body settle;
+// a hand is already where it is going, and 300 ms is long enough to reject a
+// sleeve or an arm swinging past while still feeling immediate.
+static const uint32_t PALM_DWELL = 300;
 static const uint32_t APPR_HOLD = 4500;                // the speaking window
 static const uint32_t APPR_GONE = 1500;                // silence that means left
 
 void checkApproach(int mm) {
-  if (!apprOn) return;
+  if (!apprMode) return;
+  const bool palm = (apprMode == 2);
+  const int enter = palm ? PALM_ENTER : APPR_ENTER;
+  const int exit_ = palm ? PALM_EXIT : APPR_EXIT;
+  const uint32_t dwell = palm ? PALM_DWELL : APPR_DWELL;
   uint32_t m = millis();
 
   // LEAVING IS A TIMEOUT, NOT A READING, and getting that backwards cost a
@@ -400,7 +424,11 @@ void checkApproach(int mm) {
   // while -- which covers both ways of being gone, the open room and the
   // reading that really is far. It has to be a while and not one sample: a
   // single -1 happens several times a minute to a sensor pointed at a person.
-  if (mm >= 0 && mm <= APPR_EXIT) apprNearAt = m;
+  // STRICTLY ABOVE ZERO in palm mode. A saturated 0 comes back from a lens
+  // with something pressed flat against it or still wearing its film, and in
+  // approach mode it is harmless noise a metre from any threshold. At 250 mm
+  // it is a permanent wake.
+  if (mm > (palm ? 0 : -1) && mm <= exit_) apprNearAt = m;
 
   if (apprIn) {
     if (m - apprNearAt > APPR_GONE) {
@@ -423,11 +451,11 @@ void checkApproach(int mm) {
   }
   // A dropout mid-approach is no information, so it neither advances the dwell
   // nor throws it away. Only a reading that is genuinely far does that.
-  if (mm < 0) return;
-  if (mm > APPR_EXIT) { apprSince = 0; return; }
-  if (mm > APPR_ENTER) return;
+  if (mm < 0 || (palm && mm == 0)) return;
+  if (mm > exit_) { apprSince = 0; return; }
+  if (mm > enter) return;
   if (!apprSince) { apprSince = m; return; }
-  if (m - apprSince < APPR_DWELL) return;
+  if (m - apprSince < dwell) return;
   apprIn = true; apprSince = 0;
   if (m - apprLast < APPR_REFRACTORY) return;   // one visitor, one wake
   apprLast = m;
@@ -498,7 +526,7 @@ static TwoWire* tofBus = &Wire;
 void tofInit() {}
 void checkTof() {}
 void tofScan() { Serial.println("IN SCAN disabled -- USE_TOF is 0"); }
-static bool apprOn = false;
+static int apprMode = 0;
 #endif
 
 void checkTap() {
@@ -1236,7 +1264,7 @@ void handleLine(String line) {
     setAntennaHue(255, 242, 224);   // = WARM. Keep in sync with HUE above.
     uiSet("idle");
   }
-  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v13");
+  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v14");
   // ASKABLE, because the boot line is not readable. USB CDC enumerates after
   // setup() has already run, so `IN TOF READY` and `IN TOF FAIL` are printed
   // into a port nothing is listening to yet and are simply lost. Without this
@@ -1244,9 +1272,10 @@ void handleLine(String line) {
   // fine and nobody is in front of it", and those need opposite fixes.
   else if (cmd == "SCAN") tofScan();
   else if (cmd == "APPROACH") {
-    apprOn = (arg.toInt() != 0);
-    apprIn = false; apprSince = apprLast = 0;
-    Serial.printf("IN APPROACH %s\n", apprOn ? "on" : "off");
+    apprMode = constrain(arg.toInt(), 0, 2);
+    apprIn = false; apprSince = apprLast = 0; apprUpAt = 0; apprWoke = false;
+    Serial.printf("IN APPROACH %s\n",
+                  apprMode == 2 ? "palm" : apprMode == 1 ? "approach" : "off");
   }
   // One line per beat. The period comes with it so the board can interpolate
   // without being told the tempo separately -- and so a tempo change arrives
@@ -1312,7 +1341,7 @@ void setup() {
   tapInit();
   tofInit();
   uiDraw();                 // the idle screen, immediately -- no legacy layout
-  Serial.println("IN HELLO cores3_sidekick v13");
+  Serial.println("IN HELLO cores3_sidekick v14");
 }
 
 void loop() {

@@ -37,10 +37,10 @@ old build running and answering exactly as before:
 python3 robot/tools/tof_test.py
 ```
 
-- first line must say **v13 or newer**
+- first line must say **v14 or newer**
 - the bar must move when you put a hand in front of the sensor
 
-Ctrl-C it. Below v13, or no `IN TOF` line at all, means the upload did not land
+Ctrl-C it. Below v14, or no `IN TOF` line at all, means the upload did not land
 whatever it reported -- the tool says so and prints the command with the port
 already filled in.
 
@@ -84,8 +84,9 @@ the moment the move failed:
 **Then, before people arrive:**
 
 - both USB plugged in: the servo adapter and the CoreS3
-- the ToF on its bracket, horizontal, about 40 cm, pointing where people walk
-  up. **Move the sensor and every threshold measured for it is void**
+- the ToF on its bracket, horizontal, pointing **out over the front edge of the
+  table at about chest height** -- that is where a hand will go. Put a sign
+  beside it. **Move the sensor and every threshold measured for it is void**
 
 That is the last time the firmware is touched today.
 
@@ -121,13 +122,14 @@ Every flag, and why it is not optional:
 | `--conf 0.2` | **0.3 is too high for a phone in a hand.** Measured: 0.39 and 0.48 at arm's length, right on the edge, blinking in and out several times a second |
 | `--feedback robot` | lets a confirmed finding drive the call. `console` prints the judgment and **moves nothing** |
 | `--approach` | arms the board's ToF to press the button |
+| `--wake palm` | the default. A **hand held in front of the sensor** wakes it. `--wake approach` is the old "somebody walks up" |
 | `--serve` | the web pages, for you and for the audience |
 | `--mute` | **testing only.** No chirps, for working next to people. Take it off before the doors open |
 
 Watch for this in the first few lines, before CV output buries it:
 
 ```
-[cores3] approach trigger ARMED -- walking up presses the button
+[cores3] wake ARMED (palm) -- a hand held in front of the sensor presses the button
 ```
 
 **No ARMED line means walking up will do nothing.** And if the loop prints a
@@ -243,7 +245,8 @@ and then power-cycle the servo supply, because nothing turned the torque off.
 | `camera N opened but produced no frames` | an orphan has it, or the index moved -- `--list-cams` again |
 | servos do not move | performance starts **frozen** -- press `F`. Otherwise the 5-6 V supply |
 | `!! did not arrive` in the log | the line itself now says which: a voltage under load, or torque off / jammed |
-| walking up does nothing | is `approach trigger ARMED` in the loop's first lines? If not, `--approach` did not arrive |
+| a hand does nothing | is `wake ARMED (palm)` in the loop's first lines? If not, `--approach` did not arrive. Then: is the hand close enough -- **25 cm**, and `tof_test.py` shows the number |
+| it wakes with nobody there | something is in front of the lens, or the film is still on it: that reads 0 mm. `tof_test.py` will sit at the far end of the bar |
 | it wakes once and never again | v10 or older on the board. Fixed in v11 -- check `tof_test.py` |
 | the robot performs an error | it should be close to unreachable now -- read the reason it prints and tell Cassie |
 | the face does not appear | `IN FACE no memory` at startup, or `E` turned it off |
@@ -315,14 +318,17 @@ about 6 s of sweeping and one VLM round trip. Both live in `robot/states.py`.
 
 ## The thirty-second check after any restart
 
-1. walk up -> head comes up
-2. step back **past 1.5 m** and stand there two seconds
-3. walk up again -> **head comes up again**
-4. walk up and stay put -> it does **not** wake over and over
+1. hold a hand about **25 cm** in front of the sensor -> head comes up
+2. take the hand away and wait two seconds
+3. hold it there again -> **head comes up again**
+4. walk past the table without reaching -> it does **nothing**
 
-Step 2 is the one people skip and it is the one that was broken: leaving is a
-timeout on the sensor going quiet, not a far reading, because walking away
-means walking into open space where the sensor has nothing to bounce off.
+Step 4 is the whole reason for the change. The approach wake fired on anybody
+crossing the cone at a metre and was then held shut by the crowd standing
+around the table -- a robot that woke at nobody, and then would not wake for
+anybody. Neither was a threshold problem: both were the sensor answering the
+question it had been asked. A hand at 25 cm is a different question, because
+nobody's body is there by accident.
 
 If step 3 fails, the board is on v10 or older.
 

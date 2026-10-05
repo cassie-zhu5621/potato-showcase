@@ -25,7 +25,7 @@ Switching between this and the demo needs no reflash, no power cycle and no
 cleanup: Ctrl-C one, start the other. Flash again only when the firmware
 itself changes.
 
-Firmware **v13** — or anything newer. The firmware is shared by all four modes
+Firmware **v14** — or anything newer. The firmware is shared by all four modes
 and grows only by addition, with every optional thing off until a mode asks, so
 reflashing for the demo does not change what this one does. `perform.py` claims
 the board on startup and turns off what it does not want.
@@ -44,10 +44,10 @@ writing often enough to be the default suspect.
 old build running and answering exactly as before:
 
 ```bash
-python3 robot/tools/tof_test.py     # v13 or newer. Ctrl-C after.
+python3 robot/tools/tof_test.py     # v14 or newer. Ctrl-C after.
 ```
 
-A number BELOW v13 means the upload did not land, whatever the IDE
+A number BELOW v14 means the upload did not land, whatever the IDE
 reported. Above is fine.
 
 ## 2. Before the doors open

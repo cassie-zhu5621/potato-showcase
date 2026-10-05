@@ -12,7 +12,7 @@ Protocol (line-based, 115200, '
                       EVT LED <0-255> | EVT HUE <WARM|COOL|RED|GREEN|ALARM> |
                       EVT SFX <name> | EVT VOL <0-255> | EVT REST | EVT PING
   CoreS3 -> laptop :  IN PTT_DOWN | IN PTT_UP | IN OK | IN STOP | IN BODYTAP |
-                      IN PONG cores3_sidekick v13
+                      IN PONG cores3_sidekick v14
 
 The board cannot be found by name -- macOS calls it usbmodem-<location id> just
 like the servo adapter -- so find_cores3() asks it instead. See below.
@@ -37,7 +37,7 @@ except ImportError:
 # "v3", this check still said "match", and the antenna was still blue. A version
 # that tracks only the protocol cannot answer the one question it is asked --
 # "is the thing in front of me built from the code in front of me".
-FIRMWARE_V = "v13"
+FIRMWARE_V = "v14"
 
 
 def _older(board: str, want: str) -> bool:
@@ -59,7 +59,7 @@ def find_cores3(exclude=(), timeout=4.0, baud=115200, verbose=True):
 
     OPENING THE PORT DOES RESET THIS BOARD, and the previous version of this
     function asserted the opposite. Measured on the bench: a bare open followed
-    by a read returns `IN HELLO cores3_sidekick v13` -- the greeting from setup()
+    by a read returns `IN HELLO cores3_sidekick v14` -- the greeting from setup()
     -- which only happens if the board rebooted. So the old sequence lost every
     time it mattered:
 
@@ -226,7 +226,20 @@ class CoreS3Link:
     def say(self, n=1):           self.event("SAY", int(n))  # a baked-in line
     def dist(self, on=True):      self.event("DIST", 1 if on else 0)  # the 20 Hz stream
     def beat(self, period_ms):    self.event("BEAT", int(period_ms))  # one line per beat
-    def approach(self, on=True):  self.event("APPROACH", 1 if on else 0)  # ToF -> PTT
+    # The ToF -> PTT gate. False/0 off, "approach" or True = somebody walks up,
+    # "palm" = a hand held in front of the sensor. See the firmware for why palm
+    # is the showcase default; in short, a body at a metre is ambiguous and a
+    # hand at 25 cm is a decision.
+    _WAKE = {False: 0, None: 0, 0: 0, "off": 0,
+             True: 1, 1: 1, "approach": 1,
+             2: 2, "palm": 2}
+
+    def approach(self, on=True):
+        try:
+            mode = self._WAKE[on]
+        except (KeyError, TypeError):
+            raise ValueError(f"wake mode {on!r}: want off / approach / palm")
+        self.event("APPROACH", mode)
 
     # ----------------------------------------------------------------- #
     def claim(self, *, dist=False, approach=False, face=False, volume=100):

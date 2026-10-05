@@ -451,3 +451,33 @@ def test_the_tablet_never_tells_a_visitor_to_press_a_button():
                          if not l.strip().startswith("//"))
     for phrase in ("hold the button", "press the button", "button on the robot"):
         assert phrase not in visible.lower(), phrase
+
+
+def test_the_sleep_screen_matches_the_wake_that_is_actually_armed():
+    """The one line a visitor reads before they have done anything, and it has
+    now been wrong twice: it said `hold the button` after the button was gone,
+    and `step up to the robot` after walking up stopped being the wake.
+
+    An instruction that does not work is worse than none. They try it, nothing
+    happens, and they decide the robot is broken -- in the four seconds that
+    are the only ones you get.
+    """
+    import re
+    from webui.booth import PAGE
+    src = open(os.path.join(ROOT, "noticebot_loop.py")).read()
+    default = re.search(r'"--wake".*?default="(\w+)"', src, re.S).group(1)
+
+    body = PAGE[PAGE.index("<body>"):]
+    visible = re.sub(r"<[^>]+>", " ", body)
+    visible = "\n".join(l for l in visible.split("\n")
+                         if not l.strip().startswith("//")).lower()
+    i = visible.index("z z z")          # the sleeping face; the line is under it
+    sleep_line = visible[i:i + 200]
+
+    if default == "palm":
+        assert "hand" in sleep_line, \
+            f"palm is armed but the sleep screen says: {sleep_line.strip()[:120]!r}"
+        assert "step up" not in sleep_line and "walk up" not in sleep_line
+    else:
+        assert "hand" not in sleep_line, \
+            "approach is armed but the screen asks for a hand"

@@ -345,8 +345,8 @@ If step 3 fails, the board is on v10 or older.
 
 ```
 hand up to it     the head comes up; the tablet lists four things
-TAP ITS HEAD      the highlight moves down the list. Tap again to keep going
-stop tapping      2.5 s later it takes the highlighted one
+TOUCH ITS HEAD    the highlight moves down the list. Touch again to keep going
+stop touching     2.5 s later it takes the highlighted one
                   -> got it, looking around, then watching
 ```
 
@@ -355,8 +355,16 @@ here and the cards are deliberately not touch targets. Nothing commits until
 somebody taps at least once -- touch nothing and it goes back to sleep at 15 s,
 which is the rule that says standing there is not asking for anything.
 
-What to say to a visitor, in full: **"hold your hand up to it, then tap it on
-the head until it says the one you want."** That is the whole interface.
+What to say to a visitor, in full: **"hold your hand up to it, then touch its
+head until it says the one you want."** That is the whole interface.
+
+**It is a capacitive pad on the head (TTP223, Grove Port C), not a knock** --
+so it wants a finger resting for a moment, not a tap. `TAP_G` in the firmware
+is for the IMU path and does nothing here; `TAP_SRC` is 1.
+
+If it fires with nobody touching it, the SIG line is floating -- harmless while
+it is asking, and in S4B_WATCH every false one is a correction. `RUNBOOK.md`
+has that.
 
 **The wake is a hand, held close.** Measured on the bench: a hand where it
 falls naturally reads 40-50 mm and the empty room reads 2720-2750, so the gate

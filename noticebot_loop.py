@@ -1356,6 +1356,41 @@ def main():
     except (AttributeError, ValueError):
         pass          # no SIGUSR1 on this platform; the watchdog still runs
 
+
+    def addresses(why):
+        """The two URLs, as a block, printed where they can still be read.
+
+        `webui.server.serve` prints them when it binds -- which is before
+        Whisper loads, before the detector loads and before Gemini warms, so by
+        the time the robot is ready they are a hundred lines up and under CV
+        output. `standing_prompt.py` used to re-print them from the second
+        window; that window is gone, so the loop owes them again.
+
+        Twice: last thing before the run starts, and again on the way out. The
+        second one is for the moment somebody asks for the address an hour in
+        and the screen is a wall of detections.
+        """
+        if not a.serve:
+            return
+        try:
+            from webui.server import lan_address
+            ip = lan_address()
+        except Exception:
+            ip = None
+        bar = "  " + "=" * 62
+        print("\n" + bar)
+        print("   FOR THE AUDIENCE   " + (f"http://{ip}:{a.web_port}/booth" if ip
+                                          else "no LAN address -- see below"))
+        print(f"   FOR YOU            http://localhost:{a.web_port}/")
+        print(bar + f"   ({why})")
+        if not ip:
+            print("   This machine has no address on the LAN, so a tablet")
+            print("   cannot reach it. Same wi-fi, http not https, and not")
+            print("   the .local name.")
+        print()
+
+    addresses("ready")
+
     beat = {"t": time.time(), "warned": False}
 
     def _watchdog():
@@ -2172,6 +2207,7 @@ def main():
                 story.flush("run stopped")
             except Exception as exc:
                 print(f"[story] flush failed: {str(exc)[:90]}")
+        addresses("in case you need it again")
         print(f"[loop] frames offered to perception: {ctx.get('frames_seen', 0)}")
         print(f"[loop] LED updates sent: {counts['led']}, sounds: {counts['sfx']}")
         if link and counts["led"] == 0:

@@ -812,8 +812,8 @@ function render(){
       // that looks tappable and is not is worse than one that does not.
       const on=S.pick_on, i=S.pick_i|0;
       a.innerHTML=`<div><h1>${on?'Watch for this?':'What should it watch for?'}</h1>
-        <div class=sub>${on?'tap again to change \u2014 stop to choose'
-                          :'tap the robot on the head'}</div></div>
+        <div class=sub>${on?'touch again to change \u2014 stop to choose'
+                          :'touch the robot on the head'}</div></div>
         <div class=grow>
           <div class=picks>`+PRESETS.map((p,k)=>
             `<div class="pick${on&&k===i?' on':''}${on&&k!==i?' dim':''}">

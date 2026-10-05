@@ -43,7 +43,7 @@
  *                          `hello`. Data, not firmware: one flash teaches the
  *                          command, every later name is a serial line.
  *     EVT REST             end of a run: go quiet, back to idle + warm breath
- *     EVT PING             -> `IN PONG cores3_sidekick v14`
+ *     EVT PING             -> `IN PONG cores3_sidekick v15`
  *
  *   BUMP THE VERSION WITH EVERY FLASH THAT MATTERS. This link is flaky enough
  *   that an upload can fail after the sketch has compiled, and then the board
@@ -510,8 +510,26 @@ void checkTof() {
   // RangeValid only. Everything else -- wraparound, signal too weak, sigma too
   // high -- is the sensor saying it does not know, and it says so often enough
   // that treating those as readings would put noise straight into the gate.
-  int mm = (tof.ranging_data.range_status == VL53L1X::RangeValid)
-           ? (int)tof.ranging_data.range_mm : -1;
+  //
+  // AND `RangeValid` IS ZERO, which is the trap. Pololu's enum starts at 0:
+  //
+  //     enum RangeStatus : uint8_t { RangeValid = 0, SigmaFail = 1, ... };
+  //
+  // So a read that FAILED and left the struct as it found it -- all zeros, the
+  // shape an I2C error produces -- comes out of this test as the most
+  // trustworthy possible measurement: status RangeValid, distance 0 mm. The
+  // bar sat pinned at the top of the screen reporting a perfect reading of
+  // nothing, and every explanation for that points at the lens, which is where
+  // an evening went.
+  //
+  // Two more conditions, both cheap. `last_status` is the library's own I2C
+  // result (0 = the bytes actually arrived). And 0 mm is not a distance: the
+  // sensor has a minimum range of a few centimetres, so a true zero is the
+  // absence of a measurement wearing the costume of one.
+  bool ok = (tof.last_status == 0
+             && tof.ranging_data.range_status == VL53L1X::RangeValid
+             && tof.ranging_data.range_mm > 0);
+  int mm = ok ? (int)tof.ranging_data.range_mm : -1;
   if (tofStream) Serial.printf("IN DIST %d\n", mm);
   checkApproach(mm);
 }
@@ -1264,7 +1282,7 @@ void handleLine(String line) {
     setAntennaHue(255, 242, 224);   // = WARM. Keep in sync with HUE above.
     uiSet("idle");
   }
-  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v14");
+  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v15");
   // ASKABLE, because the boot line is not readable. USB CDC enumerates after
   // setup() has already run, so `IN TOF READY` and `IN TOF FAIL` are printed
   // into a port nothing is listening to yet and are simply lost. Without this
@@ -1341,7 +1359,7 @@ void setup() {
   tapInit();
   tofInit();
   uiDraw();                 // the idle screen, immediately -- no legacy layout
-  Serial.println("IN HELLO cores3_sidekick v14");
+  Serial.println("IN HELLO cores3_sidekick v15");
 }
 
 void loop() {

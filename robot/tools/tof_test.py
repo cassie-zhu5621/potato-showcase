@@ -183,6 +183,17 @@ def live(args, rows, fired=None):
                 if said is not None:
                     pinned = True
                     print(said)
+                    # ASK THE BOARD BEFORE BLAMING THE OPTICS. `i2c` separates
+                    # "the sensor can see something stuck to it" from "the
+                    # reads are failing and the zeros look like readings".
+                    link.tofdiag()
+                    time.sleep(0.6)
+                    print("  in the line above: i2c=0 means the bytes arrive,")
+                    print("  so a near-zero distance really is something in")
+                    print("  front of the lens. i2c!=0 means the reads are")
+                    print("  failing -- a v15 or newer board reports that as")
+                    print("  NO reading rather than as 0 mm, so a bar still")
+                    print("  pinned here on v15 is optical.\n")
             if (not warned and not rows and time.time() - t_start > 3.0):
                 warned = True
                 if not saw["tof"]:
@@ -200,7 +211,7 @@ def live(args, rows, fired=None):
                     print("  Name the board and watch it verify:\n")
                     print("      pio run -t upload --upload-port %s\n" % port)
                     print("  'Hash of data verified.' is the line to look for.")
-                    print("  Then run this again: the first line must say v14.\n")
+                    print("  Then run this again: the first line must say v15.\n")
                     continue
                 print("\n  READY, but three seconds and not one reading.")
                 print("  That is the firmware, not the sensor: it initialised.")

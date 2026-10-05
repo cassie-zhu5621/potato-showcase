@@ -94,6 +94,71 @@ def pinned_verdict(samples, need=20):
 
 
 # --------------------------------------------------------------------------- #
+def diag(port):
+    """Everything that separates the ToF faults, in one block, on both buses.
+
+    WRITTEN AFTER THREE WRONG GUESSES IN A ROW, two of them mine. Each round
+    cost a reflash and a description of a symptom, and a description is the
+    worst possible evidence here: `0` means one thing from the bar, another
+    from the number, and nothing at all without the status beside it. This
+    prints the four facts that actually discriminate -- firmware version, init
+    result, TOFDIAG, and what the readings look like -- for each controller, so
+    the next message can be a paste instead of a sentence.
+    """
+    lines = []
+    link = CoreS3Link(port, on_input=lambda s: lines.append(s))
+
+    def drain():
+        """Take what has arrived, and leave the buffer empty.
+
+        NOT `clear then sleep`, which is what this was: the board answers in
+        milliseconds, so a reply to the command just sent could land before the
+        clear and be deleted by it. The fake board in the tests caught it on
+        the first run -- it answers synchronously, which is the same race with
+        the timing removed.
+        """
+        out, lines[:] = list(lines), []
+        return out
+
+    def after(seconds):
+        time.sleep(seconds)
+        return drain()
+
+    print(f"\n=== tof diag  {time.strftime('%H:%M:%S')}  {port} ===")
+    time.sleep(0.4)
+    link.dist(True)
+    for bus in (0, 1):
+        print(f"\n--- I2C controller {bus} ({'Wire' if bus == 0 else 'Wire1'})")
+        drain()                      # anything from the previous controller
+        link.tofbus(bus)
+        time.sleep(1.2)
+        link.tof()
+        link.scan()
+        link.tofdiag()
+        for ln in after(1.5):
+            if not ln.startswith("IN DIST"):
+                print(f"    {ln}")
+        mm = [parse_dist(ln) for ln in after(3.0) if ln.startswith("IN DIST")]
+        got = [v for v in mm if v is not None]
+        print(f"    samples={len(mm)}  valid={len(got)}"
+              + (f"  min={min(got):.0f} med={sorted(got)[len(got)//2]:.0f} "
+                 f"max={max(got):.0f}" if got else "  (no valid readings)"))
+        link.tofdiag()
+        for ln in after(0.8):
+            if ln.startswith("IN TOFDIAG"):
+                print(f"    after 3s: {ln}")
+    link.tofbus(0)
+    time.sleep(0.5)
+    link.close()
+    print("\n  Paste the whole block. What it separates:")
+    print("    valid=0 everywhere           -> the reads are failing; see i2c=")
+    print("    valid>0 but med < 60 mm      -> something is in the cone")
+    print("    valid>0 and med looks like   -> the sensor is FINE and the")
+    print("      the room                      problem is the gate, not it")
+    print("    one controller works         -> --bus <that one>, no reflash\n")
+
+
+# --------------------------------------------------------------------------- #
 def live(args, rows, fired=None):
     """Stream to the terminal, and to a CSV if asked.
 
@@ -348,9 +413,19 @@ def main():
                     help="scan Port A's I2C on both pin orders and stop. Run "
                          "this when init fails: it separates a swapped pair "
                          "from a wrong socket from a unit that is not there")
+    ap.add_argument("--diag", action="store_true",
+                    help="one-shot: everything decisive, on BOTH I2C "
+                         "controllers, in one paste-able block. Run this "
+                         "instead of describing the symptom")
     ap.add_argument("--gate", action="store_true",
                     help="also run the Proximity gate and print its events")
     a = ap.parse_args()
+
+    if a.diag:
+        port = a.port or find_cores3()
+        if not port:
+            sys.exit("no CoreS3 found -- pass the port")
+        return diag(port)
 
     if a.fit or a.replay:
         import csv

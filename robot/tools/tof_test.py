@@ -56,6 +56,43 @@ def bar(mm, width=48, full=2000.0):
     return "#" * n + "·" * (width - n) + f"  {mm:5.0f} mm"
 
 
+def pinned_verdict(samples, need=20):
+    """-> a paragraph, or None if the readings look like a room.
+
+    READINGS ARRIVING AND ALL OF THEM WRONG IN THE SAME WAY is the hardest
+    fault to read off a live bar, because something IS happening: the numbers
+    move a little, so it does not look like a broken sensor. Both shapes below
+    are diagnosable from the trace alone, and neither is a threshold.
+
+    A function rather than a block inside the loop so it can be tested on a
+    made-up trace -- the two faults it names cost an evening each and neither
+    is convenient to reproduce on the bench.
+    """
+    got = [mm for mm in samples if mm is not None]
+    if len(got) < need:
+        return None
+    med = sorted(got)[len(got) // 2]
+    lo, hi = min(got), max(got)
+    if med < 60:
+        return (f"\n  Every reading is at the lens: median {med} mm, "
+                f"range {lo}..{hi}.\n"
+                "  NOTHING IN THE ROOM IS THAT CLOSE, so the sensor is seeing\n"
+                "  something attached to it:\n"
+                "    * the PROTECTIVE FILM still on the lens -- the commonest\n"
+                "      one, and it reads ~0 mm forever. Peel it\n"
+                "    * the printed bracket, the shell, a cable tie or a Grove\n"
+                "      lead inside the cone. The cone is 27 deg wide, so an\n"
+                "      edge 10 mm to the side is still in it\n"
+                "  A hand will not change this much: the sensor is already\n"
+                "  reporting the obstruction and your hand is behind it.\n")
+    if lo > 1500:
+        return (f"\n  Every reading is far: {lo}..{hi} mm.\n"
+                "  The sensor works and is aimed past everything -- over a\n"
+                "  shoulder, or down an open room. Aim it where the hand will\n"
+                "  go and re-check.\n")
+    return None
+
+
 # --------------------------------------------------------------------------- #
 def live(args, rows, fired=None):
     """Stream to the terminal, and to a CSV if asked.
@@ -133,8 +170,19 @@ def live(args, rows, fired=None):
     try:
         t_start = time.time()
         warned = False
+        pinned = False
         while True:
             time.sleep(0.2)
+            # READINGS ARRIVING AND ALL OF THEM WRONG IN THE SAME WAY. A bar
+            # that barely moves is the hardest fault to read off this screen,
+            # because something IS happening -- the numbers change a little --
+            # so it does not look like the sensor is broken. Both shapes are
+            # diagnosable and neither is a threshold:
+            if not pinned and time.time() - t_start > 4.0:
+                said = pinned_verdict([mm for _, mm in rows[-60:]])
+                if said is not None:
+                    pinned = True
+                    print(said)
             if (not warned and not rows and time.time() - t_start > 3.0):
                 warned = True
                 if not saw["tof"]:

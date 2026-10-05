@@ -94,6 +94,58 @@ def pinned_verdict(samples, need=20):
 
 
 # --------------------------------------------------------------------------- #
+def raw_watch(port):
+    """signal / ambient, once a second, while you move a hand.
+
+    THE EXPERIMENT THIS EXISTS FOR. A huge signal with zero ambient says the
+    receiver is flooded and no room light is getting in -- which reads as
+    `something is covering the window`. But it reads exactly the same when the
+    emitted light never leaves the package at all and goes straight into the
+    receiver beside it, and those have different fixes: move the obstruction,
+    versus the window itself is the obstruction.
+
+    Covering and uncovering it separates them in two measurements:
+
+      signal MOVES when you cover it   -> light is getting out and coming back.
+                                          The optics are fine and the fault is
+                                          downstream, in the range decode
+      signal DOES NOT MOVE             -> it is already saturated by its own
+                                          emitter. Whatever is doing that is
+                                          ON the sensor: the protective film,
+                                          a cover window, or a bracket face
+                                          sitting flush against it
+      ambient RISES when uncovered     -> the window is clear and room light
+                                          reaches the SPAD, so the first line
+                                          above is the one that applies
+    """
+    lines = []
+    link = CoreS3Link(port, on_input=lambda s: lines.append(s))
+    time.sleep(0.5)
+    print("\n  Cover the sensor with a hand, then take it away. Watch signal.")
+    print("  A reading that does not change when you cover it is a sensor")
+    print("  looking at itself.\n")
+    print("    t      signal   ambient   mm    status")
+    try:
+        t0 = time.time()
+        while True:
+            del lines[:]
+            link.tofraw()
+            time.sleep(0.6)
+            for ln in lines:
+                if not ln.startswith("IN TOFRAW"):
+                    continue
+                f = dict(kv.split("=", 1) for kv in ln.split()[2:] if "=" in kv)
+                print(f"   {time.time() - t0:5.1f}s  "
+                      f"{f.get('signal', '?'):>7}  {f.get('ambient', '?'):>7}  "
+                      f"{f.get('mm', '?'):>5}  st={f.get('st', '?')}")
+            time.sleep(0.4)
+    except KeyboardInterrupt:
+        print()
+    finally:
+        link.close()
+
+
+# --------------------------------------------------------------------------- #
 def diag(port):
     """Everything that separates the ToF faults, in one block, on both buses.
 
@@ -431,6 +483,10 @@ def main():
                     help="scan Port A's I2C on both pin orders and stop. Run "
                          "this when init fails: it separates a swapped pair "
                          "from a wrong socket from a unit that is not there")
+    ap.add_argument("--raw", action="store_true",
+                    help="live signal/ambient, once a second. The one "
+                         "experiment that separates `something is in front of "
+                         "it` from `the light never leaves the package`")
     ap.add_argument("--diag", action="store_true",
                     help="one-shot: everything decisive, on BOTH I2C "
                          "controllers, in one paste-able block. Run this "
@@ -438,6 +494,12 @@ def main():
     ap.add_argument("--gate", action="store_true",
                     help="also run the Proximity gate and print its events")
     a = ap.parse_args()
+
+    if a.raw:
+        port = a.port or find_cores3()
+        if not port:
+            sys.exit("no CoreS3 found -- pass the port")
+        return raw_watch(port)
 
     if a.diag:
         port = a.port or find_cores3()

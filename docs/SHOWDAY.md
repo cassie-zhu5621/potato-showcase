@@ -87,6 +87,13 @@ the moment the move failed:
 - the ToF on its bracket, horizontal, pointing **out over the front edge of the
   table at about chest height** -- that is where a hand will go. Put a sign
   beside it. **Move the sensor and every threshold measured for it is void**
+- **nothing in front of the lens, including the bracket's own face.** This is
+  worth thirty seconds because it cost an evening: a blocked sensor does not
+  report an error, it reports `0 mm` with a valid status, and every explanation
+  for a zero points at software. `tof_test.py --diag` says it in one line --
+  `signal` in the tens with `ambient` at `0.00` is a sensor looking at itself,
+  and a healthy one reads the far wall with `signal` around 1-2 and `ambient`
+  above zero
 
 That is the last time the firmware is touched today.
 

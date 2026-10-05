@@ -91,8 +91,8 @@ def test_the_performance_turns_the_approach_gate_OFF():
 
 # --------------------------------------------------------------------------- #
 @pytest.mark.parametrize("board,warn", [
-    ("v7", True), ("v8", True), ("v9", True), ("v10", True), ("v11", True), ("v12", True), ("v13", True), ("v14", True), ("v15", False),
-    ("v16", False), (None, True), ("weird", True), ("", True),
+    ("v7", True), ("v8", True), ("v9", True), ("v10", True), ("v11", True), ("v12", True), ("v13", True), ("v14", True), ("v15", True), ("v16", False),
+    ("v17", False), (None, True), ("weird", True), ("", True),
 ])
 def test_only_an_OLDER_board_is_worth_a_warning(board, warn):
     """The firmware is shared and grows by addition -- a feature arrives off

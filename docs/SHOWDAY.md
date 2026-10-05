@@ -37,10 +37,10 @@ old build running and answering exactly as before:
 python3 robot/tools/tof_test.py
 ```
 
-- first line must say **v15 or newer**
+- first line must say **v16 or newer**
 - the bar must move when you put a hand in front of the sensor
 
-Ctrl-C it. Below v15, or no `IN TOF` line at all, means the upload did not land
+Ctrl-C it. Below v16, or no `IN TOF` line at all, means the upload did not land
 whatever it reported -- the tool says so and prints the command with the port
 already filled in.
 

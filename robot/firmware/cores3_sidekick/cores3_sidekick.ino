@@ -43,7 +43,7 @@
  *                          `hello`. Data, not firmware: one flash teaches the
  *                          command, every later name is a serial line.
  *     EVT REST             end of a run: go quiet, back to idle + warm breath
- *     EVT PING             -> `IN PONG cores3_sidekick v15`
+ *     EVT PING             -> `IN PONG cores3_sidekick v16`
  *
  *   BUMP THE VERSION WITH EVERY FLASH THAT MATTERS. This link is flaky enough
  *   that an upload can fail after the sketch has compiled, and then the board
@@ -293,7 +293,27 @@ static bool tofTry(int sda, int scl) {
 // IN TOF FAIL cannot: nothing at all on either wiring means the unit is in the
 // wrong socket or not seated; 0x29 on one of them means the pins were swapped;
 // anything else means it is not the sensor we think it is.
+void tofInit();   // defined below; tofScan() restores the sensor through it.
+                 // Declared rather than relying on the .ino prototype pass,
+                 // which is a preprocessing step this file should not depend
+                 // on for a call that is load-bearing.
+
 void tofScan() {
+  // SCAN IS DESTRUCTIVE AND USED TO LEAVE IT THAT WAY. It walks the bus on
+  // BOTH pin orders, and to do that it calls begin() with the pins swapped and
+  // the clock at 100 kHz -- under a sensor that is mid-ranging. Nothing put it
+  // back. So every read after a scan went out on a swapped, slower bus and
+  // failed, for the rest of the session: ready stopped climbing, i2c went to
+  // 4, restarts fired and never recovered.
+  //
+  // It cost an evening and the trail was false from end to end, because
+  // `--diag` ran the scan BEFORE it sampled -- the diagnostic broke the thing
+  // it was measuring and then reported the breakage as the symptom. Three
+  // explanations were built on that reading, all of them about the lens.
+  //
+  // Restored at the end, and the restore is announced: a line that says what
+  // state the bus was left in is the difference between this being a tool and
+  // being a trap.
   for (int pass = 0; pass < 2; pass++) {
     int sda = pass ? TOF_SCL : TOF_SDA, scl = pass ? TOF_SDA : TOF_SCL;
     tofBus->end();
@@ -308,6 +328,11 @@ void tofScan() {
     Serial.printf("IN SCAN sda=G%d scl=G%d ->%s\n", sda, scl,
                   found.length() ? found.c_str() : " nothing");
   }
+  // Put the sensor back exactly as tofInit leaves it, or the scan has quietly
+  // ended the session.
+  tofOK = false;
+  tofInit();
+  Serial.printf("IN SCAN restored ok=%d\n", (int)tofOK);
 }
 
 void tofInit() {
@@ -1282,7 +1307,7 @@ void handleLine(String line) {
     setAntennaHue(255, 242, 224);   // = WARM. Keep in sync with HUE above.
     uiSet("idle");
   }
-  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v15");
+  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v16");
   // ASKABLE, because the boot line is not readable. USB CDC enumerates after
   // setup() has already run, so `IN TOF READY` and `IN TOF FAIL` are printed
   // into a port nothing is listening to yet and are simply lost. Without this
@@ -1359,7 +1384,7 @@ void setup() {
   tapInit();
   tofInit();
   uiDraw();                 // the idle screen, immediately -- no legacy layout
-  Serial.println("IN HELLO cores3_sidekick v15");
+  Serial.println("IN HELLO cores3_sidekick v16");
 }
 
 void loop() {

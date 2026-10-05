@@ -133,11 +133,17 @@ def diag(port):
         link.tofbus(bus)
         time.sleep(1.2)
         link.tof()
-        link.scan()
         link.tofdiag()
         for ln in after(1.5):
             if not ln.startswith("IN DIST"):
                 print(f"    {ln}")
+        # SAMPLE BEFORE SCANNING. SCAN walks both pin orders, which means
+        # re-begin()ing the bus with the pins swapped underneath a sensor that
+        # is mid-ranging. v16 puts it back; older firmware does not, and this
+        # tool ran the scan FIRST -- so it broke the bus and then reported the
+        # breakage as the fault. Three explanations were built on that reading.
+        # Ordered this way so the numbers are taken from an untouched bus
+        # whatever firmware is on the board.
         mm = [parse_dist(ln) for ln in after(3.0) if ln.startswith("IN DIST")]
         got = [v for v in mm if v is not None]
         print(f"    samples={len(mm)}  valid={len(got)}"
@@ -147,6 +153,10 @@ def diag(port):
         for ln in after(0.8):
             if ln.startswith("IN TOFDIAG"):
                 print(f"    after 3s: {ln}")
+        link.scan()                  # last, and on v16 it restores itself
+        for ln in after(1.5):
+            if ln.startswith("IN SCAN"):
+                print(f"    {ln}")
     link.tofbus(0)
     time.sleep(0.5)
     link.close()
@@ -256,7 +266,7 @@ def live(args, rows, fired=None):
                     print("  in the line above: i2c=0 means the bytes arrive,")
                     print("  so a near-zero distance really is something in")
                     print("  front of the lens. i2c!=0 means the reads are")
-                    print("  failing -- a v15 or newer board reports that as")
+                    print("  failing -- a v16 or newer board reports that as")
                     print("  NO reading rather than as 0 mm, so a bar still")
                     print("  pinned here on v15 is optical.\n")
             if (not warned and not rows and time.time() - t_start > 3.0):
@@ -276,7 +286,7 @@ def live(args, rows, fired=None):
                     print("  Name the board and watch it verify:\n")
                     print("      pio run -t upload --upload-port %s\n" % port)
                     print("  'Hash of data verified.' is the line to look for.")
-                    print("  Then run this again: the first line must say v15.\n")
+                    print("  Then run this again: the first line must say v16.\n")
                     continue
                 print("\n  READY, but three seconds and not one reading.")
                 print("  That is the firmware, not the sensor: it initialised.")

@@ -227,6 +227,11 @@ def booth_state(STATE, feed_records, sweep_meta):
         # holding the companion back a few seconds later.
         "choosing": bool(time.time() - float(STATE.get("choosing_at") or 0)
                          < CHOOSING_HOLD_S),
+        # WHICH PRESET THE HEAD TAPS ARE ON, and whether any tap has happened.
+        # `pick_at` None means untouched, which is a different screen from
+        # "resting on the first one".
+        "pick_i": int(STATE.get("pick_i") or 0),
+        "pick_on": bool(STATE.get("pick_at")),
         "describe": STATE.get("describe") or "",
         "noticed": STATE.get("noticed_n") or 0,
         # THE WHOLE WALL, newest first, and a COUNT the page can compare
@@ -360,6 +365,9 @@ h1{font-weight:600;font-size:clamp(26px,3.4vh,40px);line-height:1.3;margin:0;let
    exists. A tap that fired immediately would let them pick exactly one thing,
    and the interesting requests are two things at once. */
 .pick.on{border-color:#cfe33a;background:#232616}
+/* THE ONES NOT CHOSEN STAY LEGIBLE. Hiding them would make the list feel like
+   a slot machine; dimming says "these are still here, keep tapping". */
+.pick.dim{opacity:.38}
 .tick{flex:none;width:clamp(26px,3.4vh,38px);height:clamp(26px,3.4vh,38px);
   border-radius:9px;border:2px solid #4a4a44;display:flex;align-items:center;
   justify-content:center;font-size:clamp(16px,2.2vh,24px);color:#141414}
@@ -799,16 +807,17 @@ function render(){
       return;
     }
     if(!said){
-      a.innerHTML=`<div><h1>What should it watch for?</h1>
-        <div class=sub>pick as many as you like, or type your own below</div></div>
+      // THE TABLET IS A DISPLAY HERE, NOT AN INPUT. The choice is made by
+      // tapping the robot's head, so these are not touch targets -- a card
+      // that looks tappable and is not is worse than one that does not.
+      const on=S.pick_on, i=S.pick_i|0;
+      a.innerHTML=`<div><h1>${on?'Watch for this?':'What should it watch for?'}</h1>
+        <div class=sub>${on?'tap again to change \u2014 stop to choose'
+                          :'tap the robot on the head'}</div></div>
         <div class=grow>
-          <div class=picks>`+PRESETS.map((p,i)=>
-            `<div class="pick${PICKED.has(i)?' on':''}" onpointerdown="pick(${i})">
-               <span class=tick>${PICKED.has(i)?'&#10003;':''}</span>
+          <div class=picks>`+PRESETS.map((p,k)=>
+            `<div class="pick${on&&k===i?' on':''}${on&&k!==i?' dim':''}">
                <span>${esc(p)}</span></div>`).join('')+`</div>
-          <button class=go ${PICKED.size?'':'disabled'} onpointerdown="sendPicks()">
-            ${PICKED.size?`watch for ${PICKED.size} thing${PICKED.size>1?'s':''}`
-                         :'choose one to begin'}</button>
         </div>`;
       return;
     }

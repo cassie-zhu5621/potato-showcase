@@ -46,7 +46,11 @@ from session.stt import STT
 from robot.pose import IDS                   
 from robot import states as ST                    
 from robot.pose import UNITS_PER_DEG, resolve 
-from session.session_flow import SessionFlow, transcript_usable 
+from session.session_flow import SessionFlow, transcript_usable
+# THE PRESETS LIVE WITH THE PAGE THAT SHOWS THEM, and the head-tap selector
+# walks the same list -- one order, so the tablet's highlight and the robot's
+# choice cannot drift apart.
+from webui.booth import PRESETS 
 from planning.event_frames import select_temporal_frames
 from perception.watch_exec import order_coincident_candidates
 # Module level: the loop names the provider in five places, all inside
@@ -1155,6 +1159,10 @@ def main():
     # find it. Cleared by whichever gets there first; a judge that lands after
     # the deadline finds `fired_early` on its own candidate and records rather
     # than fires.
+    # WHICH PRESET THE HEAD TAPS HAVE LANDED ON. `at` is None until the first
+    # tap, which is what makes "touched nothing" distinguishable from "chose
+    # the first one".
+    pick = {"i": 0, "at": None}
     candidate_gate = {"busy": False, "winner": None, "inflight": 0,
                       "awaiting": None, "busy_since": None, "said": 0.0}
     from planning.sweep_plan import Sweep
@@ -1681,6 +1689,29 @@ def main():
                         print("[flow] they walked away before asking -- "
                               "back to idle rather than to error")
                         events.append("stop")
+                elif "BODYTAP" in line and flow.state == "S1_ATTEND":
+                    # THE HEAD IS THE INPUT DEVICE while it is asking. One
+                    # gesture, two places, and they cannot collide: the flow
+                    # already ignores `tap` anywhere but S4B_WATCH, so this
+                    # takes it in S1_ATTEND without the flow having to learn a
+                    # second meaning.
+                    #
+                    # WHY NOT THE TABLET. Tapping a screen is not an encounter
+                    # with a robot, and a stranger at a loud stand will not
+                    # speak to a laptop microphone either. Touching the thing
+                    # itself is the one input that is about the robot, needs no
+                    # language, and cannot be drowned out.
+                    n = len(PRESETS)
+                    pick["i"] = 0 if pick["at"] is None else (pick["i"] + 1) % n
+                    pick["at"] = time.time()
+                    print(f"[pick] head tap -> {PRESETS[pick['i']]!r}")
+                    if UI is not None:
+                        with UI.LOCK:
+                            UI.STATE["pick_i"] = pick["i"]
+                            UI.STATE["pick_at"] = pick["at"]
+                    if link:
+                        link.sfx("ACK")
+                    player.request("S2_ACKNOWLEDGE")
                 elif "BODYTAP" in line:
                     # ONE GESTURE, ONE MEANING: "not that one." The flow turns
                     # it into S6 while watching and ignores it everywhere else.
@@ -1697,6 +1728,34 @@ def main():
                 events.append(f"{kind}:{text}")
             while ui_events:
                 events.append(ui_events.pop(0))
+            # COMMITTED BY A PAUSE, not by a second gesture. A confirm button
+            # would need teaching, and a second palm would be refused by the
+            # wake's own refractory -- so stopping IS the confirmation, which
+            # is what somebody does anyway once they see the one they want.
+            #
+            # NOTHING COMMITS WITHOUT A TAP. A visitor who touches nothing gets
+            # ATTEND_MAX_S and the robot goes back to sleep, which is the rule
+            # that says standing there is not asking for anything.
+            if (pick["at"] is not None and flow.state == "S1_ATTEND"
+                    and time.time() - pick["at"] > ST.PICK_COMMIT_S):
+                chosen = PRESETS[pick["i"]]
+                pick["at"] = None
+                print(f"[pick] committed: {chosen!r}")
+                if UI is not None:
+                    with UI.LOCK:
+                        UI.STATE["pick_at"] = None
+                if UI is not None:
+                    with UI.LOCK:
+                        UI.STATE["pending_context"] = chosen
+                else:
+                    # No web UI: feed the flow directly, the same way a typed
+                    # line arrives. The head taps must work with --no-serve.
+                    transcripts.append(("typed", chosen))
+            if flow.state != "S1_ATTEND" and pick["at"] is not None:
+                pick["at"] = None
+                if UI is not None:
+                    with UI.LOCK:
+                        UI.STATE["pick_at"] = None
             flow.stt_busy = stt.busy
             flow.judge_busy = bool(candidate_gate["busy"])
             events.append("tick")

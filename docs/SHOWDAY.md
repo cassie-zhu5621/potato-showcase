@@ -344,20 +344,30 @@ If step 3 fails, the board is on v10 or older.
 ## What a visitor actually does
 
 ```
-walks up          the head comes up, the tablet asks what to watch for
-taps one or more  four presets. Ticks stay -- two at once is the good case
-presses the button  -> got it, looking around, then watching
+hand up to it     the head comes up; the tablet lists four things
+TAP ITS HEAD      the highlight moves down the list. Tap again to keep going
+stop tapping      2.5 s later it takes the highlighted one
+                  -> got it, looking around, then watching
 ```
+
+**They choose by touching the robot, not the tablet.** The tablet is a display
+here and the cards are deliberately not touch targets. Nothing commits until
+somebody taps at least once -- touch nothing and it goes back to sleep at 15 s,
+which is the rule that says standing there is not asking for anything.
+
+What to say to a visitor, in full: **"hold your hand up to it, then tap it on
+the head until it says the one you want."** That is the whole interface.
 
 **The wake is a hand, held close.** Measured on the bench: a hand where it
 falls naturally reads 40-50 mm and the empty room reads 2720-2750, so the gate
 at 300 mm is not balancing anything -- there is nothing in between. Tell people
 "hold your hand up to it", not a distance.
 
-**They do not have to speak.** The room is loud and half of them are speaking
-a second language; a spoken sentence that fails to transcribe spends the whole
-ninety seconds performing not-having-understood. Speech still works and still
-wins -- anything actually said lands first and the menu never appears.
+**They do not have to speak, or find a screen.** The room is loud and half of
+them are speaking a second language; a spoken sentence that fails to transcribe
+spends the whole ninety seconds performing not-having-understood, and a tablet
+is not an encounter with a robot. Speech still works and still wins -- anything
+actually said lands first and the list never appears.
 
 **If they walk off, it goes back to sleep.** The board says `IN LEFT` when the
 visitor who woke it has gone, and before a request exists that returns the

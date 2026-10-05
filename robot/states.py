@@ -293,6 +293,17 @@ PAN_RETARGETABLE = ("S4B_WATCH", "S4A_SETTLE")
 # the person is busy, which is the premise of notice delegation. The finding is
 # already in the feed, so the robot goes back to watching instead of escalating.
 # That is the difference between a colleague and an alarm.
+PICK_COMMIT_S = 2.5      # head taps cycle the choice; a pause of this long
+                         # commits it. A pause rather than a second gesture:
+                         # a confirm action would need teaching, and a second
+                         # palm is refused by the wake's own refractory --
+                         # while stopping is what somebody does anyway the
+                         # moment they see the one they want.
+                         #
+                         # Long enough to read the next line before it takes
+                         # the last one, short enough that it does not feel
+                         # like nothing happened.
+
 ATTEND_MAX_S = 15.0      # ON for the showcase. 0.0 for the user study.
                          #
                          # SOMEBODY IS STANDING THERE AND NOT ASKING FOR

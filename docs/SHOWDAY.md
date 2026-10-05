@@ -334,7 +334,7 @@ Step 4 is the whole reason for the change. The approach wake fired on anybody
 crossing the cone at a metre and was then held shut by the crowd standing
 around the table -- a robot that woke at nobody, and then would not wake for
 anybody. Neither was a threshold problem: both were the sensor answering the
-question it had been asked. A hand at 25 cm is a different question, because
+question it had been asked. A hand inside 30 cm is a different question, because
 nobody's body is there by accident.
 
 If step 3 fails, the board is on v10 or older.

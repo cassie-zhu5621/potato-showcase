@@ -421,7 +421,21 @@ static uint32_t apprUpAt = 0;          // when the owed PTT_UP falls due, or 0
 static uint32_t apprNearAt = 0;        // last time anybody was inside APPR_EXIT
 static bool apprWoke = false;          // this visit actually pressed the button
 static const int APPR_ENTER = 900, APPR_EXIT = 1300;   // mm, mode 1
-static const int PALM_ENTER = 250, PALM_EXIT = 350;    // mm, mode 2
+// MEASURED 2026-10-06 on the bench, not chosen: a hand held where it falls
+// naturally reads 40-50 mm, and with the hand away the sensor reads the far
+// wall at 2720-2750. Nothing in the room reads in between, which is what makes
+// this wake reliable -- the gap is two orders of magnitude, so the threshold
+// is not balancing anything.
+//
+// 300 rather than 60. Six times the measured hand distance, because the number
+// that matters tomorrow is not Cassie's hand at the bench, it is a stranger's
+// hand at whatever distance they guess from a sign -- and the cost of being
+// generous is nothing until something else in the room comes within 30 cm of
+// the lens, which at 2.7 m of clear air it does not.
+//
+// IF THE TABLE GETS CROWDED and bodies start coming inside 30 cm, this is the
+// number to lower, and `tof_test.py` reads out what they are actually at.
+static const int PALM_ENTER = 300, PALM_EXIT = 450;    // mm, mode 2
 static const uint32_t APPR_DWELL = 700, APPR_REFRACTORY = 12000;
 // SHORTER THAN THE APPROACH DWELL. 700 ms exists to let a walking body settle;
 // a hand is already where it is going, and 300 ms is long enough to reject a

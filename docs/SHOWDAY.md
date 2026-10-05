@@ -252,7 +252,7 @@ and then power-cycle the servo supply, because nothing turned the torque off.
 | `camera N opened but produced no frames` | an orphan has it, or the index moved -- `--list-cams` again |
 | servos do not move | performance starts **frozen** -- press `F`. Otherwise the 5-6 V supply |
 | `!! did not arrive` in the log | the line itself now says which: a voltage under load, or torque off / jammed |
-| a hand does nothing | is `wake ARMED (palm)` in the loop's first lines? If not, `--approach` did not arrive. Then: is the hand close enough -- **25 cm**, and `tof_test.py` shows the number |
+| a hand does nothing | is `wake ARMED (palm)` in the loop's first lines? If not, `--approach` did not arrive. Then: is the hand close enough -- inside **30 cm**, and `tof_test.py` shows the number it is actually reading |
 | it wakes with nobody there | something is in front of the lens, or the film is still on it: that reads 0 mm. `tof_test.py` will sit at the far end of the bar |
 | it wakes once and never again | v10 or older on the board. Fixed in v11 -- check `tof_test.py` |
 | the robot performs an error | it should be close to unreachable now -- read the reason it prints and tell Cassie |
@@ -325,7 +325,7 @@ about 6 s of sweeping and one VLM round trip. Both live in `robot/states.py`.
 
 ## The thirty-second check after any restart
 
-1. hold a hand about **25 cm** in front of the sensor -> head comes up
+1. hold a hand in front of the sensor, close -> head comes up
 2. take the hand away and wait two seconds
 3. hold it there again -> **head comes up again**
 4. walk past the table without reaching -> it does **nothing**
@@ -348,6 +348,11 @@ walks up          the head comes up, the tablet asks what to watch for
 taps one or more  four presets. Ticks stay -- two at once is the good case
 presses the button  -> got it, looking around, then watching
 ```
+
+**The wake is a hand, held close.** Measured on the bench: a hand where it
+falls naturally reads 40-50 mm and the empty room reads 2720-2750, so the gate
+at 300 mm is not balancing anything -- there is nothing in between. Tell people
+"hold your hand up to it", not a distance.
 
 **They do not have to speak.** The room is loud and half of them are speaking
 a second language; a spoken sentence that fails to transcribe spends the whole

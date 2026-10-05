@@ -116,6 +116,7 @@ python3 noticebot_loop.py \
     --conf 0.2 \
     --feedback robot \
     --approach \
+    --no-view \
     --serve
 ```
 
@@ -130,6 +131,7 @@ Every flag, and why it is not optional:
 | `--feedback robot` | lets a confirmed finding drive the call. `console` prints the judgment and **moves nothing** |
 | `--approach` | arms the board's ToF to press the button |
 | `--wake palm` | the default. A **hand held in front of the sensor** wakes it. `--wake approach` is the old "somebody walks up" |
+| `--no-view` | **no cv2 preview window.** See below -- it is the most likely cause of the segfaults, and at a stand nobody looks at it anyway |
 | `--serve` | the web pages, for you and for the audience |
 | `--mute` | **testing only.** No chirps, for working next to people. Take it off before the doors open |
 
@@ -167,6 +169,32 @@ python3 robot/tools/perform.py
 ```
 
 Starts frozen. `F` to begin, `SPACE` to tap the beat.
+
+---
+
+## If it segfaults
+
+```
+zsh: segmentation fault  python3 noticebot_loop.py ...
+```
+
+A native crash, so there is no Python traceback worth reading and nothing can
+catch it. The faulthandler dump names the line it died on -- it has been inside
+the preview-window path both times.
+
+**Run with `--no-view`.** OpenCV's macOS capture backend runs on the camera
+thread while HighGUI (`cv2.imshow` / `cv2.waitKey`) runs on the main one, and
+that pair is a known crasher on this platform. `--no-view` removes HighGUI from
+the process entirely. It costs nothing here: the tablet and the developer page
+are the display, and the keyboard keys work from the terminal either way.
+
+This is not a proof -- a segfault does not leave one. It removes the most
+likely cause, and if it crashes again with `--no-view` on, that is worth
+knowing and narrows it a lot.
+
+Also check **`--cam`**. `--cam 0` is the Mac's built-in camera, which on Apple
+silicon is a square Center Stage sensor that rescales itself; the head camera
+is a different index and `--list-cams` says which.
 
 ---
 

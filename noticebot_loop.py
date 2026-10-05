@@ -1162,7 +1162,7 @@ def main():
     # WHICH PRESET THE HEAD TAPS HAVE LANDED ON. `at` is None until the first
     # tap, which is what makes "touched nothing" distinguishable from "chose
     # the first one".
-    pick = {"i": 0, "at": None}
+    pick = {"i": 0, "at": None}   # `at` None = nothing touched yet
     candidate_gate = {"busy": False, "winner": None, "inflight": 0,
                       "awaiting": None, "busy_since": None, "said": 0.0}
     from planning.sweep_plan import Sweep
@@ -1736,14 +1736,21 @@ def main():
                     # speak to a laptop microphone either. Touching the thing
                     # itself is the one input that is about the robot, needs no
                     # language, and cannot be drowned out.
+                    # RESTING ON THE FIRST LINE, and a touch moves DOWN from
+                    # it. The first touch used to SELECT the first line, which
+                    # read as "one touch decides" -- the opposite of a thing
+                    # you are invited to keep doing. Now the list is already
+                    # showing where it stands and every touch does the same
+                    # thing, which is the only way a gesture teaches itself.
                     n = len(PRESETS)
-                    pick["i"] = 0 if pick["at"] is None else (pick["i"] + 1) % n
+                    pick["i"] = (pick["i"] + 1) % n
                     pick["at"] = time.time()
                     print(f"[pick] head tap -> {PRESETS[pick['i']]!r}")
                     if UI is not None:
                         with UI.LOCK:
                             UI.STATE["pick_i"] = pick["i"]
                             UI.STATE["pick_at"] = pick["at"]
+                            UI.STATE["pick_commit_s"] = ST.PICK_COMMIT_S
                     if link:
                         link.sfx("ACK")
                     player.request("S2_ACKNOWLEDGE")

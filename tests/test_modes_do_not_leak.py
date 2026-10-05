@@ -300,3 +300,17 @@ def test_the_demo_command_and_its_table_agree_about_the_camera():
     in_table = re.search(r"\|\s*`--cam (\d+)`\s*\|", doc).group(1)
     assert in_cmd == in_table, (
         f"the command says --cam {in_cmd} and the table says --cam {in_table}")
+
+
+def test_the_demo_command_turns_the_preview_window_off():
+    """OpenCV's macOS capture backend runs on the camera thread while HighGUI
+    runs on the main one, and that pair segfaults on this platform -- twice so
+    far, both times with the faulthandler pointing inside the preview path.
+
+    At a stand nobody looks at the cv2 window: the tablet and the developer
+    page are the display, and the keyboard keys work from the terminal whether
+    it is open or not."""
+    import re
+    doc = open(os.path.join(ROOT, "docs", "SHOWDAY.md")).read()
+    block = re.search(r"```bash\n([^`]*?--approach[^`]*?)```", doc, re.S).group(1)
+    assert "--no-view" in block

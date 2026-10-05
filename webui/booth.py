@@ -232,6 +232,15 @@ def booth_state(STATE, feed_records, sweep_meta):
         # "resting on the first one".
         "pick_i": int(STATE.get("pick_i") or 0),
         "pick_on": bool(STATE.get("pick_at")),
+        # HOW MUCH OF THE WINDOW IS LEFT, 0..1, so the page can show it
+        # draining. Without it the first touch looks like a decision: there is
+        # nothing on screen that says another one is still allowed, which is
+        # exactly how it read in the hand.
+        "pick_left": max(0.0, min(1.0, (
+            (float(STATE.get("pick_commit_s") or 3.0)
+             - (time.time() - float(STATE.get("pick_at") or 0)))
+            / float(STATE.get("pick_commit_s") or 3.0))))
+        if STATE.get("pick_at") else 0.0,
         "describe": STATE.get("describe") or "",
         "noticed": STATE.get("noticed_n") or 0,
         # THE WHOLE WALL, newest first, and a COUNT the page can compare
@@ -368,6 +377,11 @@ h1{font-weight:600;font-size:clamp(26px,3.4vh,40px);line-height:1.3;margin:0;let
 /* THE ONES NOT CHOSEN STAY LEGIBLE. Hiding them would make the list feel like
    a slot machine; dimming says "these are still here, keep tapping". */
 .pick.dim{opacity:.38}
+/* THE WINDOW, DRAINING. The one thing missing in the hand: the first touch
+   looked like a decision because nothing on screen said another was allowed. */
+.cdown{flex:none;height:10px;border-radius:5px;background:#262623;overflow:hidden}
+.cdown i{display:block;height:100%;background:#cfe33a;
+  transition:width .2s linear}
 .tick{flex:none;width:clamp(26px,3.4vh,38px);height:clamp(26px,3.4vh,38px);
   border-radius:9px;border:2px solid #4a4a44;display:flex;align-items:center;
   justify-content:center;font-size:clamp(16px,2.2vh,24px);color:#141414}
@@ -810,14 +824,18 @@ function render(){
       // THE TABLET IS A DISPLAY HERE, NOT AN INPUT. The choice is made by
       // tapping the robot's head, so these are not touch targets -- a card
       // that looks tappable and is not is worse than one that does not.
-      const on=S.pick_on, i=S.pick_i|0;
-      a.innerHTML=`<div><h1>${on?'Watch for this?':'What should it watch for?'}</h1>
-        <div class=sub>${on?'touch again to change \u2014 stop to choose'
-                          :'touch the robot on the head'}</div></div>
+      // THE LIST ALWAYS SHOWS WHERE IT STANDS, touched or not. A screen that
+      // looks inert until the first touch cannot teach the gesture that is
+      // about to be the only way in.
+      const i=S.pick_i|0, left=+S.pick_left||0;
+      a.innerHTML=`<div><h1>${S.pick_on?'Taking this one':'What should it watch for?'}</h1>
+        <div class=sub>${S.pick_on?'touch again to change'
+                                  :'touch its head to move down the list'}</div></div>
         <div class=grow>
           <div class=picks>`+PRESETS.map((p,k)=>
-            `<div class="pick${on&&k===i?' on':''}${on&&k!==i?' dim':''}">
+            `<div class="pick${k===i?' on':' dim'}">
                <span>${esc(p)}</span></div>`).join('')+`</div>
+          <div class=cdown><i style="width:${(left*100).toFixed(0)}%"></i></div>
         </div>`;
       return;
     }

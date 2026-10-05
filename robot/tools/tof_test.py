@@ -153,6 +153,14 @@ def diag(port):
         for ln in after(0.8):
             if ln.startswith("IN TOFDIAG"):
                 print(f"    after 3s: {ln}")
+        # THE INSIDE OF A MEASUREMENT. Three of them, a beat apart, because the
+        # one number that settles this -- does the receiver see any light at
+        # all -- is the one TOFDIAG cannot reach.
+        for _ in range(3):
+            link.tofraw()
+            for ln in after(0.4):
+                if ln.startswith("IN TOFRAW"):
+                    print(f"    {ln}")
         link.scan()                  # last, and on v16 it restores itself
         for ln in after(1.5):
             if ln.startswith("IN SCAN"):
@@ -266,7 +274,7 @@ def live(args, rows, fired=None):
                     print("  in the line above: i2c=0 means the bytes arrive,")
                     print("  so a near-zero distance really is something in")
                     print("  front of the lens. i2c!=0 means the reads are")
-                    print("  failing -- a v16 or newer board reports that as")
+                    print("  failing -- a v17 or newer board reports that as")
                     print("  NO reading rather than as 0 mm, so a bar still")
                     print("  pinned here on v15 is optical.\n")
             if (not warned and not rows and time.time() - t_start > 3.0):
@@ -286,7 +294,7 @@ def live(args, rows, fired=None):
                     print("  Name the board and watch it verify:\n")
                     print("      pio run -t upload --upload-port %s\n" % port)
                     print("  'Hash of data verified.' is the line to look for.")
-                    print("  Then run this again: the first line must say v16.\n")
+                    print("  Then run this again: the first line must say v17.\n")
                     continue
                 print("\n  READY, but three seconds and not one reading.")
                 print("  That is the firmware, not the sensor: it initialised.")

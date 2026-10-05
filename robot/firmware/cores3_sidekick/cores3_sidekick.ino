@@ -43,7 +43,7 @@
  *                          `hello`. Data, not firmware: one flash teaches the
  *                          command, every later name is a serial line.
  *     EVT REST             end of a run: go quiet, back to idle + warm breath
- *     EVT PING             -> `IN PONG cores3_sidekick v16`
+ *     EVT PING             -> `IN PONG cores3_sidekick v17`
  *
  *   BUMP THE VERSION WITH EVERY FLASH THAT MATTERS. This link is flaky enough
  *   that an upload can fail after the sketch has compiled, and then the board
@@ -1307,7 +1307,7 @@ void handleLine(String line) {
     setAntennaHue(255, 242, 224);   // = WARM. Keep in sync with HUE above.
     uiSet("idle");
   }
-  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v16");
+  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v17");
   // ASKABLE, because the boot line is not readable. USB CDC enumerates after
   // setup() has already run, so `IN TOF READY` and `IN TOF FAIL` are printed
   // into a port nothing is listening to yet and are simply lost. Without this
@@ -1362,6 +1362,48 @@ void handleLine(String line) {
     tofCalls = tofReadyN = tofEmit = tofRestarts = 0;
     tofInit();
   }
+  else if (cmd == "TOFRAW") {
+    // THE INSIDE OF A MEASUREMENT, because `status=0 mm=0 i2c=0` is as far as
+    // TOFDIAG can see and three explanations have now been built on it. The
+    // bytes arrive, the sensor says the measurement is valid, and the distance
+    // is zero -- which is not a thing a working VL53L1X does, so the question
+    // is which part of it is not working, and the library already knows.
+    //
+    // WHAT EACH ONE SEPARATES:
+    //   signal / ambient   both 0 -> the receiver is not running at all; the
+    //                      ranging never started and these registers are
+    //                      returning their power-on zeros. ambient > 0 with
+    //                      signal 0 -> it IS running and sees room light, but
+    //                      nothing came back from a target
+    //   budget / mode      read back from the chip, not from our variables:
+    //                      a setter that silently failed shows up here
+    //   raw status/range   straight off the result registers, before any of
+    //                      the library's scaling. If these are non-zero while
+    //                      ranging_data is zero, the decode is the problem
+    //   timeout            the library gave up on a read and said so only here
+#if USE_TOF
+    if (!tofOK) { Serial.println("IN TOFRAW no sensor"); }
+    else {
+      bool rdy = tof.dataReady();
+      tof.read(false);
+      Serial.printf("IN TOFRAW rdy=%d st=%d mm=%d signal=%.2f ambient=%.2f "
+                    "budget=%lu mode=%d timeout=%d rawst=0x%02X rawmm=%u "
+                    "hvstatus=0x%02X\n",
+                    (int)rdy, (int)tof.ranging_data.range_status,
+                    (int)tof.ranging_data.range_mm,
+                    tof.ranging_data.peak_signal_count_rate_MCPS,
+                    tof.ranging_data.ambient_count_rate_MCPS,
+                    (unsigned long)tof.getMeasurementTimingBudget(),
+                    (int)tof.getDistanceMode(), (int)tof.timeoutOccurred(),
+                    tof.readReg(VL53L1X::RESULT__RANGE_STATUS),
+                    tof.readReg16Bit(
+                        VL53L1X::RESULT__FINAL_CROSSTALK_CORRECTED_RANGE_MM_SD0),
+                    tof.readReg(VL53L1X::GPIO__TIO_HV_STATUS));
+    }
+#else
+    Serial.println("IN TOFRAW disabled");
+#endif
+  }
   else if (cmd == "TOFDIAG")
     Serial.printf("IN TOFDIAG calls=%lu ready=%lu emit=%lu restarts=%lu "
                   "status=%d mm=%d i2c=%d ok=%d\n",
@@ -1384,7 +1426,7 @@ void setup() {
   tapInit();
   tofInit();
   uiDraw();                 // the idle screen, immediately -- no legacy layout
-  Serial.println("IN HELLO cores3_sidekick v16");
+  Serial.println("IN HELLO cores3_sidekick v17");
 }
 
 void loop() {

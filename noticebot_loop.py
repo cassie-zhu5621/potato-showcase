@@ -1745,15 +1745,31 @@ def main():
                     n = len(PRESETS)
                     pick["i"] = (pick["i"] + 1) % n
                     pick["at"] = time.time()
-                    print(f"[pick] head tap -> {PRESETS[pick['i']]!r}")
+                    print(f"[pick] head touch -> {PRESETS[pick['i']]!r}")
                     if UI is not None:
                         with UI.LOCK:
                             UI.STATE["pick_i"] = pick["i"]
                             UI.STATE["pick_at"] = pick["at"]
                             UI.STATE["pick_commit_s"] = ST.PICK_COMMIT_S
                     if link:
+                        # A CHIRP AND A COLOUR, NOT A STATE.
+                        #
+                        # This asked the player for S2_ACKNOWLEDGE as feedback
+                        # -- a nod, which is what the gesture deserves. But
+                        # S2_ACKNOWLEDGE is a STATE, and its clip is authored
+                        # with `then="S3_SCAN"`: the nod finished, the player
+                        # announced where it had landed, and the flow went off
+                        # to sweep. One touch, straight into the scan, with
+                        # whatever happened to be highlighted at the time.
+                        #
+                        # The rule is already in this file, four hundred lines
+                        # down: "An EVENT into the flow, never
+                        # player.request()." It holds for feedback too. The
+                        # acknowledgement of a touch is not a transition, and
+                        # anything that moves the neck through a named state
+                        # IS one, whatever it was meant as.
                         link.sfx("ACK")
-                    player.request("S2_ACKNOWLEDGE")
+                        link.hue("summon")
                 elif "BODYTAP" in line:
                     # ONE GESTURE, ONE MEANING: "not that one." The flow turns
                     # it into S6 while watching and ignores it everywhere else.

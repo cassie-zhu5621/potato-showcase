@@ -109,7 +109,7 @@ cannot be left behind.
 
 ```bash
 python3 noticebot_loop.py \
-    --cam 1 \
+    --cam 0 \
     --cores3 \
     --detector yoloworld \
     --cv-hz 4 \
@@ -124,7 +124,7 @@ Every flag, and why it is not optional:
 
 | | |
 |---|---|
-| `--cam 1` | whatever `--list-cams` said this morning. Not a number to memorise |
+| `--cam 0` | whatever `--list-cams` said this morning. Not a number to memorise |
 | `--cores3` | bare, so it auto-detects by PING. The port moves between sessions |
 | `--detector yoloworld --cv-hz 4` | the detector, and the only one |
 | `--conf 0.2` | **0.3 is too high for a phone in a hand.** Measured: 0.39 and 0.48 at arm's length, right on the edge, blinking in and out several times a second |

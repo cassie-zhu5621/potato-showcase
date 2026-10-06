@@ -58,7 +58,13 @@ def test_the_borrowed_colour_is_given_back():
     """Hue is sent on state CHANGE, so a borrowed one that is not returned
     stays borrowed until the next transition -- and the light is the channel
     that carries `still here`."""
-    assert 'greet["restore"]' in BLOCK
+    # BOTH HALVES, because only one of them was guarded and the missing half
+    # is the one that matters: borrowing is visible, failing to give back is
+    # a light that stays wrong until the next transition.
+    assert 'greet["restore"] = now + ST.GREET_FLASH_S' in BLOCK, "borrowed"
+    assert 'greet["restore"] = None' in BLOCK, "and released"
+    assert "link.hue(" in BLOCK.split('greet["restore"] = None')[1], \
+        "releasing without re-sending a hue leaves the borrowed one on"
     assert "ST.STATES.get(flow.state)" in BLOCK, \
         "take it from the state table, not a hard-coded 'cool'"
     assert 0 < ST.GREET_FLASH_S < ST.GREET_REFRACTORY_S

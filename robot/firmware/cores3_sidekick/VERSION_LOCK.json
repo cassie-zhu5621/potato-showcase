@@ -1,0 +1,5 @@
+{
+  "_why": "The sketch and the version it reports, locked together. A change to the .ino without a bump leaves a board flashed yesterday and a repo today both calling themselves the same version -- which is the one thing the version exists to prevent, and it happened: PALM_ENTER went 250->300 inside v17. Bump the version AND rerun `python3 robot/tools/lock_firmware.py` in the same commit.",
+  "version": "v18",
+  "sha256": "f4306e51fe195c1fdb792d7b49992910594ed7a55f5afe71c4100778e2c35335"
+}

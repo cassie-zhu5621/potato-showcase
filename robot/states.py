@@ -293,6 +293,28 @@ PAN_RETARGETABLE = ("S4B_WATCH", "S4A_SETTLE")
 # the person is busy, which is the premise of notice delegation. The finding is
 # already in the feed, so the robot goes back to watching instead of escalating.
 # That is the difference between a colleague and an alarm.
+# ---- R_GREET: it answers being looked at ------------------------------------
+#
+# `truth[3]` -- eye_contact -- is already computed every frame by the relation
+# engine and until now was only ever read as a row in a watch-spec. Somebody
+# catching the robot's eye while it works is the commonest thing a visitor
+# tries, and the robot had no answer to it at all.
+#
+# LIGHT AND SOUND ONLY, AND THAT IS NOT THE INTENDED DESIGN. The reflex wants
+# a single short nod -- S2_ACKNOWLEDGE's forward-and-down accent, once -- and
+# it cannot have one yet: S4B_WATCH is `loop: True`, so a clip is playing
+# throughout, and `ClipPlayer.drive_deg` says in its own docstring that it is
+# not safe during one. The only other way to move is `request(state)`, which
+# tells the flow and fires that state's `then` -- which is exactly how one
+# touch of the head ended up launching a scan.
+#
+# What it needs, for after the showcase: a one-shot that interrupts a looping
+# clip and resumes it, inside the one object that owns the bus. Until that
+# exists, a nod here is two writers on one serial bus.
+GREET_REFRACTORY_S = 8.0   # once per person, not once per frame
+GREET_FLASH_S = 0.45       # how long the colour is borrowed for
+GREET_FRAMES = 2           # consecutive frames of eye contact, not one
+
 PICK_COMMIT_S = 3.0      # head taps cycle the choice; a pause of this long
                          # commits it. A pause rather than a second gesture:
                          # a confirm action would need teaching, and a second

@@ -1163,6 +1163,7 @@ def main():
     # tap, which is what makes "touched nothing" distinguishable from "chose
     # the first one".
     pick = {"i": 0, "at": None}   # `at` None = nothing touched yet
+    greet = {"n": 0, "at": -1e9, "restore": None}
     candidate_gate = {"busy": False, "winner": None, "inflight": 0,
                       "awaiting": None, "busy_since": None, "said": 0.0}
     from planning.sweep_plan import Sweep
@@ -1853,6 +1854,37 @@ def main():
                     ctx["frames_seen"] = ctx.get("frames_seen", 0) + 1
                     if view is not None:
                         fired = view.step(frame, now)
+                        # R_GREET -- it answers being looked at.
+                        #
+                        # A REFLEX, NOT A STATE. `R_*` never enters the state
+                        # machine's numbering (SHOWCASE_FLOW.md sec 6): S0-S7
+                        # is a closed set of eight and it is drawn in the
+                        # paper. This one touches the light and the speaker and
+                        # nothing else -- see GREET_* in states.py for why it
+                        # has no nod yet, which is a fact about the player
+                        # rather than about the design.
+                        met = bool(view.truth.get(3))
+                        greet["n"] = greet["n"] + 1 if met else 0
+                        if (met and link is not None
+                                and flow.state == "S4B_WATCH"
+                                and greet["n"] >= ST.GREET_FRAMES
+                                and now - greet["at"] > ST.GREET_REFRACTORY_S):
+                            greet["at"] = now
+                            greet["restore"] = now + ST.GREET_FLASH_S
+                            print("[R_GREET] somebody caught its eye")
+                            link.sfx("ACK")
+                            link.hue("summon")
+                        if greet["restore"] and now > greet["restore"]:
+                            # PUT THE COLOUR BACK, and take it from the state
+                            # table rather than hard-coding `cool`: the hue is
+                            # sent on state CHANGE, so a borrowed one that is
+                            # not returned stays borrowed until the next
+                            # transition -- and the light is the channel that
+                            # carries "still here".
+                            greet["restore"] = None
+                            if link is not None:
+                                link.hue((ST.STATES.get(flow.state) or {})
+                                         .get("hue") or "cool")
                         # SAY WHY NOTHING FIRED, while it is not firing. Every
                         # 8 s of watching with no candidate, name the first
                         # broken link -- no pose / object not detected /

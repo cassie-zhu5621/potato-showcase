@@ -52,3 +52,19 @@ def test_getting_started_mentions_the_two_things_git_cannot_bring():
     doc = open(os.path.join(ROOT, "docs", "GETTING_STARTED.md")).read()
     assert ".env.example" in doc
     assert "pio run -t upload" in doc
+
+
+def test_the_session_log_cites_commits_that_exist():
+    """SESSION_LOG.md is the only place the reasoning behind this build is
+    written down for somebody who was not here, and it leans on commit hashes.
+    A reference that has been rebased away is worse than none: it reads as
+    evidence and leads nowhere."""
+    import re
+    import subprocess
+    doc = open(os.path.join(ROOT, "docs", "SESSION_LOG.md")).read()
+    shas = sorted(set(re.findall(r"`([0-9a-f]{7})`", doc)))
+    assert len(shas) > 10, "the log should be anchored, not a story"
+    missing = [s for s in shas
+               if subprocess.run(["git", "cat-file", "-e", s + "^{commit}"],
+                                 cwd=ROOT, capture_output=True).returncode != 0]
+    assert not missing, f"cited commits that no longer exist: {missing}"

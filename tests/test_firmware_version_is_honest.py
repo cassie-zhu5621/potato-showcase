@@ -34,3 +34,21 @@ def test_the_sketch_matches_the_version_it_claims():
 def test_the_lock_agrees_with_what_the_code_expects():
     from session.cores3_link import FIRMWARE_V
     assert json.load(open(LOCK))["version"] == FIRMWARE_V
+
+
+def test_getting_started_points_at_this_repo():
+    """It said `cd notice-sidekick-runkit` -- the repo this one was forked
+    from. A second machine follows that line literally and lands nowhere."""
+    doc = open(os.path.join(ROOT, "docs", "GETTING_STARTED.md")).read()
+    assert "notice-sidekick-runkit" not in doc
+    assert "potato-showcase" in doc
+
+
+def test_getting_started_mentions_the_two_things_git_cannot_bring():
+    """A clone gives you the code and the clips and not the key or the
+    firmware, and both failures look like something else: no key reads as the
+    planner being broken, and an unflashed board reads as the sensor being
+    dead."""
+    doc = open(os.path.join(ROOT, "docs", "GETTING_STARTED.md")).read()
+    assert ".env.example" in doc
+    assert "pio run -t upload" in doc

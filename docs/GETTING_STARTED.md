@@ -14,12 +14,28 @@ when something breaks you already know which layer it is in.
 ## 0. Logic only (5 minutes, no hardware)
 
 ```bash
-git clone <this repo> && cd notice-sidekick-runkit
+git clone https://github.com/cassie-zhu5621/potato-showcase.git
+cd potato-showcase
 python3 -m venv .venv && source .venv/bin/activate     # or conda; Python 3.10+
 pip install -r requirements.txt
 
-python3 tests/test_session_flow.py
+python3 -m pytest tests -q          # the whole suite
+python3 tests/test_session_flow.py  # or just the state machine, verbosely
 ```
+
+**The two things git cannot bring you**, both deliberate:
+
+```bash
+cp .env.example .env     # then put YOUR OWN Gemini key in it. Tier 2 only
+pio run -t upload        # the CoreS3's firmware lives in this repo but not on
+                         # the board. `tof_test.py` must then say the version
+                         # in VERSION_LOCK.json
+```
+
+The clips, the .blend sources, the MediaPipe weights and every threshold ARE
+in the repo -- a second machine reproduces the robot, not just the code. What
+is not: the API key, the detector weights (ultralytics fetches them on first
+run) and `session_feed/`, which is one machine's evidence and not shared.
 
 Expect `all paths pass` (86 assertions). This exercises every transition —
 STOP mid-scan, a transcript that arrives after its timeout, a tap in the wrong

@@ -128,3 +128,23 @@ def test_the_readme_invokes_the_script_by_absolute_path():
             f"{readme}: relative invocation. Use the absolute path -- the "
             f"script cd's to the repo itself, so it works from anywhere.")
         assert "bash /" in body, f"{readme}: no absolute invocation at all"
+
+
+def test_a_shipped_figure_has_the_object_its_rule_names():
+    """THE CHECK THAT WAS MISSED. A sweep whose rule binds to `plant` while
+    `coverage` says `plant: 0` shows five views and a set of boxes containing
+    everything except the thing the figure is about -- and the caption reads
+    fine, so it survives being read and only fails being looked at.
+
+    53 of the archive's 236 object-bound sweeps are like that."""
+    import glob as _g
+    import json as _j
+    for plan in _g.glob(os.path.join(ROOT, "fig", "*", "2_plan", "plan.json")):
+        p = _j.load(open(plan))
+        cov = p.get("coverage") or {}
+        ons = {w["on"] for w in (p.get("watch_spec") or {}).get("watch", [])
+               if isinstance(w, dict) and isinstance(w.get("on"), str)}
+        for o in ons:
+            assert cov.get(o, 0) > 0, (
+                f"{plan}: the rule is bound to {o!r} and the sweep found none "
+                f"(coverage={cov}). The panels cannot show what the rule names.")

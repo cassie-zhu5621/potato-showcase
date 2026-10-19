@@ -69,3 +69,7 @@ film_log_*.json
 !motion/robot_art/*.jpg
 motion/robot_art/_cuts_debug.png
 voice.h
+
+# Figure material: derived from session_feed, which is itself ignored.
+# Large jpgs, regenerable from the feed by the commands in fig/*/RUN_THIS.sh
+fig/

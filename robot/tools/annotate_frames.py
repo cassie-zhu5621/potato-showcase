@@ -53,9 +53,21 @@ def main():
                     help="text drawn top-left; empty for a clean figure")
     a = ap.parse_args()
 
+    # A PLACEHOLDER IS NOT A MISSING FILE, and saying "no frames matched" to
+    # somebody who pasted `<this folder>` sends them looking at their data.
+    # The docs that shipped with this tool had angle brackets in a block that
+    # reads as copy-pasteable, so this is the likelier mistake, not the rarer.
+    for v in list(a.frames) + [a.plan, a.out]:
+        if "<" in v or ">" in v:
+            sys.exit(f"{v!r} still has a placeholder in it. Every path here "
+                     f"wants to be absolute and real -- see the RUN_THIS.sh "
+                     f"next to the frames, which has them filled in.")
+    if not os.path.exists(a.plan):
+        sys.exit(f"no plan at {a.plan!r}")
     paths = sorted(p for g in a.frames for p in glob.glob(g))
     if not paths:
-        sys.exit("no frames matched")
+        sys.exit(f"no frames matched {a.frames!r}. Quote the glob so the shell "
+                 f"hands it over unexpanded, and check the directory exists.")
     plan = json.load(open(a.plan))
     spec = plan.get("watch_spec") or plan.get("spec") or {}
     os.makedirs(a.out, exist_ok=True)

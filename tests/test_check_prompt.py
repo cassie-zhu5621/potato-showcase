@@ -80,3 +80,37 @@ def test_the_constraints_come_from_the_code_not_a_copy():
     assert set(cp.ARITY) == {r["id"] for r in _CATALOG["relations"]}
     from planning.spec_utils import OBJECT_DIRECTED
     assert cp.OBJECT_DIRECTED is OBJECT_DIRECTED
+
+
+# --------------------------------------------------------------------------- #
+# A copy-pasteable block with <angle brackets> in it is a command that fails on
+# first contact. It did.
+# --------------------------------------------------------------------------- #
+def test_annotate_frames_refuses_a_placeholder_rather_than_blaming_the_data():
+    """`no frames matched` sent somebody looking at their session feed when
+    what was wrong was the command they had been handed."""
+    import subprocess
+    import sys as _s
+    r = subprocess.run(
+        [_s.executable, os.path.join(ROOT, "robot", "tools", "annotate_frames.py"),
+         "--plan", "<runkit>/plan.json", "--frames", "<here>/f_*.jpg",
+         "--out", "/tmp/x"],
+        capture_output=True, text=True, cwd=ROOT)
+    assert r.returncode != 0
+    assert "placeholder" in (r.stderr + r.stdout).lower()
+
+
+def test_the_shipped_command_has_no_placeholders_left_in_it():
+    """RUN_THIS.sh is the fix for the docs that caused it; if it grows one
+    back, the same evening repeats."""
+    import glob as _g
+    # COMMENTS STRIPPED. The warning about angle brackets is written in a
+    # comment and contains a pair of them, so a whole-file search fails on a
+    # correct script -- the same self-matching trap a guard in
+    # test_head_tap_picker.py hit, for the same reason.
+    for sh in _g.glob(os.path.join(ROOT, "fig", "*", "RUN_THIS.sh")):
+        code = [l for l in open(sh).read().split("\n")
+                if not l.lstrip().startswith("#")]
+        for line in code:
+            bare = line.replace("2>", "").replace(">>", "").replace(">&", "")
+            assert "<" not in bare and ">" not in bare, f"{sh}: {line}"

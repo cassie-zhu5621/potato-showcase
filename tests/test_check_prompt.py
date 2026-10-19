@@ -114,3 +114,17 @@ def test_the_shipped_command_has_no_placeholders_left_in_it():
         for line in code:
             bare = line.replace("2>", "").replace(">>", "").replace(">&", "")
             assert "<" not in bare and ">" not in bare, f"{sh}: {line}"
+
+
+def test_the_readme_invokes_the_script_by_absolute_path():
+    """A relative path in an instruction is a path that depends on where the
+    reader is standing, and the instruction did not say. Run from inside the
+    figure folder, `bash fig/<name>/RUN_THIS.sh` doubles the directory up and
+    fails -- the second copy-paste failure in a row from the same cause."""
+    import glob as _g
+    for readme in _g.glob(os.path.join(ROOT, "fig", "*", "README.md")):
+        body = open(readme).read()
+        assert "bash fig/" not in body, (
+            f"{readme}: relative invocation. Use the absolute path -- the "
+            f"script cd's to the repo itself, so it works from anywhere.")
+        assert "bash /" in body, f"{readme}: no absolute invocation at all"

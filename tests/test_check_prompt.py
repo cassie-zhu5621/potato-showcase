@@ -123,6 +123,11 @@ def test_the_readme_invokes_the_script_by_absolute_path():
     fails -- the second copy-paste failure in a row from the same cause."""
     import glob as _g
     for readme in _g.glob(os.path.join(ROOT, "fig", "*", "README.md")):
+        # Only where there IS a script to run. A folder of finished images has
+        # nothing to invoke, and demanding a `bash /...` line there would be a
+        # rule about this one folder pretending to be a rule about all of them.
+        if not os.path.exists(os.path.join(os.path.dirname(readme), "RUN_THIS.sh")):
+            continue
         body = open(readme).read()
         assert "bash fig/" not in body, (
             f"{readme}: relative invocation. Use the absolute path -- the "

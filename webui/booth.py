@@ -489,6 +489,12 @@ h1{font-weight:600;font-size:clamp(26px,3.4vh,40px);line-height:1.3;margin:0;let
   border:1px solid #3a3a35;color:#7c796f;white-space:nowrap}
 .rel.t{background:#88e4ea;border-color:#88e4ea;color:#101010;font-weight:700}
 .op{font-size:clamp(11px,1.1vw,15px);color:#55524b}
+/* THE CONNECTOR LIGHTS WITH THE RULE. `hands on` and `plant` both lit with a
+   dim `on` between them reads as two true things and an unresolved link -- but
+   the link is the claim: the hand is on THAT object. When the rule is true the
+   whole phrase is true, so the word joining it is lit too. Text, not a chip:
+   it is grammar, not a third thing being detected. */
+.rule.sat .op{color:#f2f0ea;font-weight:700}
 .obj{font-size:clamp(12px,1.3vw,18px);padding:4px 9px;border-radius:10px;
   background:#1c1c19;border:1px solid #3a3a35;color:#cfe33a}
 /* Lit when the relation is landing on THIS object, not merely when the rule

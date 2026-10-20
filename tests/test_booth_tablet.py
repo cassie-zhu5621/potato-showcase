@@ -650,3 +650,16 @@ def test_a_failed_plan_does_not_become_an_error_at_a_stand():
     assert 'ui_events.append("planned")' in demo, "it goes and watches instead"
     assert "richest_pan" in demo, "pointed at the busiest part of the room"
     assert 'plan_failed' in study, "and the study path still reports it"
+
+
+def test_the_connector_lights_with_the_rule():
+    """`hands on` and `plant` both lit with a dim `on` between them reads as two
+    true things and an unresolved link -- but the link IS the claim: the hand is
+    on that object. When the rule is true, the word joining it is lit too."""
+    import re
+    from webui.booth import PAGE
+    css = re.sub(r"/\*.*?\*/", "", PAGE, flags=re.S)
+    assert re.search(r"\.rule\.sat \.op\{[^}]*color:#f2f0ea", css), \
+        "the connector stays grey in a satisfied rule"
+    assert re.search(r"\.op\{[^}]*color:#55524b", css), \
+        "and stays dim while the rule is not yet true"

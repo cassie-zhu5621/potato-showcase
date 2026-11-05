@@ -30,14 +30,37 @@ from robot.clip_player import ClipPlayer    # noqa: E402
 from robot import states as ST              # noqa: E402
 from perception.headcam import HeadCam      # noqa: E402
 
+CAM = None
+
 STEP = 8.0
+WIN = "head camera -- SPACE: measure   q: quit"
+
+
+def show(cam, text=""):
+    """The live picture, so you can see what the head is looking at."""
+    im = cam.latest.copy()
+    h, w = im.shape[:2]
+    cv2.line(im, (w // 2 - 30, h // 2), (w // 2 + 30, h // 2), (0, 255, 255), 2)
+    cv2.line(im, (w // 2, h // 2 - 30), (w // 2, h // 2 + 30), (0, 255, 255), 2)
+    if text:
+        cv2.putText(im, text, (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1.0,
+                    (0, 255, 255), 2)
+    s = 960.0 / w
+    cv2.imshow(WIN, cv2.resize(im, (int(w * s), int(h * s))))
+    return cv2.waitKey(1) & 0xFF
+
+
+def wait(sec, cam, text):
+    t0 = time.time()
+    while time.time() - t0 < sec:
+        show(cam, text)
 
 
 def grab(cam, settle=0.8):
-    time.sleep(settle)
+    wait(settle, cam, "measuring...")
     seq = cam.seq
     while cam.seq < seq + 3:              # a few frames after the move ended
-        time.sleep(0.02)
+        show(cam, "measuring...")
     g = cv2.cvtColor(cam.latest, cv2.COLOR_BGR2GRAY).astype(np.float32)
     return cv2.GaussianBlur(g, (0, 0), 2)
 
@@ -51,6 +74,8 @@ def ramp(player, **to):
         u = i / n
         player.drive_deg(**{j: frm[j] + (to[j] - frm[j]) * u for j in to})
         time.sleep(1 / 30)
+        if CAM is not None:
+            show(CAM, "moving...")
 
 
 def shift(a, b):
@@ -69,12 +94,23 @@ def main():
     player.start(home=True)            # a timed move to centre, then idle
     player.stop(relax=False)           # stop the thread; drive_deg owns the bus
     cam = HeadCam(a.cam)
+    global CAM
+    CAM = cam
     w = cam.latest.shape[1]
     px_per_deg = w / ST.CAM_HFOV_DEG
     base = dict(pan=0.0, tilt=ST.LOOK_TILT, nod=ST.LOOK_NOD)
     try:
         ramp(player, **base)
-        f0 = grab(cam, 1.5)
+        # LOOK FIRST. This is the head's own view; aim it (or turn the whole
+        # robot) at something with texture, then press SPACE.
+        while True:
+            k = show(cam, "aim at something textured, then SPACE")
+            if k == ord(" "):
+                break
+            if k in (ord("q"), 27):
+                print("quit -- nothing measured")
+                return 1
+        f0 = grab(cam, 0.5)
         ramp(player, **dict(base, pan=base["pan"] + STEP))
         f1 = grab(cam)
         dx, _, r1 = shift(f0, f1)
@@ -84,8 +120,11 @@ def main():
         f2 = grab(cam)
         _, dy, r2 = shift(f0, f2)
         ramp(player, **base)
+        show(cam, "done -- see the terminal")
+        cv2.waitKey(800)
     finally:
         cam.close()
+        cv2.destroyAllWindows()
 
     print(f"pan +{STEP:.0f} deg -> picture moved {dx:+.0f} px (confidence {r1:.2f})")
     print(f"nod +{STEP:.0f} deg -> picture moved {dy:+.0f} px (confidence {r2:.2f})")

@@ -36,7 +36,7 @@ PAGE = """<!doctype html><html><head><meta charset=utf-8>
 html,body{margin:0;height:100%;background:#141414;color:#f2f0ea;
  font-family:-apple-system,"SF Pro Text",Helvetica,Arial,sans-serif;overflow:hidden;
  user-select:none}
-#top{height:42vh;display:flex;flex-direction:column;align-items:center;
+#top{height:40vh;display:flex;flex-direction:column;align-items:center;
  justify-content:center;gap:2vh}
 #face{font:700 clamp(64px,14vw,190px) ui-monospace,Menlo,monospace;color:#cfe33a;
  transition:transform .25s}
@@ -46,17 +46,17 @@ html,body{margin:0;height:100%;background:#141414;color:#f2f0ea;
 #cap{font-size:clamp(20px,3vw,38px);color:#cfcabd;min-height:1.4em;text-align:center;
  padding:0 4vw}
 #hint{font-size:clamp(15px,1.8vw,22px);color:#7d796f;text-align:center}
-#wall{height:58vh;overflow:hidden;display:grid;grid-template-columns:repeat(3,1fr);
- gap:14px;padding:0 22px 22px}
+#wall{height:60vh;overflow:hidden;display:grid;grid-template-columns:repeat(3,1fr);
+ grid-auto-rows:max-content;align-content:start;gap:14px;padding:0 22px 22px}
 .card{background:#1e1e1b;border-radius:16px;overflow:hidden;display:flex;
  flex-direction:column;animation:in .5s ease-out}
 @keyframes in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-.card img{width:100%;height:20vh;object-fit:cover;background:#000;display:block}
+.card img{width:100%;height:15vh;object-fit:cover;background:#000;display:block}
 .card.taken img{object-fit:contain}
 .card .t{padding:10px 14px 4px;font-weight:700;font-size:clamp(14px,1.6vw,20px)}
 .card .l{padding:0 14px 12px;color:#bdb8aa;font-size:clamp(13px,1.4vw,18px);line-height:1.35}
 .card.taken{grid-column:span 3}
-.card.taken img{height:24vh}
+.card.taken img{height:19vh}
 .tag{display:inline-block;font-size:.75em;padding:2px 8px;border-radius:10px;
  margin-right:8px;background:#cfe33a;color:#141414;font-weight:700}
 .taken .tag{background:#ff6b8b}

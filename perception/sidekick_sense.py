@@ -120,9 +120,17 @@ def _head_point(person) -> Optional[Tuple[float, float]]:
     return None
 
 
+MIN_WRIST_VIS = 0.3        # PoseLandmarker always returns a wrist, guessing
+                           # it when the hand is out of frame; a guessed wrist
+                           # near the guarded thing would be a false "I see you"
+
+
 def _hand_points(person):
     for j in HAND_PTS:
-        if j in person.pts and (j in (15, 16) or person.vis.get(j, 0) >= MIN_HAND_VIS):
+        if j not in person.pts:
+            continue
+        need = MIN_WRIST_VIS if j in (15, 16) else MIN_HAND_VIS
+        if person.vis.get(j, 0) >= need:
             yield person.pts[j]
 
 

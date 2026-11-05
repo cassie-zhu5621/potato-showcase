@@ -224,6 +224,7 @@ class CoreS3Link:
     def tofdiag(self):            self.event("TOFDIAG")# -> IN TOFDIAG calls=.. ready=..
     def tofraw(self):             self.event("TOFRAW") # -> IN TOFRAW rdy=.. signal=..
     def tofbus(self, n):          self.event("TOFBUS", int(n))  # 0=Wire 1=Wire1
+    def skface(self, text):       self.event("SKFACE", str(text)[:8])  # v19 sidekick
     def say(self, n=1):           self.event("SAY", int(n))  # a baked-in line
     def dist(self, on=True):      self.event("DIST", 1 if on else 0)  # the 20 Hz stream
     def beat(self, period_ms):    self.event("BEAT", int(period_ms))  # one line per beat

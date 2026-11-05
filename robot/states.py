@@ -261,9 +261,10 @@ STATES = {
         note="'what's that?': pulls back, leans in onto it, two rising lifts."),
 
     "SK_ACK": dict(
-        clip="SK_ACK", loop=False, then="SK_LOOK", relative="entry",
+        clip="SK_ACK", loop=False, then=None, resume=True, relative="entry",
         hue="cool", sfx="ack", sfx_at=0.25, sfx_flash=None, sfx_loop=False,
-        screen="idle", enter="prop held still / owner back", exit="-> SK_LOOK",
+        screen="idle", enter="prop held still / owner back",
+        exit="resumes (following the prop), or as the brain asks",
         note="S2's two-dip nod, wherever the robot is already looking."),
 
     "SK_PURR": dict(

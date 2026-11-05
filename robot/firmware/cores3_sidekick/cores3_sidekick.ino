@@ -36,6 +36,7 @@
  *     EVT HUE <WARM|COOL|RED|SUMMON|SPENT>  colour = which KIND of state
  *       (GREEN/ALARM still accepted -- old names, new colours)
  *     EVT SFX <name>       curious ack shutter puzzled excited lost purr alert | NONE
+ *     EVT SKFACE <text>    sidekick mode: one big face, no buttons (v19)
  *     EVT LEVEL <0-100>    mic level for the recording bar
  *     EVT VOL <0-255>      speaker volume; 0 for a silent run
  *     EVT NAME <text>      what the participant called it. ASCII only (the GFX
@@ -744,6 +745,8 @@ void uiLayout() {
     // The laptop already gives up by itself after ST.S8_RECOVER_S (16 s). This
     // makes the same exit reachable immediately by whoever is watching.
     uiBtns[uiNBtn++] = {"OK", 88, 168, 144, 64, COL_GREEN, "OK"};
+  } else if (uiScreen == "sk") {
+    // sidekick mode: no buttons. The head is touched, not the screen.
   } else if (uiScreen == "black") {
     // S1 FILMING ONLY (`EVT UI black`, sent by tools/film_s1.py): a screen
     // with a state word on it is a printed answer key -- the study's rule is
@@ -796,6 +799,10 @@ void uiDrawBar() {
 // non-Latin name comes out as blanks and does so SILENTLY. The study asks for
 // Latin names for this reason.
 String botName = "";
+// v19, sidekick mode: the face the laptop says it is wearing. Drawn large and
+// alone, no buttons -- in that mode the body and the head are the interface,
+// and this screen is only the face that agrees with them.
+String skFace = "-_-";
 
 // Big for a short name, smaller for a long one, rather than one size that either
 // wastes the screen or overruns it. Char cell is 6*size px wide; 300 px usable.
@@ -936,6 +943,11 @@ void uiDraw() {
       M5.Display.drawString("z z z", SCREEN_W / 2 + 66, 64);
     }
     M5.Display.setTextDatum(middle_center);
+  } else if (uiScreen == "sk") {
+    M5.Display.setTextColor(TFT_WHITE);
+    M5.Display.setTextDatum(middle_center);
+    M5.Display.setTextSize(skFace.length() > 5 ? 6 : 8);
+    M5.Display.drawString(skFace, SCREEN_W / 2, 120);
   } else if (uiScreen == "black") {
     // nothing: the fillScreen at the top already painted it black, and the
     // final else would print uiText() -- exactly the caption this screen
@@ -1221,6 +1233,8 @@ void handleLine(String line) {
                                // while the researcher watches to see it took.
                                if (uiScreen == "idle" || uiScreen == "hello") uiDraw(); }
   else if (cmd == "UI")      uiSet(arg);
+  else if (cmd == "SKFACE")  { skFace = arg;
+                               if (uiScreen == "sk") uiDraw(); else uiSet("sk"); }
   else if (cmd == "NOTICED") { noticedN = arg.toInt();
                                if (uiScreen == "noticed") uiDraw(); }
   else if (cmd == "LEVEL")   recLevel = arg.toInt();

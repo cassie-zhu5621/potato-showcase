@@ -340,6 +340,7 @@ class ClipPlayer:
         self._glance_target = None    # SK_GLANCE's bearing, Blender degrees
         self._resume_to = None        # the state a `resume` one-shot interrupted
         self._resume_override = None  # request(..., resume_to=) for the next one
+        self._as_authored = False     # request(..., as_authored=True) for the next one
         self._warned_no_user_pan = False   # warn once per run, not once per S7
         self.clips = {}
         for fn in sorted(os.listdir(clips_dir)):
@@ -513,7 +514,7 @@ class ClipPlayer:
         with self._lock:
             self._next_override = state
 
-    def request(self, state, resume_to=None):
+    def request(self, state, resume_to=None, as_authored=False):
         """Ask for a state. Takes effect within a frame; interrupts a clip.
 
         CLEARS ANY PENDING `arm_next`, so ARM AFTER YOU REQUEST, never before.
@@ -543,6 +544,11 @@ class ClipPlayer:
             # back to what it interrupted. A pat that wakes a dozing robot should
             # end with it awake and looking, not asleep again.
             self._resume_override = resume_to
+            # Play a `relative` clip from its AUTHORED pose this once: the
+            # player travels there first, as it does for any clip. A touch on a
+            # sleeping robot wants the whole lift into the hand, not the same
+            # small rise starting from a head that is hanging down.
+            self._as_authored = bool(as_authored)
 
     @property
     def settled_ms(self):
@@ -826,6 +832,10 @@ class ClipPlayer:
                     self._resume_to = prev
             frames = self.clips[spec["clip"]]
             rel = spec.get("relative")
+            with self._lock:
+                authored, self._as_authored = self._as_authored, False
+            if authored:
+                rel = None
             if rel:
                 entry = {j: unit_to_deg(j, self.cur[j]) for j in JOINTS}
                 scale = 1.0

@@ -122,13 +122,16 @@ class Brain:
         t = self.now()
         if self.phase == "DOZE" and "notice" not in self.on:
             # Stage 1: a touch is answered and the robot goes back to resting.
-            self.p.request("SK_PURR", resume_to=self.rest)
+            # From the sleeping pose the purr is played AS AUTHORED: the head
+            # comes all the way up into the hand first. Translated onto a head
+            # hanging 42 deg down, the same rise never reached the hand.
+            self.p.request("SK_PURR", resume_to=self.rest, as_authored=True)
             self.face = KAOMOJI["PURR"]
         elif self.phase == "DOZE":
             # A touch wakes it, and it leans into the hand as it wakes.
             pose = self.p.pose_deg()
             self.p.set_aim_deg(pan=pose["pan"], tilt=ST.LOOK_TILT, nod=ST.LOOK_NOD)
-            self.p.request("SK_PURR", resume_to="SK_LOOK")
+            self.p.request("SK_PURR", resume_to="SK_LOOK", as_authored=True)
             self._last_near = t
             self._go("LOOK", face="PURR", say="Hello!")
         elif self.phase in ("LOOK", "SHOW"):

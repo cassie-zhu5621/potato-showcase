@@ -213,3 +213,21 @@ def test_the_alert_keeps_the_eye_on_the_guarded_thing(clips_dir):
         assert _wait(lambda: p.state == "SK_GUARD")
     finally:
         p.stop(relax=False)
+
+
+def test_a_touch_on_a_sleeping_robot_lifts_all_the_way(clips_dir):
+    """as_authored: the purr from S0 reaches the same height as on the bench."""
+    p = _player(clips_dir)
+    p.start(home=False)
+    try:
+        p.request("S0_IDLE")
+        assert _wait(lambda: p.state == "S0_IDLE")
+        top = max(CP.unit_to_deg("nod", f["nod"]) for f in p.clips["SK_PURR"])
+        seen = []
+        p.request("SK_PURR", resume_to="S0_IDLE", as_authored=True)
+        assert _wait(lambda: p.state == "SK_PURR")
+        _wait(lambda: (seen.append(p.pose_deg()["nod"]) or p.state != "SK_PURR"), 6)
+        assert max(seen) > top - 1.0
+        assert _wait(lambda: p.state == "S0_IDLE")
+    finally:
+        p.stop(relax=False)

@@ -25,7 +25,8 @@ class FakePlayer:
         self.log = []
         self._resume = None
 
-    def request(self, s, resume_to=None):
+    def request(self, s, resume_to=None, as_authored=False):
+        self.as_authored = as_authored
         spec = ST.STATES[s]
         if spec.get("resume"):
             self._resume = resume_to or self.state
@@ -205,7 +206,7 @@ def test_stage_1_answers_a_touch_and_nothing_else():
         step(clock, brain, 0.25, people=[face(20.0)])
     assert player.log == [] and brain.phase == "DOZE"
     brain.on_tap()
-    assert player.state == "SK_PURR"
+    assert player.state == "SK_PURR" and player.as_authored   # the full lift
     player.finish()
     assert player.state == "S0_IDLE"           # and back to resting
 

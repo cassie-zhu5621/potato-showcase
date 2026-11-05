@@ -35,7 +35,7 @@
  *                          link is not a frozen LED.
  *     EVT HUE <WARM|COOL|RED|SUMMON|SPENT>  colour = which KIND of state
  *       (GREEN/ALARM still accepted -- old names, new colours)
- *     EVT SFX <name>       curious ack shutter puzzled excited lost | NONE
+ *     EVT SFX <name>       curious ack shutter puzzled excited lost purr alert | NONE
  *     EVT LEVEL <0-100>    mic level for the recording bar
  *     EVT VOL <0-255>      speaker volume; 0 for a silent run
  *     EVT NAME <text>      what the participant called it. ASCII only (the GFX
@@ -43,7 +43,7 @@
  *                          `hello`. Data, not firmware: one flash teaches the
  *                          command, every later name is a serial line.
  *     EVT REST             end of a run: go quiet, back to idle + warm breath
- *     EVT PING             -> `IN PONG cores3_sidekick v18`
+ *     EVT PING             -> `IN PONG cores3_sidekick v19`
  *
  *   BUMP THE VERSION WITH EVERY FLASH THAT MATTERS. This link is flaky enough
  *   that an upload can fail after the sketch has compiled, and then the board
@@ -622,6 +622,8 @@ void checkTap() {
 //   puzzled  ends up an unresolved question (S6)
 //   excited  rises   calling you over from across the desk (S5A_FOUND)
 //   lost     wanders odd intervals, drifting down, unresolved (S8)
+//   purr     low     a soft low trill under a hand (SK_PURR, sidekick mode, v19)
+//   alert    two     two short level blips: "I see you" (SK_GUARD_ALERT, v19)
 const int SFX_MAX = 10;
 Note sfxSeq[SFX_MAX];
 int sfxLen = 0, sfxIdx = 0;
@@ -653,6 +655,14 @@ const Note SFX_EXCITED[] = {{1000, 55}, {1350, 55}, {1800, 85}, {0, 55}, {1800, 
 // not resolve, not from being loud
 const Note SFX_LOST[]    = {{820, 150}, {605, 110}, {700, 170}, {515, 210},
                             {0, 110}, {560, 95}};
+// v19, sidekick mode. PURR is the only sound in the low register: everything
+// else is a signal, this is contentment, and it should sit under the hand
+// rather than reach across the room. Soft repeated low notes read as a trill.
+const Note SFX_PURR[]    = {{440, 70}, {0, 25}, {470, 70}, {0, 25}, {440, 70},
+                            {0, 25}, {500, 120}};
+// ALERT is LEVEL, not rising: it is not calling anyone over (that is EXCITED,
+// which rises) and not a question. Two short identical blips: "I see you".
+const Note SFX_ALERT[]   = {{1700, 45}, {0, 60}, {1700, 45}};
 
 void sfxByName(const String& n) {
   String k = n; k.toUpperCase();
@@ -662,6 +672,8 @@ void sfxByName(const String& n) {
   else if (k == "PUZZLED") sfxStart(SFX_PUZZLED, 3);
   else if (k == "EXCITED") sfxStart(SFX_EXCITED, 5);
   else if (k == "LOST")    sfxStart(SFX_LOST, 6);
+  else if (k == "PURR")    sfxStart(SFX_PURR, 7);
+  else if (k == "ALERT")   sfxStart(SFX_ALERT, 3);
   else if (k == "NONE")    { sfxLen = sfxIdx = 0; }
 }
 
@@ -1321,7 +1333,7 @@ void handleLine(String line) {
     setAntennaHue(255, 242, 224);   // = WARM. Keep in sync with HUE above.
     uiSet("idle");
   }
-  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v18");
+  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v19");
   // ASKABLE, because the boot line is not readable. USB CDC enumerates after
   // setup() has already run, so `IN TOF READY` and `IN TOF FAIL` are printed
   // into a port nothing is listening to yet and are simply lost. Without this
@@ -1440,7 +1452,7 @@ void setup() {
   tapInit();
   tofInit();
   uiDraw();                 // the idle screen, immediately -- no legacy layout
-  Serial.println("IN HELLO cores3_sidekick v18");
+  Serial.println("IN HELLO cores3_sidekick v19");
 }
 
 void loop() {

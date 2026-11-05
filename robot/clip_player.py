@@ -139,6 +139,59 @@ def shift_pan_centre(frames, to_deg, verbose=True):
     return out
 
 
+def deg_to_cmd(joint, deg):
+    """Blender degrees -> commanded unit, through the same raw-unit path the
+    clips take (resolve applies INVERT, the calibrated centre and the limits).
+    Returns (unit, was_clamped)."""
+    return resolve(joint, max(0, min(1023, round((deg + 150.0) / 300.0 * 1023))))
+
+
+def make_relative(frames, entry_deg, pan_scale=1.0, verbose=True, label=""):
+    """Translate a clip so its first frame is the robot's current pose.
+
+    For the sidekick clips (states.py `relative`). They are authored from a
+    template pose, but they happen wherever the robot already is -- a prop can
+    be held up anywhere -- and the library rule is that a clip inherits the pose
+    it is entered from. Every joint is moved by a constant, so every excursion,
+    velocity and the whole clock survive untouched (the same argument as
+    shift_pan_centre, applied to all three joints).
+
+    `pan_scale` is for SK_GLANCE only: its pan excursion is authored at the
+    widest glance and scaled DOWN onto the real bearing, so its speed can only
+    fall. A negative scale turns the same glance the other way.
+    """
+    if not frames:
+        return frames
+    f0 = {j: unit_to_deg(j, frames[0][j]) for j in JOINTS}
+    out, clamped = [], set()
+    for f in frames:
+        g = dict(f)
+        for j in JOINTS:
+            d = unit_to_deg(j, f[j]) - f0[j]
+            if j == "pan":
+                d *= pan_scale
+            u, was = deg_to_cmd(j, entry_deg[j] + d)
+            if was:
+                clamped.add(j)
+            g[j] = u
+        out.append(g)
+    if verbose:
+        print(f"[relative] {label} from pan {entry_deg['pan']:+.0f} / tilt "
+              f"{entry_deg['tilt']:+.0f} / nod {entry_deg['nod']:+.0f}"
+              + (f", pan x{pan_scale:+.2f}" if pan_scale != 1.0 else "")
+              + (f"   !! clamped on {sorted(clamped)}: the gesture runs into "
+                 f"the reach from here" if clamped else ""))
+    return out
+
+
+def min_jerk(u):
+    u = max(0.0, min(1.0, u))
+    return u * u * u * (10.0 + u * (-15.0 + 6.0 * u))
+
+
+LIVE_LED = 96          # live states hold the attending level (S4B's crest)
+
+
 def remap_share_pan(frames, user_deg, object_deg, ceiling_dps=120.0,
                     verbose=True):
     """Move S7's two authored pan plateaus onto the real ones.
@@ -251,8 +304,9 @@ def load_clip(path, loops=False):
 
 class ClipPlayer:
     def __init__(self, bus, clips_dir=DEFAULT_CLIPS, verbose=True, on_led=None,
-                 on_sfx=None):
+                 on_sfx=None, sidekick=False):
         self.bus = bus
+        self.sidekick = sidekick
         self.verbose = verbose
         # Dead-band feedforward. Off if the floors have never been measured --
         # guessing them would make the motion worse, not better.
@@ -282,6 +336,9 @@ class ClipPlayer:
         self._pan_pending = None      # armed now, applied when S4B_WATCH begins
         self._next_override = None    # armed now, consumed by the next `then`
         self._user_pan = None         # where the person is; None = play S7 as authored
+        self._aim = {}                # live-aim target, Blender degrees per joint
+        self._glance_target = None    # SK_GLANCE's bearing, Blender degrees
+        self._resume_to = None        # the state a `resume` one-shot interrupted
         self._warned_no_user_pan = False   # warn once per run, not once per S7
         self.clips = {}
         for fn in sorted(os.listdir(clips_dir)):
@@ -307,7 +364,7 @@ class ClipPlayer:
                     print(f"[player] {name}: no authored LED envelope -- the "
                           f"CoreS3 runs its own for this state")
 
-        problems = ST.validate(set(self.clips))
+        problems = ST.validate(set(self.clips), sidekick=sidekick)
         if problems:
             raise RuntimeError("state table does not match the clips:\n  "
                                + "\n  ".join(problems))
@@ -416,6 +473,32 @@ class ClipPlayer:
         if self.verbose:
             print(f"[share] user pan "
                   f"{'cleared' if val is None else f'{val:+.1f} deg'}")
+
+    def set_aim_deg(self, **deg):
+        """Where a live state (SK_LOOK, SK_FOLLOW) should look, in Blender
+        degrees, per joint; a joint left out keeps its current angle. Replaces
+        the previous target. Safe from any thread."""
+        clean = {}
+        for j, d in deg.items():
+            if j not in JOINTS:
+                raise KeyError(j)
+            if d is not None:
+                clean[j] = clamp_deg(j, d)[0]
+        with self._lock:
+            self._aim = clean
+
+    def clear_aim(self):
+        with self._lock:
+            self._aim = {}
+
+    def set_glance_target_deg(self, deg):
+        """The bearing SK_GLANCE turns to. Set BEFORE requesting SK_GLANCE."""
+        with self._lock:
+            self._glance_target = None if deg is None else clamp_deg("pan", deg)[0]
+
+    def pose_deg(self):
+        with self._lock:
+            return {n: unit_to_deg(n, u) for n, u in self.cur.items()}
 
     def arm_next(self, state):
         """Override the NEXT `then`, once. Consumed when a one-shot finishes.
@@ -716,7 +799,33 @@ class ClipPlayer:
                 continue
 
             spec = ST.STATES[nxt]
+            prev = self.state
+            if spec.get("live"):
+                # No clip: aim in saccades until something else is requested.
+                self._pan_override = None
+                self.state, self.loops_done = nxt, 0
+                if self.verbose:
+                    print(f"[player] {nxt}: {spec['note']}")
+                self._live()
+                continue
+            if spec.get("resume"):
+                # Remember what was interrupted -- but never another interjection,
+                # or a pat during a glance would resume into the glance.
+                if prev and not ST.STATES.get(prev, {}).get("resume"):
+                    self._resume_to = prev
             frames = self.clips[spec["clip"]]
+            rel = spec.get("relative")
+            if rel:
+                entry = {j: unit_to_deg(j, self.cur[j]) for j in JOINTS}
+                scale = 1.0
+                if rel == "target":
+                    with self._lock:
+                        tgt = self._glance_target
+                    if tgt is not None:
+                        lim = ST.GLANCE_TEMPLATE_DEG
+                        scale = max(-lim, min(lim, tgt - entry["pan"])) / lim
+                frames = make_relative(frames, entry, pan_scale=scale,
+                                       verbose=self.verbose, label=nxt)
             # S7 is the only gesture that names two places, and the two are known
             # in DIFFERENT WAYS. Keeping that distinction is the whole point:
             #
@@ -794,9 +903,13 @@ class ClipPlayer:
             # which is the same reason S4 sweeps level.
             # Two transitions are authored, and both as SPEEDS rather than as
             # clips, because neither knows its distance until runtime.
-            self._goto(first, label=f"-> {nxt}",
-                       dps={"S4A_SETTLE": REAIM_DPS,
-                            "S7_ERROR": COLLAPSE_DPS}.get(nxt))
+            # A relative clip already starts where the robot is. A zero-length
+            # _goto would still cost MIN_MOVE_MS plus the arrival check, and a
+            # touch answered 0.4 s late is not an answer to that touch.
+            if not (rel and all(abs(first[j] - self.cur[j]) <= 2 for j in JOINTS)):
+                self._goto(first, label=f"-> {nxt}",
+                           dps={"S4A_SETTLE": REAIM_DPS,
+                                "S7_ERROR": COLLAPSE_DPS}.get(nxt))
             self.state, self.loops_done = nxt, 0
             self._flash_sfx = spec.get("sfx_flash")
             self._in_flash = False
@@ -853,9 +966,72 @@ class ClipPlayer:
                         nxt2, self._next_override = self._next_override, None
                         if not self._want:
                             self._want = nxt2 or spec["then"]
+                elif spec.get("resume"):
+                    with self._lock:
+                        back, self._resume_to = self._resume_to, None
+                        if not self._want and back:
+                            self._want = back
                 break
             # A one-shot with no `then` simply holds its last pose: fall back to
             # the outer loop and wait for the next request.
+
+    def _live(self):
+        """SK_LOOK / SK_FOLLOW: aim at a moving target in SACCADES.
+
+        The servos step below 8.8 deg/s, so smooth pursuit is not available on
+        this hardware. Eyes solve the same problem the same way: hold still,
+        and when the target has moved further than a dead band, jump to it with
+        one quick minimum-jerk movement and hold again. Each joint's dead band
+        is above its amplitude floor (states.AIM_DEAD_DEG), so every saccade is
+        one the joint actually makes, and between saccades the head is still --
+        which is also when the camera gets a clean frame.
+
+        A saccade in flight is not retargeted: it lands, and the next one
+        corrects. Retargeting mid-flight is what makes a tracking head wobble.
+        """
+        period = 1.0 / 30.0
+        cur = {j: unit_to_deg(j, self.cur[j]) for j in JOINTS}
+        move = None
+        last_led = 0.0
+        for sid in IDS.values():
+            self.bus.torque(sid, True)
+        n = 0
+        while True:
+            with self._lock:
+                if self._want or self._stop:
+                    self.bus.flush_input()
+                    return
+                aim = dict(self._aim)
+            now = time.perf_counter()
+            if self.on_led is not None and now - last_led > LED_HEARTBEAT_S:
+                last_led = now
+                try:
+                    self.on_led(LIVE_LED)
+                except Exception:
+                    pass
+            if move is None and aim:
+                end, dist = dict(cur), 0.0
+                for j, d in aim.items():
+                    if abs(d - cur[j]) >= ST.AIM_DEAD_DEG[j]:
+                        end[j] = d
+                        dist = max(dist, abs(d - cur[j]))
+                if dist > 0.0:
+                    dur = max(ST.AIM_MIN_S, 1.875 * dist / ST.AIM_PEAK_DPS)
+                    move = (now, dur, dict(cur), end)
+            if move is not None:
+                t0, dur, a, b = move
+                u = (now - t0) / dur
+                if u >= 1.0:
+                    pose, move = b, None
+                else:
+                    e = min_jerk(u)
+                    pose = {j: a[j] + (b[j] - a[j]) * e for j in JOINTS}
+                self._send({j: deg_to_cmd(j, pose[j])[0] for j in JOINTS})
+                cur = pose
+            n += 1
+            if n % 30 == 0:
+                self.bus.flush_input()
+            time.sleep(max(0.0, period - (time.perf_counter() - now)))
 
 
 def _main():

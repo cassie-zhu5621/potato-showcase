@@ -27,7 +27,10 @@ def test_it_is_a_reflex_and_never_a_state():
     # docs/STATE_NAMES.md was written to end.
     import re
     assert "R_GREET" not in ST.STATES
-    nums = {int(re.match(r"S(\d)", k).group(1)) for k in ST.STATES}
+    # The sidekick mode's SK_* states are a separate vocabulary for the
+    # showcase-1108 booth; they never take a paper number.
+    nums = {int(re.match(r"S(\d)", k).group(1)) for k in ST.STATES
+            if not ST.is_sidekick(k)}
     assert nums == set(range(8)), nums
     code = "\n".join(l for l in BLOCK.split("\n")
                      if not l.strip().startswith("#"))

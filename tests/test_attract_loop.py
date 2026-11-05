@@ -36,7 +36,8 @@ def test_every_beat_names_a_real_state():
 def test_it_shows_the_whole_vocabulary():
     """A stand should show the grammar, not a favourite part of it."""
     seen = {s for s, _h, _w in attract.BEATS}
-    assert seen == set(ST.STATES), sorted(set(ST.STATES) - seen)
+    paper = {s for s in ST.STATES if not ST.is_sidekick(s)}
+    assert seen == paper, sorted(paper - seen)
 
 
 def test_error_is_last():

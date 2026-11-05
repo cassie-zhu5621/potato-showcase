@@ -214,7 +214,89 @@ STATES = {
         # every 4. The exit here is STOP only, so this can run for minutes.
         screen="error", enter="anything unrecoverable", exit="STOP only",
         note="confused / cannot proceed. Loops until a human intervenes."),
+
+    # ---- SIDEKICK MODE (showcase-1108) --------------------------------------
+    # Attending WITH the visitor rather than noticing FOR them. Clips are made by
+    # motion/blender/generate_sk_*.py. Three new fields, read only by the player:
+    #
+    #   live      no clip: the player aims the head at a target the conductor
+    #             keeps updating (set_aim_deg), in saccades -- see LIVE AIM below
+    #   relative  "entry"  : the clip is translated so its first frame is
+    #                        wherever the robot already is (all three joints)
+    #             "target" : as entry, and the pan excursion is also scaled onto
+    #                        the bearing given by set_glance_target_deg
+    #   resume    a one-shot that interrupts: when it ends, the player returns to
+    #             the state it interrupted (a pat never costs a visitor their place)
+    #
+    # A clip-less (live) state still names a `clip` for the table's shape; the
+    # player and validate() skip it.
+    "SK_DOZE": dict(
+        clip="SK_DOZE", loop=True, then=None, hue="warm",
+        sfx=None, sfx_at=0.0, sfx_flash=None, sfx_loop=False,
+        screen="idle", enter="sidekick mode rest", exit="someone near / a touch",
+        note="dozing: head up, camera on the room, body still, LED breathing."),
+
+    "SK_GLANCE": dict(
+        clip="SK_GLANCE", loop=False, then=None, resume=True, relative="target",
+        hue="warm", sfx=None, sfx_at=0.0, sfx_flash=None, sfx_loop=False,
+        screen="idle", enter="a passer-by, from SK_DOZE", exit="resumes",
+        note="looks at someone passing, holds the look, goes back to dozing."),
+
+    "SK_LOOK": dict(
+        clip="SK_LOOK", live=True, loop=True, then=None, hue="cool",
+        sfx=None, sfx_at=0.0, sfx_flash=None, sfx_loop=False,
+        screen="idle", enter="someone close", exit="a prop / the mat / leaving",
+        note="looks at the visitor's face, following them in saccades."),
+
+    "SK_FOLLOW": dict(
+        clip="SK_FOLLOW", live=True, loop=True, then=None, hue="cool",
+        sfx=None, sfx_at=0.0, sfx_flash=None, sfx_loop=False,
+        screen="idle", enter="after SK_CURIOUS", exit="prop held still / gone",
+        note="follows the prop the visitor is moving, like a cat."),
+
+    "SK_CURIOUS": dict(
+        clip="SK_CURIOUS", loop=False, then="SK_FOLLOW", relative="entry",
+        hue="cool", sfx="curious", sfx_at=0.55, sfx_flash=None, sfx_loop=False,
+        screen="idle", enter="a prop held up to it", exit="-> SK_FOLLOW",
+        note="'what's that?': pulls back, leans in onto it, two rising lifts."),
+
+    "SK_ACK": dict(
+        clip="SK_ACK", loop=False, then="SK_LOOK", relative="entry",
+        hue="cool", sfx="ack", sfx_at=0.25, sfx_flash=None, sfx_loop=False,
+        screen="idle", enter="prop held still / owner back", exit="-> SK_LOOK",
+        note="S2's two-dip nod, wherever the robot is already looking."),
+
+    "SK_PURR": dict(
+        clip="SK_PURR", loop=False, then=None, resume=True, relative="entry",
+        hue="warm", sfx="purr", sfx_at=0.05, sfx_flash=None, sfx_loop=False,
+        screen="idle", enter="a touch with no task", exit="resumes",
+        note="presses up into the hand, rocks under it, lets go."),
+
+    "SK_GUARD_ALERT": dict(
+        clip="SK_GUARD_ALERT", loop=False, then="S4B_WATCH", hue="cool",
+        sfx="alert", sfx_at=0.0, sfx_flash=None, sfx_loop=False,
+        screen="tracking", enter="a hand near the guarded thing",
+        exit="-> S4B_WATCH, or S5A_FOUND if it is taken",
+        note="straightens and freezes, eye still on the thing: 'I see you'."),
 }
+
+# ---- LIVE AIM (SK_LOOK, SK_FOLLOW) -------------------------------------------
+# The servos cannot track smoothly: anything slower than 8.8 deg/s steps
+# (generate_s0_idle.py). So live aim does what eyes do: it holds, and when the
+# target has moved further than the dead band it makes one quick minimum-jerk
+# saccade to it and holds again. Every movement is a real re-fixation.
+LOOK_TILT = -12.0          # = generate_sk_*.py LOOK_TILT. The neck while looking.
+LOOK_NOD = 22.0            # = generate_sk_*.py LOOK_NOD. Gaze +10.
+AIM_DEAD_DEG = {"pan": 4.0, "tilt": 3.0, "nod": 5.0}
+                           # above each joint's amplitude floor (1.76 / 2.05 /
+                           # 3.52), so every saccade is a movement the joint makes
+AIM_PEAK_DPS = 150.0       # under the 200 ceiling, with room for the dead-band lead
+AIM_MIN_S = 0.18           # a saccade is never shorter than this
+AIM_SAMPLE_SETTLED_MS = 150.0   # the conductor only aims from frames taken still
+CAM_HFOV_DEG = 58.0        # = generate_s3_scan.py CAM_HFOV (OV4688 module)
+AIM_X_SIGN = +1            # image right -> pan +1 or -1. SET ON HARDWARE with
+AIM_Y_SIGN = +1            # robot/tools/aim_check.py; image up -> nod +1 or -1.
+GLANCE_TEMPLATE_DEG = 60.0  # = generate_sk_glance.py TARGET_PAN
 
 # The designed cycle, for reference and for the runner's --demo sweep.
 CYCLE = ["S0_IDLE", "S1_ATTEND", "S2_ACKNOWLEDGE", "S3_SCAN", "S4A_SETTLE",
@@ -281,13 +363,16 @@ USER_FACING = ("S6_CORRECT",)
 # CV perceives here. Not S4 -- during the sweep the VLM is the only eye, because
 # annotating a frame before the model reads it feeds our guesses back as its
 # judgement.
-WATCHING = ("S4B_WATCH", "S6_CORRECT", "S5A_FOUND", "S5B_BECKON")
+WATCHING = ("S4B_WATCH", "S6_CORRECT", "S5A_FOUND", "S5B_BECKON",
+            "SK_GUARD_ALERT")
 
 # Clips whose pan channel is a CONSTANT, so the angle can simply be replaced: a
 # constant has no authored timing to damage. S4 is deliberately absent -- its
 # return is an eased curve authored for one distance, and stretching it would
 # rewrite the very thing the clip exists to carry.
-PAN_RETARGETABLE = ("S4B_WATCH", "S4A_SETTLE")
+PAN_RETARGETABLE = ("S4B_WATCH", "S4A_SETTLE", "SK_GUARD_ALERT")
+# SK_GUARD_ALERT holds the watch bearing as a constant, exactly like S4B, so the
+# guarded mat stays the bearing through the alert.
 
 # S7 returns to watching if nobody responds. Being ignored is a NORMAL outcome --
 # the person is busy, which is the premise of notice delegation. The finding is
@@ -790,11 +875,21 @@ STT_REJECT = dict(
 )
 
 
-SFX_NAMES = {"curious", "ack", "shutter", "puzzled", "excited", "lost"}
+SFX_NAMES = {"curious", "ack", "shutter", "puzzled", "excited", "lost",
+             "purr", "alert"}     # purr, alert: firmware v19 (sidekick mode)
 
 
-def validate(available):
-    """Cross-check the table against the clips actually on disk."""
+def is_sidekick(name):
+    """The SK_* states belong to the sidekick mode only (showcase-1108)."""
+    return name.startswith("SK_")
+
+
+def validate(available, sidekick=False):
+    """Cross-check the table against the clips actually on disk.
+
+    The SK_* clips are exported from Blender separately; until they are, the
+    paper flow must still start, so their absence is only a problem when the
+    sidekick mode is what is being run."""
     problems = []
     for name, s in STATES.items():
         for field in ("sfx", "sfx_flash"):
@@ -804,8 +899,19 @@ def validate(available):
                                 f"({sorted(SFX_NAMES)}) -- the firmware would "
                                 f"silently ignore it")
     for name, s in STATES.items():
-        if s["clip"] not in available:
-            problems.append(f"{name}: clip {s['clip']}.csv not found")
+        if s.get("live"):
+            if s.get("relative") or s.get("resume"):
+                problems.append(f"{name}: a live state has no clip to make "
+                                f"relative or to finish and resume from")
+        elif s["clip"] not in available and (sidekick or not is_sidekick(name)):
+            problems.append(f"{name}: clip {s['clip']}.csv not found"
+                            + (" -- export it from Blender, see motion/README.md"
+                               if is_sidekick(name) else ""))
+        if s.get("relative") not in (None, "entry", "target"):
+            problems.append(f"{name}: relative={s['relative']!r} is not "
+                            f"'entry' or 'target'")
+        if s.get("resume") and (s["then"] or s["loop"]):
+            problems.append(f"{name}: resume is for a one-shot with no then=")
         if s["then"] and s["then"] not in STATES:
             problems.append(f"{name}: then={s['then']} is not a state")
         if s["loop"] and s["then"]:

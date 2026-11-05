@@ -37,7 +37,7 @@ except ImportError:
 # "v3", this check still said "match", and the antenna was still blue. A version
 # that tracks only the protocol cannot answer the one question it is asked --
 # "is the thing in front of me built from the code in front of me".
-FIRMWARE_V = "v18"
+FIRMWARE_V = "v19"   # v19: purr + alert sounds for the sidekick mode
 
 
 def _older(board: str, want: str) -> bool:

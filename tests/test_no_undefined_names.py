@@ -32,7 +32,10 @@ def _python_files():
     out = subprocess.run(["git", "ls-files", "*.py"], cwd=ROOT,
                          capture_output=True, text=True)
     files = [f for f in out.stdout.split() if f]
-    return [f for f in files if not f.startswith("motion/blender/")]
+    # motion/sidekick/ is the same kind of script (Blender-only, and the
+    # generators exec sidekick_lib.py into their globals).
+    return [f for f in files
+            if not f.startswith(("motion/blender/", "motion/sidekick/"))]
 
 
 def test_no_undefined_names():

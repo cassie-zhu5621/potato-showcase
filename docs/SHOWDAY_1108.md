@@ -47,27 +47,17 @@ Touch the head: purr, then back to the sleeping pose. When that is right, move
 on to stage 2 and export its two clips. The table further down describes the
 finished booth (stage 4).
 
-### Exporting one clip (SK_PURR as the example)
+### Exporting one clip
 
-1. In Blender open `motion/src/S2_ACKNOWLEDGE.blend`.
-2. **File > Save As** `motion/src/SK_PURR.blend` (the S2 file is not changed).
-3. Text Editor > Open `motion/blender/generate_sk_purr.py` > Run Script.
-   A popup lists the beats; an error means a beat would not work on the
-   servos, and says which.
-4. Save. Open `motion/blender/export_clip.py` > Run Script.
-5. Copy `motion/src/export/SK_PURR.csv` to `motion/clips/`.
-6. `python3 robot/tools/play_on_hardware.py motion/clips/SK_PURR.csv`
-
-The other clips are the same steps with their own "start from" file (see
-`motion/README.md`).
+Step by step in `motion/sidekick/README.md` (SK_PURR as the example). The
+exporter there writes straight into `motion/clips/`.
 
 ## Before the day -- once (what each stage needs)
 
 ### 1. Export the six new clips (Blender)
 
-See `motion/README.md`, "Sidekick clips". For each SK clip: open the "start
-from" .blend, **Save As** `motion/src/<clip>.blend`, run its generator, save,
-run `export_clip.py`, copy `motion/src/export/<clip>.csv` to `motion/clips/`.
+See `motion/sidekick/README.md`. For each SK clip: Save As `SK_<NAME>.blend`,
+run its generator, save, run `export_sk_clip.py`.
 A generator that runs is a clip the servos can perform: it refuses anything
 under the amplitude or smoothness floors or over 200 deg/s.
 

@@ -1,7 +1,7 @@
-# sidekick_lib.py -- shared plumbing for the showcase-1108 clip generators
-# (generate_sk_*.py). Not run on its own: each generator exec()s it the same way
-# the S-clip generators exec reach.py, so it works from Blender's text editor
-# where imports from the repo are not on sys.path.
+# sidekick_lib.py -- shared plumbing for the showcase-1108 clip generators in
+# this folder (generate_sk_*.py, export_sk_clip.py). Not run on its own: each
+# script exec()s it, so it works from Blender's Text Editor, where the repo is
+# not on sys.path.
 #
 # WHAT IS SHARED, AND WHY IT IS ONLY PLUMBING. Every number that is a design
 # decision (poses, beats, timings) stays in the generator that owns it, in the
@@ -26,42 +26,37 @@ CEILING_DPS = 200.0
 EASE_PEAK = 1.875          # minimum-jerk peak / average velocity
 
 
-def _find_up(rel, starts, levels=8):
-    for s in starts:
-        if not s:
-            continue
-        d = os.path.abspath(s)
-        for _ in range(levels):
-            p = os.path.join(d, rel)
-            if os.path.exists(p):
-                return p
-            try:
-                subs = sorted(os.listdir(d))
-            except OSError:
-                subs = []
-            for name in subs:
-                if name.startswith("."):
-                    continue
-                p = os.path.join(d, name, rel)
-                if os.path.exists(p):
-                    return p
-            up = os.path.dirname(d)
-            if up == d:
-                break
-            d = up
-    return None
+# WHERE THINGS ARE. Found from THIS FILE, never from the .blend.
+#
+# The .blend files live in the design folder (robot_motion/model/...), not in
+# the showcase repo, so searching upward from the .blend finds nothing -- or
+# worse, finds the OTHER repo's reach.py and calibration, and checks the clip
+# against a robot that is not this one. The loader in each generator passes
+# _SK_DIR = the folder this file is in (motion/sidekick/ of the showcase repo).
+SK_DIR = globals().get("_SK_DIR") or os.path.dirname(os.path.abspath(__file__))
+REPO = os.path.dirname(os.path.dirname(SK_DIR))
+CLIPS_DIR = os.path.join(REPO, "motion", "clips")
 
-
-_starts = [os.path.dirname(bpy.data.filepath), os.getcwd()]
-_rp = (_find_up(os.path.join("motion", "blender", "reach.py"), _starts)
-       or _find_up("reach.py", _starts))
-if not _rp:
-    raise RuntimeError("Cannot find motion/blender/reach.py. Save the .blend "
-                       "inside the repo (motion/src/) and run again.")
+_rp = os.path.join(REPO, "motion", "blender", "reach.py")
+_cp = os.path.join(REPO, "robot", "calibration.py")
+for _need in (_rp, _cp):
+    if not os.path.exists(_need):
+        raise RuntimeError(f"Expected {_need} -- is motion/sidekick/ still inside "
+                           f"the showcase repo?")
 reach = type(sys)("reach")
 reach.__file__ = _rp
 with open(_rp) as _fh:
     exec(compile(_fh.read(), _rp, "exec"), reach.__dict__)
+# reach.py found A calibration by searching from the .blend. Replace it with
+# THIS repo's, and recompute the reach from it.
+_cal = {}
+with open(_cp) as _fh:
+    exec(compile(_fh.read(), _cp, "exec"), _cal)
+reach.__dict__.update(CENTRE=_cal["CENTRE"], LIMITS=_cal["LIMITS"],
+                      INVERT=_cal["INVERT"], FLOORS=_cal["FLOORS"], CAL_PATH=_cp)
+reach.REACH = {j: reach._reach(j) for j in ("pan", "tilt", "nod")}
+reach.FLOOR_DEG = {j: reach.FLOORS[j] / reach.UNITS_PER_DEG for j in reach.FLOORS}
+print("[sidekick] " + reach.summary())
 
 pan = bpy.data.objects["pan_pivot"]
 tilt = bpy.data.objects["tilt_pivot"]
@@ -161,6 +156,6 @@ def finish(end_f, title, lines):
     def draw(self, context):
         for ln in lines:
             self.layout.label(text=ln)
-        self.layout.label(text="Then: save, run export_clip.py, copy "
-                               "motion/src/export/<NAME>.csv to motion/clips/")
+        self.layout.label(text="Then: save, and run export_sk_clip.py "
+                               "(writes straight into motion/clips/)")
     bpy.context.window_manager.popup_menu(draw, title=title, icon='INFO')

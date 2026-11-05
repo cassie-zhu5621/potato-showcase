@@ -217,7 +217,7 @@ STATES = {
 
     # ---- SIDEKICK MODE (showcase-1108) --------------------------------------
     # Attending WITH the visitor rather than noticing FOR them. Clips are made by
-    # motion/blender/generate_sk_*.py. Three new fields, read only by the player:
+    # motion/sidekick/generate_sk_*.py. Three new fields, read only by the player:
     #
     #   live      no clip: the player aims the head at a target the conductor
     #             keeps updating (set_aim_deg), in saccades -- see LIVE AIM below

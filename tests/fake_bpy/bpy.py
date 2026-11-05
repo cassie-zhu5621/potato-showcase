@@ -17,6 +17,9 @@ objs={n:Obj(n) for n in ("pan_pivot","tilt_pivot","nod_pivot")}
 class Objs(dict):
     def get(s,k,d=None): return dict.get(s,k,d)
 mats={"led_mat":Mat()}
-data=types.SimpleNamespace(objects=Objs(objs), materials=Objs(mats), filepath=FILE)
+SCRIPT = os.environ.get("FAKE_SCRIPT", "")
+texts=[types.SimpleNamespace(filepath=SCRIPT)] if SCRIPT else []
+data=types.SimpleNamespace(objects=Objs(objs), materials=Objs(mats), filepath=FILE, texts=texts)
+path=types.SimpleNamespace(abspath=lambda p: p)
 scene=types.SimpleNamespace(frame_start=1, frame_end=1, render=types.SimpleNamespace(fps=30))
 context=types.SimpleNamespace(scene=scene, window_manager=types.SimpleNamespace(popup_menu=lambda *a,**k: None))

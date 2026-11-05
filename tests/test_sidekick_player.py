@@ -29,10 +29,14 @@ def _export(name, gen, out_dir):
     """Run one generator against the fake bpy and write the CSV export_clip.py
     would write (linear between keys; the generators key every frame)."""
     sys.path.insert(0, os.path.join(ROOT, "tests", "fake_bpy"))
-    os.environ["FAKE_BLEND"] = os.path.join(ROOT, "motion", "src", name + ".blend")
+    # The .blend lives OUTSIDE the repo, as Cassie's do (the design folder):
+    # the generators must find everything from their own folder, not from it.
+    os.environ["FAKE_BLEND"] = os.path.join("/tmp", "design", "v2.0", name + ".blend")
+    script = os.path.join(ROOT, "motion", "sidekick", f"generate_sk_{gen}.py")
+    os.environ["FAKE_SCRIPT"] = script
     sys.modules.pop("bpy", None)
     import bpy
-    runpy.run_path(os.path.join(ROOT, "motion", "blender", f"generate_sk_{gen}.py"))
+    runpy.run_path(script)
     sc = bpy.context.scene
     o = bpy.data.objects
     led = bpy.data.materials["led_mat"].node_tree.nodes[0].inputs["Strength"].keys

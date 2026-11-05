@@ -1,5 +1,5 @@
 # generate_sk_glance.py -- SK_GLANCE (one-shot, target-relative). showcase-1108.
-# Run inside motion/src/SK_GLANCE.blend (open SK_DOZE.blend after running
+# Run inside SK_GLANCE.blend (open SK_DOZE.blend after running
 # generate_sk_doze.py, File > Save As SK_GLANCE.blend, then run this).
 #
 # WHAT IT IS. From SK_DOZE, the robot looks at someone who is passing or leaving,
@@ -23,23 +23,21 @@ import math
 import bpy
 import os
 
-# ---- load sidekick_lib.py (shared plumbing) the way the S-generators load reach.py
-def _find_lib():
-    for s in (os.path.dirname(bpy.data.filepath), os.getcwd()):
-        d = os.path.abspath(s or ".")
-        for _ in range(8):
-            for rel in (os.path.join("motion", "blender", "sidekick_lib.py"),
-                        "sidekick_lib.py"):
-                p = os.path.join(d, rel)
-                if os.path.exists(p):
-                    return p
-            up = os.path.dirname(d)
-            if up == d:
-                break
-            d = up
-    raise RuntimeError("Cannot find motion/blender/sidekick_lib.py. Save the "
-                       ".blend inside the repo (motion/src/) and run again.")
-_lib = _find_lib()
+# ---- load sidekick_lib.py from THIS script's folder (motion/sidekick/) --------
+# Found through the Text Editor's own record of where this script was opened
+# from, so it works wherever the .blend is saved.
+def _sk_dir():
+    for t in bpy.data.texts:
+        fp = bpy.path.abspath(t.filepath) if t.filepath else ""
+        d = os.path.dirname(fp)
+        if fp and os.path.exists(os.path.join(d, "sidekick_lib.py")):
+            return d
+    raise RuntimeError(
+        "Open this script FROM its file (Text Editor > Open > "
+        "showcase/motion/sidekick/" + "<this script>), not pasted in: "
+        "sidekick_lib.py is found next to it.")
+_SK_DIR = _sk_dir()
+_lib = os.path.join(_SK_DIR, "sidekick_lib.py")
 with open(_lib) as _fh:
     exec(compile(_fh.read(), _lib, "exec"), globals())
 

@@ -19,8 +19,8 @@ import os
 import sys
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__)))))
+ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, ROOT)
 
 import cv2                                  # noqa: E402
 import numpy as np                          # noqa: E402
@@ -78,6 +78,16 @@ def ramp(player, **to):
             show(CAM, "moving...")
 
 
+def actual(player):
+    """Where the servos REALLY are, read back from the bus (degrees)."""
+    from robot.pose import IDS, unit_to_deg
+    out = {}
+    for j, sid in IDS.items():
+        u = player.bus.read_pos(sid)
+        out[j] = None if u is None else round(unit_to_deg(j, u), 1)
+    return out
+
+
 def shift(a, b):
     (dx, dy), resp = cv2.phaseCorrelate(a, b)
     return dx, dy, resp
@@ -110,22 +120,49 @@ def main():
             if k in (ord("q"), 27):
                 print("quit -- nothing measured")
                 return 1
+        # Everything is saved, so a bad result can be looked at instead of
+        # guessed at: the four frames, and where the servos really were.
+        out = os.path.join(ROOT, "session_feed",
+                           "aim_check_" + time.strftime("%Y%m%d_%H%M%S"))
+        os.makedirs(out, exist_ok=True)
         f0 = grab(cam, 0.5)
+        p0 = actual(player)
+        cv2.imwrite(os.path.join(out, "1_start.jpg"), cam.latest)
         ramp(player, **dict(base, pan=base["pan"] + STEP))
         f1 = grab(cam)
+        p1 = actual(player)
+        cv2.imwrite(os.path.join(out, "2_pan_plus8.jpg"), cam.latest)
         dx, _, r1 = shift(f0, f1)
         ramp(player, **base)
-        f0 = grab(cam)
+        f0b = grab(cam)
+        cv2.imwrite(os.path.join(out, "3_back.jpg"), cam.latest)
         ramp(player, **dict(base, nod=base["nod"] + STEP))
         f2 = grab(cam)
-        _, dy, r2 = shift(f0, f2)
+        p2 = actual(player)
+        cv2.imwrite(os.path.join(out, "4_nod_plus8.jpg"), cam.latest)
+        _, dy, r2 = shift(f0b, f2)
         ramp(player, **base)
+        diff_pan = float(np.abs(f1 - f0).mean())
+        diff_nod = float(np.abs(f2 - f0b).mean())
         show(cam, "done -- see the terminal")
         cv2.waitKey(800)
     finally:
         cam.close()
         cv2.destroyAllWindows()
 
+    print(f"servos read back: start {p0}  after pan {p1}  after nod {p2}")
+    print(f"picture change (mean grey difference): pan {diff_pan:.1f}  nod {diff_nod:.1f}"
+          f"   (near 0 = the picture did not change at all)")
+    print(f"frames saved in {out}")
+    if p0["pan"] is not None and p1["pan"] is not None and abs(p1["pan"] - p0["pan"]) < 4:
+        print("\n!! the PAN SERVO DID NOT MOVE (read back above). Check the "
+              "servo supply: python3 robot/tools/check_bus.py")
+        return 1
+    if max(diff_pan, diff_nod) < 1.0:
+        print("\n!! the head moved but the picture did not change: this --cam is "
+              "NOT the camera on the head. Try another number "
+              "(python3 noticebot_loop.py --list-cams).")
+        return 1
     print(f"pan +{STEP:.0f} deg -> picture moved {dx:+.0f} px (confidence {r1:.2f})")
     print(f"nod +{STEP:.0f} deg -> picture moved {dy:+.0f} px (confidence {r2:.2f})")
     print(f"expected about {STEP * px_per_deg:.0f} px for each")

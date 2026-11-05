@@ -1,4 +1,4 @@
-# Showcase 11.8 — plan (for discussion, nothing built yet)
+# Showcase 11.8 — plan (built; how to run it: docs/SHOWDAY_1108.md)
 
 Branch `showcase-1108`. `main` (the pushed showcase) is not touched.
 
@@ -98,3 +98,19 @@ LOOK and FOLLOW are not clips; they are live aiming (below).
   Blender on the Mac.
 - Props: which 3–4 objects, and where the mat sits relative to the robot.
 - Whether DOZE replaces S0_IDLE only in this mode (proposed) or everywhere.
+
+## Decisions taken while building (2026-11-05)
+
+- **No fixed mat.** The robot guards a prop wherever it is put down, as long as
+  it followed it there: show it, put it down in view, let go. The mat on the
+  table is only an affordance. Guarding is a live hold (SK_GUARD) aimed at the
+  prop, because the prop lies below the eye and S4B_WATCH holds a level gaze.
+- **Six clips, not five.** SK_ACK is S2's nod made entry-relative, so the
+  library keeps one affirmation and "got it" can happen wherever the robot is
+  looking.
+- **Live aim is saccadic.** The servos step below 8.8 deg/s, so the head holds,
+  then jumps to the target when it has moved past a dead band, like eyes do.
+- **Speech is not in this program.** The paper demo stays `noticebot_loop.py`;
+  switching is Ctrl-C and the other command.
+- **Firmware v19**: purr and alert sounds, and one big-face screen (EVT SKFACE)
+  so the CoreS3 wears the same face as the tablet.

@@ -61,10 +61,32 @@ KAOMOJI = {
 }
 
 
+# ---- STAGES: built and tried one interaction at a time ----------------------
+# Each stage adds one interaction and the clips it needs. `--stage N` runs the
+# booth with only those, so a stage can be exported, tried and tuned on the
+# robot before the next one exists.
+FEATURES = ("touch", "notice", "show", "guard")
+STAGES = {n: FEATURES[:n] for n in range(1, len(FEATURES) + 1)}
+CLIPS_FOR = {
+    "touch":  ("SK_PURR",),                 # touch its head: it leans into the hand
+    "notice": ("SK_DOZE", "SK_GLANCE"),     # dozes, glances at passers-by, looks at you
+    "show":   ("SK_CURIOUS", "SK_ACK"),     # show it a prop: curious, follows, "got it"
+    "guard":  ("SK_GUARD_ALERT",),          # put it down: guards it, calls if taken
+}
+
+
+def clips_for_stage(n):
+    return tuple(c for f in STAGES[n] for c in CLIPS_FOR[f])
+
+
 class Brain:
     def __init__(self, player, on_event: Callable = None,
-                 clock: Callable[[], float] = time.time):
+                 clock: Callable[[], float] = time.time, stage: int = 4):
         self.p = player
+        self.on = set(STAGES[stage])
+        # Before stage 2 there is no SK_DOZE clip: the robot rests in the paper's
+        # S0_IDLE, and a touch is the only thing it answers.
+        self.rest = "SK_DOZE" if "notice" in self.on else "S0_IDLE"
         self.emit = on_event or (lambda kind, **kw: None)
         self.now = clock
         self.phase = "DOZE"
@@ -98,7 +120,11 @@ class Brain:
     # ---- inputs ---------------------------------------------------------
     def on_tap(self):
         t = self.now()
-        if self.phase == "DOZE":
+        if self.phase == "DOZE" and "notice" not in self.on:
+            # Stage 1: a touch is answered and the robot goes back to resting.
+            self.p.request("SK_PURR", resume_to=self.rest)
+            self.face = KAOMOJI["PURR"]
+        elif self.phase == "DOZE":
             # A touch wakes it, and it leans into the hand as it wakes.
             pose = self.p.pose_deg()
             self.p.set_aim_deg(pan=pose["pan"], tilt=ST.LOOK_TILT, nod=ST.LOOK_NOD)
@@ -121,7 +147,7 @@ class Brain:
             self._go("LOOK", face="ACK", say="That's who took it.")
 
     def on_palm(self):
-        if self.phase == "DOZE":
+        if self.phase == "DOZE" and "notice" in self.on:
             pose = self.p.pose_deg()
             self.p.set_aim_deg(pan=pose["pan"], tilt=ST.LOOK_TILT, nod=ST.LOOK_NOD)
             self.p.request("SK_LOOK")
@@ -147,7 +173,7 @@ class Brain:
 
     def _sleep(self):
         self.p.clear_aim()
-        self.p.request("SK_DOZE")
+        self.p.request(self.rest)
         self._near_since = None
         self._go("DOZE", say="")
 
@@ -158,6 +184,8 @@ class Brain:
 
     # ---- per phase ------------------------------------------------------
     def _see_doze(self, pc):
+        if "notice" not in self.on:
+            return
         t = pc.t
         near = pc.near
         if near:
@@ -169,7 +197,7 @@ class Brain:
                 self._go("LOOK", say="Hi! Show me something?")
             return
         self._near_since = None
-        if self.p.state != "SK_DOZE" or t - self._last_glance < GLANCE_REFRACTORY_S:
+        if self.p.state != self.rest or t - self._last_glance < GLANCE_REFRACTORY_S:
             return
         far = [q for q in pc.people if not q.near]
         if far:
@@ -186,7 +214,7 @@ class Brain:
             self._last_near = t
             if self.p.state == "SK_LOOK":
                 self._look_at(near.head)
-        held = pc.held
+        held = pc.held if "show" in self.on else None
         if held and t - self._acked.get(held.label, -1e9) > SHOW_AGAIN_S:
             self._held_run += 1
             if self._held_run >= HELD_FRAMES and self.p.state == "SK_LOOK":
@@ -234,7 +262,7 @@ class Brain:
                 self.face = KAOMOJI["ACK"]
                 self.caption = f"A {q.label}! Put it down and I'll guard it."
                 self.emit("shown", label=q.label, box=q.box, t=t)
-        elif q.at.gaze <= DESK_GAZE and still:
+        elif q.at.gaze <= DESK_GAZE and still and "guard" in self.on:
             self._down_since = self._down_since or t
             if t - self._down_since >= PLACE_S and self.p.state == "SK_FOLLOW":
                 self._guard = dict(label=q.label, pan=q.at.pan, gaze=q.at.gaze,

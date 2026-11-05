@@ -892,9 +892,10 @@ def is_sidekick(name):
 def validate(available, sidekick=False):
     """Cross-check the table against the clips actually on disk.
 
-    The SK_* clips are exported from Blender separately; until they are, the
-    paper flow must still start, so their absence is only a problem when the
-    sidekick mode is what is being run."""
+    The SK_* clips are exported from Blender separately, one stage at a time;
+    until they are, the paper flow must still start. `sidekick` is False (the
+    paper flow), True (every SK clip), or the collection of SK clips the stage
+    being run needs (session/sidekick_brain.clips_for_stage)."""
     problems = []
     for name, s in STATES.items():
         for field in ("sfx", "sfx_flash"):
@@ -908,7 +909,9 @@ def validate(available, sidekick=False):
             if s.get("relative") or s.get("resume"):
                 problems.append(f"{name}: a live state has no clip to make "
                                 f"relative or to finish and resume from")
-        elif s["clip"] not in available and (sidekick or not is_sidekick(name)):
+        elif s["clip"] not in available and (
+                not is_sidekick(name) or sidekick is True
+                or (sidekick and s["clip"] in sidekick)):
             problems.append(f"{name}: clip {s['clip']}.csv not found"
                             + (" -- export it from Blender, see motion/README.md"
                                if is_sidekick(name) else ""))

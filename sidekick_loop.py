@@ -40,7 +40,7 @@ from robot.clip_player import ClipPlayer               # noqa: E402
 from robot import states as ST                         # noqa: E402
 from perception.headcam import HeadCam                 # noqa: E402
 from perception import sidekick_sense as SS            # noqa: E402
-from session.sidekick_brain import Brain               # noqa: E402
+from session.sidekick_brain import Brain, STAGES, clips_for_stage   # noqa: E402
 from webui import sidekick_page as PAGE                # noqa: E402
 
 LINE_SCHEMA = {"type": "object", "properties": {"line": {"type": "string"}},
@@ -116,6 +116,10 @@ def main():
     ap.add_argument("--cores3", nargs="?", const="auto")
     ap.add_argument("--port", default=os.environ.get("NOTICEBOT_PORT"))
     ap.add_argument("--clips", default=os.path.join(ROOT, "motion", "clips"))
+    ap.add_argument("--stage", type=int, default=4, choices=sorted(STAGES),
+                    help="1 touch only | 2 + doze, glance, look at you | "
+                         "3 + show it something | 4 + guard it. Each stage "
+                         "needs only its own clips exported.")
     ap.add_argument("--mute", action="store_true")
     ap.add_argument("--conf", type=float, default=0.25)
     ap.add_argument("--cv-hz", type=float, default=4.0)
@@ -160,20 +164,27 @@ def main():
         if link and not a.mute:
             link.sfx(name)
 
-    player = ClipPlayer(bus, a.clips, on_led=on_led, on_sfx=on_sfx, sidekick=True)
-    cam = HeadCam(a.cam)
-    print("[cv] loading detector + pose ...")
-    from perception.perceive import make_detector
-    from perception.relations import PoseEstimator, Tracker
-    det = make_detector("yoloworld", list(props), conf=a.conf)
-    poses, tracker = PoseEstimator(max_people=4), Tracker()
+    need = clips_for_stage(a.stage)
+    print(f"[stage] {a.stage}: {', '.join(STAGES[a.stage])}  (clips: {', '.join(need)})")
+    player = ClipPlayer(bus, a.clips, on_led=on_led, on_sfx=on_sfx, sidekick=need)
+    # Stage 1 answers a touch and nothing else, so it needs no camera at all:
+    # it can be tried with only SK_PURR exported and nothing else set up.
+    cam = det = poses = tracker = None
+    if a.stage >= 2:
+        cam = HeadCam(a.cam)
+        print("[cv] loading detector + pose ...")
+        from perception.perceive import make_detector
+        from perception.relations import PoseEstimator, Tracker
+        det = make_detector("yoloworld", list(props), conf=a.conf)
+        poses, tracker = PoseEstimator(max_people=4), Tracker()
     PAGE.serve(feed, a.web_port)
     print(f"[web] tablet: http://<this laptop>:{a.web_port}/")
 
     events = deque()
-    brain = Brain(player, on_event=lambda k, **kw: events.append((k, kw)))
+    brain = Brain(player, on_event=lambda k, **kw: events.append((k, kw)),
+                  stage=a.stage)
     player.start()
-    player.request("SK_DOZE")
+    player.request(brain.rest)
 
     last_state, last_face = None, None
     period = 1.0 / a.cv_hz
@@ -197,7 +208,8 @@ def main():
                 elif "PTT_DOWN" in line:
                     brain.on_palm()
             # ---- the camera, only from a still head ----
-            if now >= next_cv and player.settled_ms >= ST.AIM_SAMPLE_SETTLED_MS:
+            if (cam is not None and now >= next_cv
+                    and player.settled_ms >= ST.AIM_SAMPLE_SETTLED_MS):
                 next_cv = now + period
                 pose = player.pose_deg()
                 frame = cam.latest.copy()
@@ -222,7 +234,7 @@ def main():
                                       FALLBACK[k].format(label=kw["label"]))
                         card_async(cid, k, kw["label"], [jpg])
                 elif kind == "taken":
-                    strip, jpegs = story_strip(cam.event_frames,
+                    strip, jpegs = story_strip(cam.event_frames if cam else [],
                                                kw["onset"] - 1.5, kw["t"] + 0.5)
                     if strip:
                         name = f"{cid}.jpg"
@@ -249,16 +261,18 @@ def main():
         print("\n[run] stopping")
     finally:
         try:
-            player.request("SK_DOZE")
+            player.request(brain.rest)
             time.sleep(1.0)
         except Exception:
             pass
         player.stop()
-        cam.close()
+        if cam:
+            cam.close()
         if link:
             link.rest()
             link.close()
-        poses.close()
+        if poses:
+            poses.close()
 
 
 if __name__ == "__main__":

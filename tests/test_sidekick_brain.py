@@ -193,3 +193,40 @@ def test_alone_it_goes_back_to_dozing():
     for _ in range(int(B.LOST_S / 0.25) + 2):
         step(clock, brain, 0.25)
     assert brain.phase == "DOZE" and player.state == "SK_DOZE"
+
+
+# ---- stages: one interaction at a time -------------------------------------
+def test_stage_1_answers_a_touch_and_nothing_else():
+    clock, player, events = Clock(), FakePlayer(), []
+    player.state = "S0_IDLE"
+    brain = B.Brain(player, clock=clock, stage=1)
+    assert brain.rest == "S0_IDLE"
+    for _ in range(8):                         # someone close: no wake at stage 1
+        step(clock, brain, 0.25, people=[face(20.0)])
+    assert player.log == [] and brain.phase == "DOZE"
+    brain.on_tap()
+    assert player.state == "SK_PURR"
+    player.finish()
+    assert player.state == "S0_IDLE"           # and back to resting
+
+
+def test_each_stage_needs_only_its_own_clips():
+    from robot import states as ST2
+    paper = {s["clip"] for n, s in ST2.STATES.items() if not ST2.is_sidekick(n)}
+    for n in B.STAGES:
+        have = paper | set(B.clips_for_stage(n))
+        assert ST2.validate(have, sidekick=B.clips_for_stage(n)) == [], n
+    assert B.clips_for_stage(1) == ("SK_PURR",)
+
+
+def test_without_guard_a_prop_put_down_is_not_guarded():
+    clock, player, events = Clock(), FakePlayer(), []
+    brain = B.Brain(player, on_event=lambda k, **kw: events.append(k),
+                    clock=clock, stage=3)
+    awake(clock, player, brain)
+    step(clock, brain, 0.25, props=[prop()])
+    step(clock, brain, 0.25, props=[prop()])
+    player.finish()
+    for _ in range(14):
+        step(clock, brain, 0.25, props=[prop(gaze=-30.0, held=False)])
+    assert brain.phase == "SHOW" and "guard_start" not in events

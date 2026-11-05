@@ -23,7 +23,45 @@ A tray of the 3-4 props that passed the prop check (step 4).
 
 What to say, in full: **"Show it something."** Everything else follows from it.
 
-## Before the day -- once
+## One interaction at a time
+
+The booth is built in four stages. Each stage adds ONE interaction and needs
+only its own clips, so a stage can be exported, tried on the robot and tuned
+before the next one exists. `--stage N` runs exactly that much.
+
+| stage | the visitor can | clips to export | also needs |
+|---|---|---|---|
+| **1 touch** | touch its head: it presses up into the hand, then rests again | SK_PURR | nothing else (no camera) |
+| 2 notice | + it dozes with its head up, glances at passers-by, wakes and looks at you | + SK_DOZE, SK_GLANCE | camera, `aim_check.py` |
+| 3 show | + show it a prop: curious, follows it, nods "got it", tablet card | + SK_CURIOUS, SK_ACK | `sidekick_prop_check.py` |
+| 4 guard | + put it down: guards it, "I see you", calls if taken | + SK_GUARD_ALERT | -- |
+
+**Start with stage 1.** Export SK_PURR only (below), check it with
+`play_on_hardware.py`, then:
+
+```bash
+python3 sidekick_loop.py --stage 1 --cores3
+```
+
+Touch the head: purr, then back to the sleeping pose. When that is right, move
+on to stage 2 and export its two clips. The table further down describes the
+finished booth (stage 4).
+
+### Exporting one clip (SK_PURR as the example)
+
+1. In Blender open `motion/src/S2_ACKNOWLEDGE.blend`.
+2. **File > Save As** `motion/src/SK_PURR.blend` (the S2 file is not changed).
+3. Text Editor > Open `motion/blender/generate_sk_purr.py` > Run Script.
+   A popup lists the beats; an error means a beat would not work on the
+   servos, and says which.
+4. Save. Open `motion/blender/export_clip.py` > Run Script.
+5. Copy `motion/src/export/SK_PURR.csv` to `motion/clips/`.
+6. `python3 robot/tools/play_on_hardware.py motion/clips/SK_PURR.csv`
+
+The other clips are the same steps with their own "start from" file (see
+`motion/README.md`).
+
+## Before the day -- once (what each stage needs)
 
 ### 1. Export the six new clips (Blender)
 
@@ -80,7 +118,7 @@ and pass only those words (fewer words, fewer confusions):
 
 ```bash
 cd ~/Documents/potatobot/showcase
-python3 sidekick_loop.py --cam N --cores3 --props "banana,cup,teddy bear"
+python3 sidekick_loop.py --stage 4 --cam N --cores3 --props "banana,cup,teddy bear"
 ```
 
 `--mute` while testing beside people. `--offline` if the network is bad: the

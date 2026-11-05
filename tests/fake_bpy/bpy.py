@@ -21,5 +21,8 @@ SCRIPT = os.environ.get("FAKE_SCRIPT", "")
 texts=[types.SimpleNamespace(filepath=SCRIPT)] if SCRIPT else []
 data=types.SimpleNamespace(objects=Objs(objs), materials=Objs(mats), filepath=FILE, texts=texts)
 path=types.SimpleNamespace(abspath=lambda p: p)
-scene=types.SimpleNamespace(frame_start=1, frame_end=1, render=types.SimpleNamespace(fps=30))
+class Scene(dict):
+    def __init__(s):
+        super().__init__(); s.frame_start=1; s.frame_end=1; s.render=types.SimpleNamespace(fps=30)
+scene=Scene()
 context=types.SimpleNamespace(scene=scene, window_manager=types.SimpleNamespace(popup_menu=lambda *a,**k: None))

@@ -12,21 +12,21 @@ Everything for the new clips is in this folder, apart from the old ones in
 | `export_sk_clip.py` | writes the open SK_*.blend to `motion/clips/SK_*.csv` |
 | `sidekick_lib.py` | shared helper. Not run by itself |
 
-## Making one clip (SK_PURR as the example)
+## Making a clip
 
-1. Open any clip .blend that has the 3-DOF rig (pan, tilt, nod) -- e.g.
-   `S2_ACKNOWLEDGE.blend`, wherever your .blend files live.
-2. **File > Save As** `SK_PURR.blend`, next to it. The original is not changed.
-   The name matters: the exporter names the clip after the file, and only
-   exports files called `SK_*`.
-3. **Text Editor > Open** `showcase/motion/sidekick/generate_sk_purr.py` > Run.
-   Open it from the file, do not paste it: the script finds `sidekick_lib.py`
-   next to itself. A popup lists the beats. An error means a beat would not
-   work on the servos, and says which.
-4. Save the .blend.
-5. **Text Editor > Open** `showcase/motion/sidekick/export_sk_clip.py` > Run.
-   It writes `showcase/motion/clips/SK_PURR.csv` directly -- nothing to copy.
-6. On the robot: `python3 robot/tools/play_on_hardware.py motion/clips/SK_PURR.csv`
+One working .blend makes every clip -- keep it local (motion/sidekick/*.blend is
+git-ignored; only the CSVs ship).
+
+1. Open your working .blend (any file with the 3-DOF rig: pan, tilt, nod).
+2. **Text Editor > Open** `showcase/motion/sidekick/generate_sk_<name>.py` > Run.
+   Open it from the file, do not paste it: it finds `sidekick_lib.py` next to
+   itself. A popup lists the beats; an error means a beat would not work on the
+   servos, and says which.
+3. **Text Editor > Open** `showcase/motion/sidekick/export_sk_clip.py` > Run.
+   It writes `showcase/motion/clips/SK_<NAME>.csv`, named after the generator
+   that just ran (not after the .blend), so the next clip is just: next
+   generator, exporter again.
+4. On the robot: `python3 robot/tools/play_on_hardware.py motion/clips/SK_<NAME>.csv`
 
 Every check (reach, amplitude floor, smoothness floor, 200 deg/s) uses THIS
 repo's `robot/calibration.py`, wherever the .blend is saved.

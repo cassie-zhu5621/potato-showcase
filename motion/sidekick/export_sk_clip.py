@@ -1,14 +1,12 @@
-# export_sk_clip.py -- export the open SK_*.blend straight into the showcase
-# repo's motion/clips/. Run in Blender's Text Editor AFTER the generator has run
-# and the file is saved.
+# export_sk_clip.py -- export the clip the last generate_sk_*.py made, straight
+# into the showcase repo's motion/clips/. Run in Blender's Text Editor right
+# after the generator.
 #
-# Same sampling and CSV format as motion/blender/export_clip.py, with two
-# differences, both because the .blend files live in the design folder and the
-# clips in the repo:
-#   * it writes to <repo>/motion/clips/<blend name>.csv directly, so there is no
-#     export/ folder to copy from and nothing to forget to copy;
-#   * it only writes files called SK_*.csv. The nine paper clips are never
-#     overwritten from here, whatever the .blend happens to be called.
+# Same sampling and CSV format as motion/blender/export_clip.py, except:
+#   * it writes to <repo>/motion/clips/<clip>.csv directly -- nothing to copy;
+#   * <clip> is whichever generate_sk_*.py ran last in this .blend, so ONE
+#     working .blend can make every clip (the file does not need saving first);
+#   * it only writes SK_*.csv. The nine paper clips are never overwritten.
 
 import bpy
 import csv
@@ -33,14 +31,18 @@ def _sk_dir():
 REPO = os.path.dirname(os.path.dirname(_sk_dir()))
 CLIPS = os.path.join(REPO, "motion", "clips")
 
-blend_path = bpy.data.filepath
-if not blend_path:
-    raise RuntimeError("Save the .blend first (Ctrl+S), then run again.")
-name = os.path.splitext(os.path.basename(blend_path))[0]
-if not name.startswith("SK_"):
-    raise RuntimeError(f"This .blend is called {name!r}. Only SK_* clips are "
-                       f"exported from here, so a paper clip can never be "
-                       f"overwritten by mistake. Save As SK_<NAME>.blend.")
+# THE CLIP'S NAME COMES FROM THE LAST GENERATOR RUN, not from the file name.
+# One working .blend is used for every clip, so its file name says nothing about
+# what is in it -- the first version named the CSV after the file and wrote
+# GLANCE over SK_PURR.csv. Each generator stamps the scene with its clip name.
+name = bpy.context.scene.get("sk_clip")
+if not name:
+    raise RuntimeError("Run a generate_sk_*.py first: it records which clip "
+                       "this is. Nothing was written.")
+if not str(name).startswith("SK_"):
+    raise RuntimeError(f"{name!r} is not an SK clip. Only SK_* clips are "
+                       f"exported from here, so a paper clip is never overwritten.")
+name = str(name)
 
 pan = bpy.data.objects["pan_pivot"]
 tilt = bpy.data.objects["tilt_pivot"]

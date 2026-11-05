@@ -73,3 +73,7 @@ voice.h
 # Figure material: derived from session_feed, which is itself ignored.
 # Large jpgs, regenerable from the feed by the commands in fig/*/RUN_THIS.sh
 fig/
+
+# Blender working files for the sidekick clips stay local (only the CSVs ship)
+motion/sidekick/*.blend
+motion/sidekick/*.blend1

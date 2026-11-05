@@ -150,12 +150,16 @@ def frames(s):
 def finish(end_f, title, lines):
     bpy.context.scene.frame_start = 1
     bpy.context.scene.frame_end = end_f
+    # WHICH CLIP THIS IS, stored in the .blend itself. export_sk_clip.py names
+    # the CSV from this, not from the file name, so one working .blend can make
+    # every SK clip in turn: run a generator, run the exporter, next.
+    bpy.context.scene["sk_clip"] = title
     for ln in lines:
         print(f"[{title}] {ln}")
 
     def draw(self, context):
         for ln in lines:
             self.layout.label(text=ln)
-        self.layout.label(text="Then: save, and run export_sk_clip.py "
-                               "(writes straight into motion/clips/)")
+        self.layout.label(text=f"Then run export_sk_clip.py -> "
+                               f"motion/clips/{title}.csv")
     bpy.context.window_manager.popup_menu(draw, title=title, icon='INFO')

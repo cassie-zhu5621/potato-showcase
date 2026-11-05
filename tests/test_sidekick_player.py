@@ -191,20 +191,21 @@ def test_a_pat_returns_to_what_it_interrupted(clips_dir):
         p.stop(relax=False)
 
 
-def test_the_alert_keeps_the_guarded_bearing(clips_dir):
+def test_the_alert_keeps_the_eye_on_the_guarded_thing(clips_dir):
     p = _player(clips_dir)
     p.clips["SK_GUARD_ALERT"] = p.clips["SK_GUARD_ALERT"][:10]
     p.start(home=False)
     try:
-        p.arm_pan_deg(-40.0)
-        p.request("S4B_WATCH")
-        assert _wait(lambda: p.state == "S4B_WATCH")
-        time.sleep(0.2)
-        assert abs(p.pose_deg()["pan"] + 40.0) < 1.0
+        p.set_aim_deg(pan=-40.0, tilt=-12.0, nod=-20.0)
+        p.request("SK_GUARD")
+        assert _wait(lambda: abs(p.pose_deg()["pan"] + 40.0) < 1.0)
         p.request("SK_GUARD_ALERT")
         assert _wait(lambda: p.state == "SK_GUARD_ALERT")
         time.sleep(0.1)
-        assert abs(p.pose_deg()["pan"] + 40.0) < 1.0
-        assert _wait(lambda: p.state == "S4B_WATCH")
+        pose = p.pose_deg()
+        assert abs(pose["pan"] + 40.0) < 1.0
+        # neck up, head down by the same amount: the gaze has not moved
+        assert abs((pose["tilt"] + pose["nod"]) - (-32.0)) < 1.5
+        assert _wait(lambda: p.state == "SK_GUARD")
     finally:
         p.stop(relax=False)

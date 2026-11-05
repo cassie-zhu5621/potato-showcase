@@ -1,7 +1,8 @@
 # generate_sk_guard_alert.py -- SK_GUARD_ALERT (one-shot). showcase-1108.
 # Run inside motion/src/SK_GUARD_ALERT.blend (Save As from S4_WATCH.blend).
 #
-# WHAT IT IS. The robot is guarding a visitor's thing (S4B_WATCH on the mat) and
+# WHAT IT IS. The robot is guarding a visitor's thing (SK_GUARD, eye locked on
+# it where it was put down) and
 # a hand comes near it. Before anything is taken, the robot lets the hand know it
 # has been seen: it straightens up and goes still. If the thing is then taken,
 # the conductor goes to S5A_FOUND; if the hand withdraws, this clip finishes by

@@ -272,11 +272,18 @@ STATES = {
         screen="idle", enter="a touch with no task", exit="resumes",
         note="presses up into the hand, rocks under it, lets go."),
 
+    "SK_GUARD": dict(
+        clip="SK_GUARD", live=True, loop=True, then=None, hue="cool",
+        sfx=None, sfx_at=0.0, sfx_flash=None, sfx_loop=False,
+        screen="tracking", enter="a prop put down and let go",
+        exit="a hand near it / taken / owner's touch",
+        note="guards the thing it was given: eye locked on it, still."),
+
     "SK_GUARD_ALERT": dict(
-        clip="SK_GUARD_ALERT", loop=False, then="S4B_WATCH", hue="cool",
-        sfx="alert", sfx_at=0.0, sfx_flash=None, sfx_loop=False,
+        clip="SK_GUARD_ALERT", loop=False, then="SK_GUARD", relative="entry",
+        hue="cool", sfx="alert", sfx_at=0.0, sfx_flash=None, sfx_loop=False,
         screen="tracking", enter="a hand near the guarded thing",
-        exit="-> S4B_WATCH, or S5A_FOUND if it is taken",
+        exit="-> SK_GUARD, or S5A_FOUND if it is taken",
         note="straightens and freezes, eye still on the thing: 'I see you'."),
 }
 
@@ -363,16 +370,13 @@ USER_FACING = ("S6_CORRECT",)
 # CV perceives here. Not S4 -- during the sweep the VLM is the only eye, because
 # annotating a frame before the model reads it feeds our guesses back as its
 # judgement.
-WATCHING = ("S4B_WATCH", "S6_CORRECT", "S5A_FOUND", "S5B_BECKON",
-            "SK_GUARD_ALERT")
+WATCHING = ("S4B_WATCH", "S6_CORRECT", "S5A_FOUND", "S5B_BECKON")
 
 # Clips whose pan channel is a CONSTANT, so the angle can simply be replaced: a
 # constant has no authored timing to damage. S4 is deliberately absent -- its
 # return is an eased curve authored for one distance, and stretching it would
 # rewrite the very thing the clip exists to carry.
-PAN_RETARGETABLE = ("S4B_WATCH", "S4A_SETTLE", "SK_GUARD_ALERT")
-# SK_GUARD_ALERT holds the watch bearing as a constant, exactly like S4B, so the
-# guarded mat stays the bearing through the alert.
+PAN_RETARGETABLE = ("S4B_WATCH", "S4A_SETTLE")
 
 # S7 returns to watching if nobody responds. Being ignored is a NORMAL outcome --
 # the person is busy, which is the premise of notice delegation. The finding is

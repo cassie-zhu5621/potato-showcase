@@ -94,8 +94,9 @@ def test_the_camera_buffer_outlives_the_window():
     window fails silently: the oldest offset quietly resolves to whatever is
     still in memory, and the judge is shown a narrower event than it was asked
     about with nothing saying so."""
-    import noticebot_loop
-    src = noticebot_loop.__loader__.get_source("noticebot_loop")
+    # HeadCam moved to perception/headcam.py (showcase-1108), unchanged.
+    import perception.headcam as headcam
+    src = headcam.__loader__.get_source("perception.headcam")
     i = src.index("self.event_frames = deque(maxlen=")
     maxlen = int(src[i:].split("maxlen=")[1].split(")")[0])
     seconds = maxlen * 0.1          # the capture thread appends at ~10 Hz

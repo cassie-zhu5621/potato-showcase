@@ -339,6 +339,7 @@ class ClipPlayer:
         self._aim = {}                # live-aim target, Blender degrees per joint
         self._glance_target = None    # SK_GLANCE's bearing, Blender degrees
         self._resume_to = None        # the state a `resume` one-shot interrupted
+        self._resume_override = None  # request(..., resume_to=) for the next one
         self._warned_no_user_pan = False   # warn once per run, not once per S7
         self.clips = {}
         for fn in sorted(os.listdir(clips_dir)):
@@ -512,7 +513,7 @@ class ClipPlayer:
         with self._lock:
             self._next_override = state
 
-    def request(self, state):
+    def request(self, state, resume_to=None):
         """Ask for a state. Takes effect within a frame; interrupts a clip.
 
         CLEARS ANY PENDING `arm_next`, so ARM AFTER YOU REQUEST, never before.
@@ -533,9 +534,15 @@ class ClipPlayer:
         """
         if state not in ST.STATES:
             raise KeyError(state)
+        if resume_to is not None and resume_to not in ST.STATES:
+            raise KeyError(resume_to)
         with self._lock:
             self._want = state
             self._next_override = None
+            # Only for a `resume` one-shot: where to go when it ends, instead of
+            # back to what it interrupted. A pat that wakes a dozing robot should
+            # end with it awake and looking, not asleep again.
+            self._resume_override = resume_to
 
     @property
     def settled_ms(self):
@@ -811,7 +818,11 @@ class ClipPlayer:
             if spec.get("resume"):
                 # Remember what was interrupted -- but never another interjection,
                 # or a pat during a glance would resume into the glance.
-                if prev and not ST.STATES.get(prev, {}).get("resume"):
+                with self._lock:
+                    override, self._resume_override = self._resume_override, None
+                if override:
+                    self._resume_to = override
+                elif prev and not ST.STATES.get(prev, {}).get("resume"):
                     self._resume_to = prev
             frames = self.clips[spec["clip"]]
             rel = spec.get("relative")

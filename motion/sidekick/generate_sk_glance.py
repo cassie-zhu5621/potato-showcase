@@ -41,9 +41,9 @@ _lib = os.path.join(_SK_DIR, "sidekick_lib.py")
 with open(_lib) as _fh:
     exec(compile(_fh.read(), _lib, "exec"), globals())
 
-ENTRY_PAN, ENTRY_TILT, ENTRY_NOD = 0.0, -8.0, 0.0   # = SK_DOZE's pose (template)
+ENTRY_PAN, ENTRY_TILT, ENTRY_NOD = 0.0, -3.0, 6.0   # = SK_DOZE's pose (template)
 TARGET_PAN = 60.0      # template bearing; the player scales this to the person
-LOOK_NOD = 14.0        # head up to a standing face: gaze -8 -> +6
+LOOK_NOD = 14.0        # head up to a standing face: gaze +3 -> +17
 LIFT_NOD = 5.0         # anticipation: part of the way up before the turn
 SETTLE_DIP = 4.0       # follow-through below doze, then back (>= 3.52 floor)
 

@@ -15,9 +15,12 @@
 # body holds; the LED breathes; every movement out of this state is a GLANCE at
 # someone who is really there.
 #
-# The neck keeps S0's angle and only the head comes up. Waking from S0 to DOZE
-# is then one joint, read as "lifts its head", and DOZE -> S0 at the end of the
-# day is the same act reversed.
+# v2 (2026-11-05, after seeing it on the robot): the neck NO LONGER keeps S0's
+# forward lean. With the neck at S0's -8 the whole head hung forward and the eye
+# looked at the table edge -- it read as still asleep, and the camera saw
+# visitors' bodies rather than their faces. The neck now stands almost upright
+# (a few degrees forward, so it is relaxed rather than at attention) and the
+# head tips up a little: eye level to slightly above, at standing faces.
 
 import math
 import bpy
@@ -41,9 +44,9 @@ _lib = os.path.join(_SK_DIR, "sidekick_lib.py")
 with open(_lib) as _fh:
     exec(compile(_fh.read(), _lib, "exec"), globals())
 
-SLEEP_TILT = -8.0      # = generate_s0_idle.py DROOP_TILT. Neck unchanged.
-DOZE_NOD = 0.0         # head level with the neck: gaze -8 deg, the room at
-                       # standing distance, not the table.
+DOZE_TILT = -3.0       # neck almost upright: relaxed, not at attention
+DOZE_NOD = 6.0         # head tipped up a little: gaze +3 deg, standing faces
+                       # at a few metres are in the middle of the frame
 DOZE_PAN = 0.0         # facing out from the booth
 
 BREATH_S = 4.2         # a little quicker than S0's 5.0: dozing, not asleep
@@ -54,7 +57,7 @@ LED_HI = 2.8           # just above S0's 2.5: present, still not asking
 SAMPLE_F = 3
 
 set_hue("warm")
-reach.check("tilt", SLEEP_TILT, "doze neck")
+reach.check("tilt", DOZE_TILT, "doze neck")
 reach.check("nod", DOZE_NOD, "doze head")
 
 BREATH_F = frames(BREATH_S)
@@ -70,11 +73,11 @@ def breath(i):
 
 for f in list(range(1, END_F + 1, SAMPLE_F)) + [END_F]:
     i = f - 1
-    key_pose(f, DOZE_PAN, SLEEP_TILT, DOZE_NOD)
+    key_pose(f, DOZE_PAN, DOZE_TILT, DOZE_NOD)
     key_led(f, LED_LO + (LED_HI - LED_LO) * breath(i))
 
 finish(END_F, "SK_DOZE", [
-    f"held pose pan {DOZE_PAN:+.0f} / tilt {SLEEP_TILT:+.0f} / nod {DOZE_NOD:+.0f}"
-    f" (gaze {SLEEP_TILT + DOZE_NOD:+.0f} deg), body still",
+    f"held pose pan {DOZE_PAN:+.0f} / tilt {DOZE_TILT:+.0f} / nod {DOZE_NOD:+.0f}"
+    f" (gaze {DOZE_TILT + DOZE_NOD:+.0f} deg), body still",
     f"LED {LED_LO}-{LED_HI}, {N_BREATHS} breaths of {BREATH_S}s = {END_F / FPS:.1f}s loop",
 ])

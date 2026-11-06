@@ -110,6 +110,49 @@ def story_strip(event_frames, t0, t1, n=6, height=260):
     return (strip.tobytes() if ok else None), jpegs
 
 
+FIXED_POSE = {"pan": 0.0, "tilt": 0.0, "nod": 0.0}
+VIEW = "sidekick -- what it sees   (t touch  p palm  q quit)"
+PHASE_COL = {"DOZE": (120, 120, 120), "LOOK": (60, 200, 255), "SHOW": (80, 220, 120),
+             "GUARD": (255, 160, 60), "CALL": (200, 80, 255)}
+
+
+def draw_view(frame, pc, people, brain, player, stage):
+    """The debug window: every person and prop the robot found, as it judged
+    them, and what it decided. Nothing here feeds back into the decisions."""
+    im = frame.copy()
+    h, w = im.shape[:2]
+    for p in people:
+        for j in (SS.NOSE, SS.L_SH, SS.R_SH, 15, 16):
+            if j in p.pts and p.vis.get(j, 0) >= 0.3:
+                cv2.circle(im, tuple(int(v) for v in p.pts[j]), 6, (0, 255, 255), -1)
+        if SS.L_SH in p.pts and SS.R_SH in p.pts:
+            a, b = p.pts[SS.L_SH], p.pts[SS.R_SH]
+            cv2.line(im, (int(a[0]), int(a[1])), (int(b[0]), int(b[1])), (0, 255, 255), 2)
+    for q in pc.people:
+        x, y = int(q.head.x), int(q.head.y)
+        tag = "NEAR" if q.near else "passer"
+        col = (60, 220, 60) if q.near else (180, 180, 180)
+        cv2.putText(im, f"{tag}  shoulders {q.sw_frac:.0%}", (x - 80, max(30, y - 30)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, col, 2)
+    for q in pc.props:
+        x0, y0, x1, y1 = (int(v) for v in q.box)
+        col = (60, 220, 60) if q.held else ((0, 0, 255) if q.hand_near else (0, 220, 255))
+        cv2.rectangle(im, (x0, y0), (x1, y1), col, 3)
+        cv2.putText(im, f"{q.label} {'HELD' if q.held else ''}"
+                        f"{' hand' if q.hand_near and not q.held else ''} "
+                        f"gaze {q.at.gaze:+.0f}", (x0, max(25, y0 - 8)),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, col, 2)
+    bar = PHASE_COL.get(brain.phase, (255, 255, 255))
+    cv2.rectangle(im, (0, 0), (w, 70), (20, 20, 20), -1)
+    cv2.putText(im, f"stage {stage}  {brain.phase}  {player.state or ''}  {brain.face}",
+                (16, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.9, bar, 2)
+    cv2.putText(im, brain.caption or "", (16, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
+                (220, 220, 220), 2)
+    s = 1100.0 / w
+    cv2.imshow(VIEW, cv2.resize(im, (int(w * s), int(h * s))))
+    return cv2.waitKey(1) & 0xFF
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--cam", type=int, default=0)
@@ -129,9 +172,21 @@ def main():
     ap.add_argument("--feed-dir", default=None,
                     help="where cards and stories are written (default: a new "
                          "session_feed/sidekick_<time>)")
+    ap.add_argument("--no-robot", action="store_true",
+                    help="laptop only: no servos, no CoreS3. Uses --cam as a FIXED "
+                         "camera (the laptop's own is fine) and opens the debug "
+                         "view; keys t = touch, p = palm, q = quit. For trying the "
+                         "detection, the decisions and the tablet without the robot.")
+    ap.add_argument("--view", action="store_true",
+                    help="debug window: what the camera sees, the people and props "
+                         "it found, and what it decided (on by default with "
+                         "--no-robot)")
     ap.add_argument("--offline", action="store_true",
                     help="no model calls: the robot's lines are the fallbacks")
     a = ap.parse_args()
+    if a.no_robot:
+        a.view = True
+        a.cores3 = None
     props = tuple(p.strip() for p in a.props.split(",") if p.strip())
 
     stamp = time.strftime("%Y%m%d_%H%M%S")
@@ -139,10 +194,15 @@ def main():
     os.makedirs(feed, exist_ok=True)
     print(f"[run] cards and stories -> {feed}")
 
-    bus, port = open_bus(a.port, 1_000_000)
-    missing = [n for n, sid in IDS.items() if not bus.ping(sid)[1]]
-    if missing:
-        sys.exit(f"no reply from {missing} on {port}")
+    if a.no_robot:
+        from robot.fakebus import FakeBus
+        bus, port = FakeBus(), None
+        print("[run] NO ROBOT: servos simulated, camera fixed")
+    else:
+        bus, port = open_bus(a.port, 1_000_000)
+        missing = [n for n, sid in IDS.items() if not bus.ping(sid)[1]]
+        if missing:
+            sys.exit(f"no reply from {missing} on {port}")
 
     link = None
     pending = deque()
@@ -170,7 +230,7 @@ def main():
     # Stage 1 answers a touch and nothing else, so it needs no camera at all:
     # it can be tried with only SK_PURR exported and nothing else set up.
     cam = det = poses = tracker = None
-    if a.stage >= 2:
+    if a.stage >= 2 or a.view:
         cam = HeadCam(a.cam)
         print("[cv] loading detector + pose ...")
         from perception.perceive import make_detector
@@ -211,14 +271,36 @@ def main():
             if (cam is not None and now >= next_cv
                     and player.settled_ms >= ST.AIM_SAMPLE_SETTLED_MS):
                 next_cv = now + period
-                pose = player.pose_deg()
+                # Without the robot the camera does not move with the "head",
+                # so every angle is taken from a still camera looking level.
+                pose = FIXED_POSE if a.no_robot else player.pose_deg()
                 frame = cam.latest.copy()
                 h, w = frame.shape[:2]
                 people = tracker.assign(poses.estimate(frame), (w, h), now)
                 dets = det.detect(frame)
-                brain.on_percept(SS.sense(people, dets, (w, h), pose, now, props))
+                pc = SS.sense(people, dets, (w, h), pose, now, props)
+                if a.stage >= 2:
+                    brain.on_percept(pc)
+                else:
+                    brain.tick()
+                if a.view:
+                    key = draw_view(frame, pc, people, brain, player, a.stage)
+                    if key == ord("t"):
+                        brain.on_tap()
+                    elif key == ord("p"):
+                        brain.on_palm()
+                    elif key in (ord("q"), 27):
+                        raise KeyboardInterrupt
             else:
                 brain.tick()
+                if a.view and frame is not None:
+                    key = cv2.waitKey(1) & 0xFF
+                    if key == ord("t"):
+                        brain.on_tap()
+                    elif key == ord("p"):
+                        brain.on_palm()
+                    elif key in (ord("q"), 27):
+                        raise KeyboardInterrupt
             # ---- what the brain asked to be written down ----
             while events:
                 kind, kw = events.popleft()
@@ -273,6 +355,8 @@ def main():
             link.close()
         if poses:
             poses.close()
+        if a.view:
+            cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

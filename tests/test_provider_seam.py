@@ -102,3 +102,28 @@ def test_38_flash_never_gets_minimal_thinking(monkeypatch):
     assert g.thinking_level("gemini-3.6-flash") == "minimal"
     monkeypatch.setenv("NOTICEBOT_GEMINI_THINKING_LEVEL", "medium")
     assert g.thinking_level("gemini-3.8-flash") == "medium"
+
+
+def test_a_thinking_model_gets_room_to_answer(monkeypatch):
+    """Thoughts share max_output_tokens; a 768 cap was cut off mid-JSON on 3.8."""
+    from planning import gemini_provider as g
+    sent = {}
+
+    class FakeClient:
+        class interactions:
+            @staticmethod
+            def create(**kw):
+                sent.update(kw)
+                raise RuntimeError("stop here")
+
+    monkeypatch.setenv("GEMINI_API_KEY", "x")
+    monkeypatch.setattr(g, "_client", lambda key: FakeClient)
+    monkeypatch.setenv("NOTICEBOT_GEMINI_THINKING_LEVEL", "minimal")
+    import pytest as _pt
+    with _pt.raises(RuntimeError):
+        g.call_json("p", {"type": "object"}, model="gemini-3.8-flash", max_output_tokens=768)
+    assert sent["generation_config"]["thinking_level"] == "low"
+    assert sent["generation_config"]["max_output_tokens"] >= g.THINKING_BUDGET_FLOOR
+    with _pt.raises(RuntimeError):
+        g.call_json("p", {"type": "object"}, model="gemini-3.6-flash", max_output_tokens=768)
+    assert sent["generation_config"]["max_output_tokens"] == 768

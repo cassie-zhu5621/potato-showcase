@@ -73,7 +73,12 @@ def robot_line(kind, label, jpegs, offline):
     }[kind]
     try:
         from planning.provider import call_json
+        # The booth's lines never wait on anything, so they can always use the
+        # newest Flash, whatever .env sets for the paper demo (where speed
+        # matters more): NOTICEBOT_SIDEKICK_MODEL, default gemini-3.8-flash.
         out, _ = call_json(VOICE + ask, LINE_SCHEMA, images=jpegs,
+                           model=os.environ.get("NOTICEBOT_SIDEKICK_MODEL",
+                                                "gemini-3.8-flash"),
                            max_output_tokens=200)
         line = str(out.get("line", "")).strip()
         return line[:140] or fb

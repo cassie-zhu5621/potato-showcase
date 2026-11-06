@@ -37,6 +37,7 @@ def thinking_level(model: str) -> str:
 
 
 _WARNED_MINIMAL = False
+THINKING_BUDGET_FLOOR = 4096   # see call_json: thoughts share the output budget
 
 # ONE client for the process, not one per call.
 #
@@ -164,6 +165,16 @@ def call_json(
     budget = max_output_tokens or int(
         os.environ.get("NOTICEBOT_GEMINI_MAX_OUTPUT_TOKENS", 8192))
 
+    # THINKING SPENDS THE SAME BUDGET. With thinking_level="minimal" (3.5/3.6)
+    # the model never thought, so 768 or 256 tokens was all answer. 3.8 Flash
+    # has no "minimal": at "low" it sometimes thinks, and the thought tokens
+    # count against max_output_tokens -- measured 2026-11-07, a 768-token judge
+    # call came back as JSON cut off mid-string after thinking. A cap only
+    # limits, it does not spend, so whenever the model may think the cap is
+    # raised to leave room for the answer.
+    level = thinking_level(model_name(model))
+    if level != "minimal":
+        budget = max(budget, THINKING_BUDGET_FLOOR)
     client = _client(key)
     interaction = client.interactions.create(
         model=model_name(model),
@@ -171,7 +182,7 @@ def call_json(
         store=False,
         service_tier=os.environ.get("NOTICEBOT_GEMINI_SERVICE_TIER", "priority"),
         generation_config={
-            "thinking_level": thinking_level(model_name(model)),
+            "thinking_level": level,
             "max_output_tokens": budget,
         },
         response_format={

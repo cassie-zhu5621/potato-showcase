@@ -11,7 +11,32 @@ from dotenv import load_dotenv
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL = "gemini-3.5-flash"
+DEFAULT_MODEL = "gemini-3.8-flash"
+# 2026-11-07: was gemini-3.5-flash, which the API had already been silently
+# routing to gemini-3.6-flash (ai.google.dev/gemini-api/docs/deprecations).
+# 3.8 Flash is the current stable Flash.
+
+# Models that REJECT thinking_level="minimal" with an error (3.8 Flash: "low,
+# medium, high"; "minimal is not supported and returns an error"). .env has
+# said minimal since 3.5, so it is mapped here rather than left to fail every
+# call the moment the model changes.
+NO_MINIMAL_THINKING = ("gemini-3.8",)
+
+
+def thinking_level(model: str) -> str:
+    level = os.environ.get("NOTICEBOT_GEMINI_THINKING_LEVEL", "minimal").strip()
+    if level == "minimal" and str(model).startswith(NO_MINIMAL_THINKING):
+        global _WARNED_MINIMAL
+        if not _WARNED_MINIMAL:
+            _WARNED_MINIMAL = True
+            print(f"[gemini] {model} does not accept thinking_level=minimal; "
+                  f"using low (set NOTICEBOT_GEMINI_THINKING_LEVEL=low in .env "
+                  f"to silence this)")
+        return "low"
+    return level
+
+
+_WARNED_MINIMAL = False
 
 # ONE client for the process, not one per call.
 #
@@ -146,9 +171,7 @@ def call_json(
         store=False,
         service_tier=os.environ.get("NOTICEBOT_GEMINI_SERVICE_TIER", "priority"),
         generation_config={
-            "thinking_level": os.environ.get(
-                "NOTICEBOT_GEMINI_THINKING_LEVEL", "minimal"
-            ),
+            "thinking_level": thinking_level(model_name(model)),
             "max_output_tokens": budget,
         },
         response_format={

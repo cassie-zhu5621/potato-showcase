@@ -397,6 +397,11 @@ def main():
     # describing a request nobody made, which is precisely what the comment
     # below was written to stop it doing.
     _ensure_env()
+
+    def _sent_thinking_level():
+        from planning.gemini_provider import thinking_level
+        return thinking_level(os.environ.get("NOTICEBOT_GEMINI_MODEL",
+                                             "gemini-3.8-flash"))
     with open(os.path.join(a.feed_dir, "run.json"), "w") as fh:
         json.dump({
             "started_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -404,9 +409,10 @@ def main():
             "feed_dir": a.feed_dir,
             "gemini": {
                 "model": os.environ.get(
-                    "NOTICEBOT_GEMINI_MODEL", "gemini-3.5-flash"),
-                "thinking_level": os.environ.get(
-                    "NOTICEBOT_GEMINI_THINKING_LEVEL", "minimal"),
+                    "NOTICEBOT_GEMINI_MODEL", "gemini-3.8-flash"),
+                # as it is ACTUALLY sent: 3.8 Flash rejects "minimal", and
+                # the provider maps it to "low" (gemini_provider.thinking_level)
+                "thinking_level": _sent_thinking_level(),
                 # None = the field is not sent and the service decides. Recorded
                 # as it is ACTUALLY sent: this said "low" whenever the variable
                 # was unset, which is a run.json asserting a request that was

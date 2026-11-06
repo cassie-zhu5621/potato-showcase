@@ -91,3 +91,14 @@ def test_an_inline_variable_beats_the_dotenv_file(monkeypatch):
     monkeypatch.setenv("NOTICEBOT_LLM_PROVIDER", "gemini")
     monkeypatch.setattr(p, "_ENV_LOADED", False)
     assert p.provider_name() == "gemini"
+
+
+def test_38_flash_never_gets_minimal_thinking(monkeypatch):
+    """gemini-3.8-flash rejects thinking_level=minimal with an error; .env said
+    minimal for 3.5. The provider maps it rather than failing every call."""
+    from planning import gemini_provider as g
+    monkeypatch.setenv("NOTICEBOT_GEMINI_THINKING_LEVEL", "minimal")
+    assert g.thinking_level("gemini-3.8-flash") == "low"
+    assert g.thinking_level("gemini-3.6-flash") == "minimal"
+    monkeypatch.setenv("NOTICEBOT_GEMINI_THINKING_LEVEL", "medium")
+    assert g.thinking_level("gemini-3.8-flash") == "medium"

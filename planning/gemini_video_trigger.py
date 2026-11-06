@@ -24,8 +24,8 @@ from dotenv import load_dotenv
 
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MODEL = "gemini-3.5-flash"
-DEFAULT_THINKING_LEVEL = "minimal"
+DEFAULT_MODEL = "gemini-3.8-flash"
+DEFAULT_THINKING_LEVEL = "low"     # 3.8 Flash rejects "minimal"
 DEFAULT_MEDIA_RESOLUTION = "low"
 DEFAULT_MAX_OUTPUT_TOKENS = 256
 DEFAULT_SERVICE_TIER = "priority"

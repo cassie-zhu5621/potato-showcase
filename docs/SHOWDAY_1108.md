@@ -52,6 +52,21 @@ finished booth (stage 4).
 Step by step in `motion/sidekick/README.md` (SK_PURR as the example). The
 exporter there writes straight into `motion/clips/`.
 
+## On the laptop alone (no robot)
+
+Detection, decisions and the tablet can all be tried with the laptop camera:
+
+```bash
+python3 sidekick_loop.py --no-robot --stage 4 --cam 0
+```
+
+A window shows what the camera sees, each person (NEAR / passer, shoulder
+width) and each prop (green = held, red = a hand near it, with its gaze angle),
+and what the robot decided. Keys: **t** = touch its head, **p** = palm on the
+sensor, **q** = quit. The tablet page is at `http://localhost:8000/`. The servos
+are simulated and the camera does not move, so this tests everything except
+the aiming.
+
 ## Before the day -- once (what each stage needs)
 
 ### 1. Export the six new clips (Blender)

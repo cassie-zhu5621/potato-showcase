@@ -105,9 +105,13 @@ for f in range(1, END_F + 1):
     key_pose(f, 0.0, t, n)
     key_led(f, lerp(LED_BASE, LED_PEAK, lift(i, Q1_AT, 1.0)))
 
+# The rising sound belongs to the first rising lift: it starts as the head
+# starts up, so the two read as one "hm?" (states.py SK_CURIOUS sfx_at).
+SFX_AT = (H + Q1_AT) / float(END_F)
 finish(END_F, "SK_CURIOUS", [
     f"recoil {BACK_TILT:.0f} back + head up {BACK_NOD:.0f}, hold {BACK_HOLD_S}s, "
     f"lean in {LEAN_TILT:.0f} (head drops {LEAN_NOD:.0f}: gaze onto the thing)",
     f"two rising 'hm?' lifts {Q1:.0f} / {Q2:.0f} deg; ends leaned in for FOLLOW",
     f"{END_F}f ({END_F / FPS:.2f}s). Translated onto the live pose at runtime.",
+    f"SET states.py SK_CURIOUS sfx_at = {SFX_AT:.2f}",
 ])

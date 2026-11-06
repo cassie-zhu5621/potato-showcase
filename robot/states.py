@@ -256,7 +256,10 @@ STATES = {
 
     "SK_CURIOUS": dict(
         clip="SK_CURIOUS", loop=False, then="SK_FOLLOW", relative="entry",
-        hue="cool", sfx="curious", sfx_at=0.55, sfx_flash=None, sfx_loop=False,
+        hue="cool", sfx="curious", sfx_at=0.54, sfx_flash=None, sfx_loop=False,
+        # 0.54 = the first rising "hm?" lift (generate_sk_curious.py prints it).
+        # The rising chirp starts with the head going up: one question, two
+        # channels. Not on the recoil -- that beat is a silent start.
         screen="idle", enter="a prop held up to it", exit="-> SK_FOLLOW",
         note="'what's that?': pulls back, leans in onto it, two rising lifts."),
 

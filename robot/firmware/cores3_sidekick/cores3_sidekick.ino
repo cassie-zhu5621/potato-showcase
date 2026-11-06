@@ -617,7 +617,7 @@ void checkTap() {
 // channels are meant to be saying the same thing.
 //
 // The vocabulary mirrors the motion rather than decorating it:
-//   curious  rises   a question, matching the turn toward you (S2, unused now)
+//   curious  rises   a question: SK_CURIOUS's "hm?" (v19: four steps, longer)
 //   ack      falls   affirmation, same downward accent as the nod (S3)
 //   shutter  click   one capture, fired off the LED flash so they cannot drift (S4)
 //   puzzled  ends up an unresolved question (S6)
@@ -647,7 +647,10 @@ void sfxTick() {
 }
 
 // two notes close together read as ONE blip that rises -- tone() cannot glide
-const Note SFX_CURIOUS[] = {{1000, 35}, {1400, 55}};
+// v19: three steps up and a held top, a longer and more clearly rising "hm?"
+// for SK_CURIOUS (the old two-note blip was gone before the lift it belonged to
+// had finished). Still rising, so it stays the question in the vocabulary.
+const Note SFX_CURIOUS[] = {{880, 45}, {1100, 45}, {1400, 50}, {1650, 110}};
 const Note SFX_ACK[]     = {{1400, 70}, {1000, 110}};
 const Note SFX_SHUTTER[] = {{2600, 22}};
 const Note SFX_PUZZLED[] = {{1000, 70}, {760, 70}, {1180, 130}};
@@ -667,7 +670,7 @@ const Note SFX_ALERT[]   = {{1700, 45}, {0, 60}, {1700, 45}};
 
 void sfxByName(const String& n) {
   String k = n; k.toUpperCase();
-  if      (k == "CURIOUS") sfxStart(SFX_CURIOUS, 2);
+  if      (k == "CURIOUS") sfxStart(SFX_CURIOUS, 4);
   else if (k == "ACK")     sfxStart(SFX_ACK, 2);
   else if (k == "SHUTTER") sfxStart(SFX_SHUTTER, 1);
   else if (k == "PUZZLED") sfxStart(SFX_PUZZLED, 3);

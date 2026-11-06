@@ -59,8 +59,9 @@ Q2 = 4.0               # second, smaller (>= 3.52 floor)
 
 HOLD_IN_S = 0.05
 BACK_S = 0.30
-BACK_HOLD_S = 0.15     # v2: a beat held at the top of the recoil, so the
-                       #   wind-up reads as its own moment before the lean
+BACK_HOLD_S = 0.40     # a beat held at the top of the recoil, so the
+                       #   wind-up reads as its own moment before the lean.
+                       #   v3: 0.15 -> 0.40, still too short to read on the robot
 LEAN_S = 0.50
 Q_HALF_S = 0.16        # rise and fall of each lift
 Q_GAP_S = 0.06

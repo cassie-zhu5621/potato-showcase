@@ -56,6 +56,11 @@ TARGET_AWAY_S = 3.0        # the target must be out of sight this long before
                            # seeing it again counts as finding it
 FOUND_FRAMES = 2           # seen on this many settled frames in a row: found
 CALL_MAX_S = 25.0          # nobody answered the call
+LEAD_S = 0.25              # aim this far ahead of a moving person...
+LEAD_MAX_DEG = 6.0         # ... but never more than this
+EDGE_FRAC = 0.30           # last seen this far from the centre = left at an edge
+CHASE_WITHIN_S = 1.5       # and only if that was this recent
+CHASE_DEG = 20.0           # one saccade on, in their direction
 
 KAOMOJI = {
     "SLEEP": "-_- zz", "DOZE": "-.-", "LOOK": "o_o", "TEACH": "o_O?",
@@ -110,6 +115,10 @@ class Brain:
         self._last_near = -1e9
         self._last_glance = -1e9
         self._held_run = 0
+        self._track_pan = None           # the person being followed
+        self._track_t = -1e9
+        self._track_x = 0.5
+        self._chased = False
         self._teach = None               # dict(since, box, guess) while naming
         self._teach_done = -1e9
         self.target = None               # dict(term, name, since) once taught
@@ -223,7 +232,14 @@ class Brain:
         if not term:
             self._teach_failed("Hmm, I couldn't tell what that was.")
             return
-        self.target = dict(term=term, name=name or term, since=self.now())
+        guess = (self._teach or {}).get("guess")
+        # THE DETECTOR'S OWN WORD IS KEPT AS WELL. It noticed the thing under
+        # some word ('headphones') and the model may name it another ('earbud
+        # case'): on 2026-11-07 an earbud case was taught and never found
+        # again, because the detector went on calling it by its first word.
+        words = [term] + ([guess] if guess and not same_thing(guess, term) else [])
+        self.target = dict(term=term, name=name or term, since=self.now(),
+                           words=words)
         self._target_seen = self.now()     # it is in their hand right now
         self._target_armed = False
         self._found_run = 0
@@ -257,7 +273,8 @@ class Brain:
         if not self.target or "watch" not in self.on:
             return False
         t = pc.t
-        hits = [q for q in pc.props if same_thing(q.label, self.target["term"])]
+        hits = [q for q in pc.props
+                if any(same_thing(q.label, w) for w in self.target["words"])]
         # IN SOMEONE'S HAND COUNTS. The first version excluded "held by a near
         # person" as being shown rather than found -- so bringing the bottle
         # back, in your hand, found nothing (2026-11-07). Being shown right
@@ -304,6 +321,7 @@ class Brain:
             self._near_since = self._near_since or pc.t
             if pc.t - self._near_since >= WAKE_S:
                 self._look_at(near.head)
+                self._track_pan, self._track_t = near.head.pan, pc.t
                 self.p.request("SK_LOOK")
                 self._last_near = pc.t
                 self._go("LOOK", say="Hi! Show me something?")
@@ -319,6 +337,7 @@ class Brain:
             self._near_since = self._near_since or t
             if t - self._near_since >= WAKE_S:
                 self._look_at(near.head)
+                self._track_pan, self._track_t = near.head.pan, t
                 self.p.request("SK_LOOK")
                 self._last_near = t
                 self._go("LOOK", say="Hi! Show me something?")
@@ -344,14 +363,13 @@ class Brain:
 
     def _see_look(self, pc):
         t = pc.t
-        near = pc.near
+        near = self._follow_person(pc)
         if near:
             self._last_near = t
-            if self.p.state == "SK_LOOK":
-                self._look_at(near.head)
         held = pc.held if ("watch" in self.on and near) else None
         if (held and t - self._teach_done > TEACH_AGAIN_S
-                and not (self.target and same_thing(held.label, self.target["term"]))):
+                and not (self.target and any(same_thing(held.label, w)
+                                             for w in self.target["words"]))):
             self._held_run += 1
             if self._held_run >= HELD_FRAMES and self.p.state == "SK_LOOK":
                 self._held_run = 0
@@ -362,6 +380,54 @@ class Brain:
                 self.emit("identify", box=held.box, guess=held.label, t=t)
         else:
             self._held_run = 0
+
+    # ---- following a person: the part visitors liked, made firmer ---------
+    def _follow_person(self, pc):
+        """Whom to look at, and where -- with three things the first version
+        did not do:
+
+          STAY WITH THE SAME PERSON. With two people close it used to jump to
+          whoever was biggest that frame; now it keeps to the one nearest
+          where it was already looking, unless someone is clearly nearer.
+          LEAD A MOVING PERSON. Aim a little ahead along their motion, so the
+          saccade lands where they are going rather than where they were.
+          FOLLOW THEM OUT OF FRAME. If they leave at an edge, one saccade on
+          in that direction to find them again, before giving up on them.
+        """
+        t = pc.t
+        near = [q for q in pc.people if q.near]
+        if near:
+            if self._track_pan is not None and len(near) > 1:
+                cur = min(near, key=lambda q: abs(q.head.pan - self._track_pan))
+                big = max(near, key=lambda q: q.sw_frac)
+                q = big if big.sw_frac > 1.5 * cur.sw_frac else cur
+            else:
+                q = max(near, key=lambda q: q.sw_frac)
+            pan, nod = q.head.pan, q.head.nod
+            if self._track_pan is not None and t - self._track_t < 1.0:
+                v = (pan - self._track_pan) / max(0.05, t - self._track_t)
+                lead = max(-LEAD_MAX_DEG, min(LEAD_MAX_DEG, v * LEAD_S))
+            else:
+                lead = 0.0
+            self._track_pan, self._track_t = pan, t
+            self._track_x = q.head.x / float(pc.wh[0])
+            self._chased = False
+            if self.p.state == "SK_LOOK":
+                self.p.set_aim_deg(pan=pan + lead, tilt=ST.LOOK_TILT, nod=nod)
+            return q
+        # Gone this frame. Left at an edge, recently: chase once.
+        if (self._track_pan is not None and not self._chased
+                and t - self._track_t < CHASE_WITHIN_S
+                and abs(self._track_x - 0.5) > EDGE_FRAC
+                and self.p.state == "SK_LOOK"):
+            side = 1.0 if self._track_x > 0.5 else -1.0
+            # image right is the -pan side when AIM_X_SIGN is -1
+            step = CHASE_DEG * side * ST.AIM_X_SIGN
+            pose = pc.pose
+            self.p.set_aim_deg(pan=pose["pan"] + step, tilt=ST.LOOK_TILT,
+                               nod=pose["nod"])
+            self._chased = True
+        return None
 
     def _see_teach(self, pc):
         """Follow the thing while the model names it."""

@@ -158,6 +158,28 @@ def story_strip(event_frames, t0, t1, n=6, height=260):
     return (strip.tobytes() if ok else None), jpegs
 
 
+class _Tee:
+    def __init__(self, a, b):
+        self.a, self.b = a, b
+
+    def write(self, s):
+        self.a.write(s)
+        try:
+            self.b.write(time.strftime("%H:%M:%S ") + s if s.strip() else s)
+            self.b.flush()
+        except Exception:
+            pass
+
+    def flush(self):
+        self.a.flush()
+
+
+def _tee(path):
+    old = sys.stdout
+    sys.stdout = _Tee(old, open(path, "a", buffering=1))
+    return old
+
+
 FIXED_POSE = {"pan": 0.0, "tilt": 0.0, "nod": 0.0}
 VIEW = "sidekick -- what it sees   (t touch  p palm  q quit)"
 PHASE_COL = {"SLEEP": (90, 90, 90), "DOZE": (120, 120, 120), "LOOK": (60, 200, 255), "SHOW": (80, 220, 120),
@@ -266,6 +288,9 @@ def main():
     stamp = time.strftime("%Y%m%d_%H%M%S")
     feed = a.feed_dir or os.path.join(ROOT, "session_feed", f"sidekick_{stamp}")
     os.makedirs(feed, exist_ok=True)
+    # EVERYTHING PRINTED IS ALSO KEPT, in the run's folder: the first question
+    # after a run is "why didn't it ...", and the terminal is gone by then.
+    _stdout = _tee(os.path.join(feed, "run.log"))
     print(f"[run] cards and stories -> {feed}")
 
     if a.no_robot:
@@ -310,7 +335,9 @@ def main():
         from perception.perceive import make_detector
         from perception.relations import PoseEstimator, Tracker
         from perception.gaze import HeadPoseEstimator
-        det = make_detector("yoloworld", list(props), conf=a.conf)
+        # Asked at the TARGET's lower threshold; sense() holds ordinary props
+        # to the higher one (sidekick_sense.PROP_CONF / TARGET_CONF).
+        det = make_detector("yoloworld", list(props), conf=min(a.conf, SS.TARGET_CONF))
         poses, tracker = PoseEstimator(max_people=4), Tracker()
         faces = HeadPoseEstimator(max_faces=4)
     PAGE.serve(feed, a.web_port)
@@ -366,7 +393,8 @@ def main():
                 people = tracker.assign(poses.estimate(frame), (w, h), now)
                 dets = det.detect(frame)
                 rays = faces.estimate(frame)
-                pc = SS.sense(people, dets, (w, h), pose, now, props, faces=rays)
+                pc = SS.sense(people, dets, (w, h), pose, now, props, faces=rays,
+                              target_words=(brain.target or {}).get("words", ()))
                 # One line when what it sees CHANGES, so a run can be read back
                 # from the terminal: nobody / passer / NEAR, and its decision.
                 seen = ("NEAR" if pc.near else ("passer" if pc.people else "nobody"))
@@ -446,8 +474,11 @@ def main():
                     # and 'water bottle', the detector can call the target by
                     # the other one.
                     from session.sidekick_brain import same_thing
+                    guess = brain._teach.get("guess") if brain._teach else None
+                    keep = [term] + ([guess] if guess else [])
                     props = tuple(w for w in SS.PROPS
-                                  if not same_thing(w, term)) + (term,)
+                                  if not any(same_thing(w, k) for k in keep))
+                    props += tuple(dict.fromkeys(keep))
                     det.set_vocab(list(props))
                 brain.on_identified(name, term)
             # ---- face, colour, tablet ----
@@ -491,6 +522,7 @@ def main():
             faces.close()
         if a.view:
             cv2.destroyAllWindows()
+        sys.stdout = _stdout
 
 
 if __name__ == "__main__":

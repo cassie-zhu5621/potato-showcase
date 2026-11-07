@@ -80,3 +80,12 @@ def test_a_face_inside_a_counted_body_is_not_a_second_person():
                    face_box=(360, 150, 440, 250))
     p = SS.sense([person(400, 0.35 * W)], [], (W, H), POSE, 0.0, faces=[face])
     assert len(p.people) == 1
+
+
+def test_the_target_may_be_a_weaker_detection():
+    weak = Detection("earbud case", (600, 300, 660, 340), score=0.15)
+    p = SS.sense([], [weak], (W, H), POSE, 0.0, props=("earbud case",))
+    assert p.props == []                              # an ordinary prop: too weak
+    p = SS.sense([], [weak], (W, H), POSE, 0.0, props=("earbud case",),
+                 target_words=("earbud case",))
+    assert len(p.props) == 1

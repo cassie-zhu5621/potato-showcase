@@ -41,7 +41,14 @@ PASSER_SW_FRAC = 0.07      # a body at all (further than ~6 m is not a passer-by
 # (landmark box), shoulders ~0.42 m.
 FACE_TO_SHOULDER = 2.8
 
-MIN_PROP_AREA = 0.004      # of the frame. Smaller is a detection of nothing.
+MIN_PROP_AREA = 0.004
+PROP_CONF = 0.25           # an ordinary prop must be at least this sure
+TARGET_CONF = 0.12         # the TARGET may be less sure: it is one known word,
+                           # usually small and further off than when it was
+                           # shown (an earbud case across a table is a weak
+                           # detection, and missing it is the failure that
+                           # matters here)
+TARGET_MIN_AREA = 0.0015   # ... and smaller      # of the frame. Smaller is a detection of nothing.
 HELD_CLOSE_AREA = 0.06     # this big is held up to the eye, hand seen or not
 HAND_ON_MARGIN = 0.10      # of the box diagonal: a hand holding it (knuckles
                            # sit on the edge of a held thing, not inside it)
@@ -89,6 +96,7 @@ class Prop:
 class Percept:
     t: float
     pose: Dict[str, float]
+    wh: Tuple[int, int] = (1280, 720)
     people: List[Person] = field(default_factory=list)
     props: List[Prop] = field(default_factory=list)
 
@@ -148,9 +156,11 @@ def _hand_points(person):
 
 def sense(people: Sequence, dets: Sequence, wh: Tuple[int, int],
           pose: Dict[str, float], t: float,
-          props: Sequence[str] = PROPS, faces: Sequence = ()) -> Percept:
+          props: Sequence[str] = PROPS, faces: Sequence = (),
+          target_words: Sequence[str] = ()) -> Percept:
     w, h = wh
-    out = Percept(t=t, pose=dict(pose))
+    out = Percept(t=t, pose=dict(pose), wh=(w, h))
+    targets = {x.strip().lower() for x in target_words if x}
     hands = []
     for p in people:
         if L_SH not in p.pts or R_SH not in p.pts:
@@ -182,7 +192,10 @@ def sense(people: Sequence, dets: Sequence, wh: Tuple[int, int],
         if d.label not in props:
             continue
         area = d.area / float(w * h)
-        if area < MIN_PROP_AREA:
+        is_target = d.label.strip().lower() in targets
+        if area < (TARGET_MIN_AREA if is_target else MIN_PROP_AREA):
+            continue
+        if getattr(d, "score", 1.0) < (TARGET_CONF if is_target else PROP_CONF):
             continue
         diag = math.hypot(d.w, d.h)
         x0, y0, x1, y1 = d.box

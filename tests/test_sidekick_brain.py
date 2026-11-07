@@ -356,3 +356,49 @@ def test_the_voice_waits_for_each_ack_from_a_v21_board(monkeypatch):
     v._send("hello", v._gen)
     assert sent[-1] == ("WAVPLAY", "") and not slept      # no pacing needed
     assert all(len(a) <= RV.CHUNK for c, a in sent if c == "WAVDATA")
+
+
+def test_the_detectors_first_word_still_finds_it():
+    """Shown as 'headphones' (what the detector saw), named 'earbud case' by the
+    model: the detector keeps saying 'headphones', and that must still count."""
+    clock, player, brain, events = setup()
+    awake(clock, player, brain)
+    step(clock, brain, 0.25, people=[face()], props=[prop("headphones")])
+    step(clock, brain, 0.25, people=[face()], props=[prop("headphones")])
+    player.finish()
+    brain.on_identified("a black earbud case", "earbud case")
+    player.finish()
+    for _ in range(int(B.TARGET_AWAY_S / 0.25) + 2):
+        step(clock, brain, 0.25, people=[face()])
+    step(clock, brain, 0.25, people=[face()], props=[prop("headphones", held=False)])
+    step(clock, brain, 0.25, people=[face()], props=[prop("headphones", held=False)])
+    assert brain.phase == "CALL"
+
+
+def test_it_stays_with_the_person_it_was_looking_at():
+    clock, player, brain, _ = setup()
+    awake(clock, player, brain)                       # following someone at +20
+    other = Person(pid=2, head=tgt(-30.0, 15.0), sw_frac=0.36, near=True)
+    step(clock, brain, 0.25, people=[face(21.0), other])
+    assert abs(player.aim["pan"] - 21.0) < 7.0        # not swung to -30
+
+
+def test_it_leads_a_moving_person():
+    clock, player, brain, _ = setup()
+    awake(clock, player, brain)
+    step(clock, brain, 0.25, people=[face(24.0)])     # moving +16 deg/s
+    assert player.aim["pan"] > 24.0
+
+
+def test_it_follows_someone_out_of_the_frame_once():
+    clock, player, brain, _ = setup()
+    awake(clock, player, brain)
+    edge = Person(pid=1, head=Target(x=1200, y=300, pan=20.0, nod=27.0, gaze=15.0),
+                  sw_frac=0.35, near=True)
+    step(clock, brain, 0.25, people=[edge])
+    step(clock, brain, 0.25)                          # gone, at the right edge
+    expect = 0.0 + B.CHASE_DEG * ST.AIM_X_SIGN        # pose pan is 0 in pc()
+    assert abs(player.aim["pan"] - expect) < 0.01
+    player.aim = {}
+    step(clock, brain, 0.25)
+    assert player.aim == {}                           # only once

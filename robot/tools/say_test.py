@@ -1,0 +1,57 @@
+#!/usr/bin/env python3
+"""
+say_test.py -- does the robot speak? (firmware v20)
+
+  python3 robot/tools/say_test.py
+  python3 robot/tools/say_test.py --voice Samantha "Hello, I'm awake."
+
+Sends one line to the CoreS3: it should come out of the robot's own speaker and
+appear under its face for a few seconds. Prints what the board answered.
+"""
+import argparse
+import os
+import sys
+import time
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__)))))
+
+from session.cores3_link import CoreS3Link, find_cores3   # noqa: E402
+from session.robot_voice import RobotVoice, make_wav      # noqa: E402
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("text", nargs="?",
+                    default="OK! I'll look out for a blue water bottle.")
+    ap.add_argument("--voice", default="Zarvox")
+    a = ap.parse_args()
+    wav = make_wav(a.text, a.voice)
+    if not wav:
+        sys.exit("`say` could not make the line (this needs a Mac).")
+    print(f"line: {a.text!r}  ({len(wav) / 1024:.0f} KB of audio)")
+    port = find_cores3()
+    if not port:
+        sys.exit("no CoreS3 found")
+    lines = []
+    link = CoreS3Link(port, on_input=lambda s: lines.append(s))
+    link.claim(volume=100)
+    link.skface("^_^")
+    link.sksay(a.text)
+    t0 = time.time()
+    voice = RobotVoice(link, voice=a.voice)
+    voice._send(a.text, voice._gen)        # in this thread, so we can time it
+    print(f"sent in {time.time() - t0:.1f}s")
+    time.sleep(4)
+    for s in lines:
+        if "WAV" in s or "PONG" in s or "HELLO" in s:
+            print("  board:", s)
+    if not any("WAV play" in s for s in lines):
+        print("!! the board never said `IN WAV play` -- is it v20? "
+              "(python3 robot/tools/tof_test.py)")
+    link.sksay("")
+    link.close()
+
+
+if __name__ == "__main__":
+    main()

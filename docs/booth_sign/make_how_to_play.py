@@ -16,7 +16,10 @@ def arrow(x0,y0,cx,cy,x1,y1,dash=False):
     for s in (+0.5,-0.5):
         a=ang+math.pi+s
         add(f'<path d="M{x1},{y1} L{x1+L*math.cos(a):.1f},{y1+L*math.sin(a):.1f}" {SK}/>')
-def label(x,y,jp,en,sub_jp=None,sub_en=None,anchor="start"):
+def label(x,y,jp,en,sub_jp=None,sub_en=None,anchor="start",n=None):
+    if n is not None:
+        add(f'<circle cx="{x-36}" cy="{y-15}" r="24" {SK} fill="#fff"/>')
+        add(f'<text x="{x-36}" y="{y-4}" font-family="{EN}" font-size="30" font-weight="700" fill="#111" text-anchor="middle">{n}</text>')
     add(f'<text x="{x}" y="{y}" font-family="{JP}" font-size="44" font-weight="700" fill="#111" text-anchor="{anchor}">{jp}</text>')
     add(f'<text x="{x}" y="{y+40}" font-family="{EN}" font-size="28" fill="#111" text-anchor="{anchor}">{en}</text>')
     if sub_jp:
@@ -93,23 +96,23 @@ add('</g>')
 # --- arrows + labels ------------------------------------------------------
 add('<g filter="url(#wobt)">')
 # 1 pat my head
-label(130,250,"あたまをポンポン","Pat my head","すりすりするよ","I'll nuzzle up into your hand")
+label(130,250,"あたまをポンポン","Pat my head","すりすりするよ","I'll nuzzle up into your hand",n=5)
 arrow(470,275, 600,215, cx-75,262)
 # 2 hold it up to my eyes
-label(1110,310,"目の前で見せてね","Hold it up to my eyes","おぼえて、さがしておくね","I'll look out for it")
+label(1120,310,"目の前で見せてね","Hold it up to my eyes","おぼえて、さがしておくね","I'll look out for it",n=3)
 arrow(975,350, 955,335, 935,345)
 # 3 hide it, bring it back
-label(1100,590,"かくして、また出してね","Hide it, then bring it back","見つけたら呼ぶよ！","I'll point at it and call you")
+label(1110,590,"かくして、また出してね","Hide it, then bring it back","見つけたら呼ぶよ！","I'll point at it and call you",n=4)
 arrow(1090,620, 960,600, cx+120,450)
 # 4 wave hi
-label(110,520,"手をふってね","Wave hi","ふりかえすよ","I'll wave back")
+label(110,520,"手をふってね","Wave hi","ふりかえすよ","I'll wave back",n=2)
 arrow(250,640, 300,680, px+40,py-185)
 # 5 come close
-label(110,965,"ちかづいてね","Come close","じっと見てるよ","I'll keep my eyes on you")
+label(110,965,"ちかづいてね","Come close","じっと見てるよ","I'll keep my eyes on you",n=1)
 
 # asleep note
 add(f'<text x="1490" y="1050" font-family="{JP}" font-size="26" fill="#555" text-anchor="end">ねてたら（-_- zz）あたまをポンポン</text>')
 add(f'<text x="1490" y="1084" font-family="{EN}" font-size="22" fill="#555" text-anchor="end">Asleep? Pat my head to wake me</text>')
 add('</g>')
 add('</svg>')
-open('/sessions/jolly-pensive-meitner/mnt/showcase/docs/booth_sign/how_to_play.svg','w').write("\n".join(out))
+open('how_to_play.svg','w').write("\n".join(out))

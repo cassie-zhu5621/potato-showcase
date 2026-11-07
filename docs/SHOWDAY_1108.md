@@ -18,7 +18,7 @@ up, hide it, pat my head.
 | walks past (just after a visit) | dozing, head up; glances at them (also straight ahead), goes back | `-.-` |
 | comes close (~1.5 m) | wakes, looks at their face, follows it | `o_o` |
 | comes very close (~0.75 m) | eager: leans in and back in quick bounces, eyes stay on them, light brighter (paused while something is held up) | `*o_o*` |
-| holds something up | pulls back, holds, leans in, "hm?" (rising sound), follows it while the model names it | `o_O?` / `O_O` |
+| holds something up to its eyes (~30 cm) | pulls back, holds, leans in, "hm?" (rising sound), follows it while the model names it | `o_O?` / `O_O` |
 | -- named | nods with the "got it" sound; "OK! I'll look out for a blue water bottle." appears under its face, on the tablet and in the view (not spoken; `--speak` turns a voice on) | `^_^` |
 | keeps holding it / puts it away | nothing: being shown is not finding | |
 | later, that kind of thing is in its view again | points at it with the call sound (no speech); tablet: "spotted it!" with the picture | `\^o^/` |
@@ -85,8 +85,9 @@ Read the terminal: `[sense]` says what it sees (nobody / passer / NEAR),
 **It never wakes.** Someone close (about 1.5 m) wakes it from dozing; asleep
 (head down) only a hand at the sensor or a touch does.
 
-**It never gets curious.** The thing must be held up, close and near the middle
-of its view, by someone it sees as NEAR. Very unusual objects may not be among
+**It never gets curious.** The thing must be brought up to its eyes: at least
+SHOW_AREA of the frame (the --view label shows the %), near the middle, for
+SHOW_S. Saying hi with a phone in hand is deliberately NOT showing. Very unusual objects may not be among
 the detector's words (`PROPS` in `perception/sidekick_sense.py`).
 
 **"I couldn't tell what that was."** The model said nothing was clearly being
@@ -109,7 +110,8 @@ All in `session/sidekick_brain.py` unless said otherwise.
 | LOST_S | 6 s | nobody close this long: dozes |
 | DOZE_TO_SLEEP_S | 20 s | dozing this long: falls asleep, head down |
 | GLANCE_REFRACTORY_S | 12 s | at most one glance per this long |
-| HELD_FRAMES | 2 | held up this many frames: curious |
+| SHOW_AREA | 4.5% | a thing this big in the frame (brought up to its eyes, near the middle)... |
+| SHOW_S | 0.8 s | ... held there this long: curious. The --view label shows each thing's %. |
 | TEACH_MAX_S | 12 s | the model gets this long to name it |
 | TARGET_AWAY_S | 3 s | out of sight this long before seeing it again counts |
 | FOUND_FRAMES | 2 | seen this many frames: found |

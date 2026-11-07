@@ -49,7 +49,15 @@ DOZE_TO_SLEEP_S = 20.0     # dozing this long with nobody near: head down, aslee
 GLANCE_REFRACTORY_S = 12.0  # at most one glance per this long
 GLANCE_MIN_DEG = 8.0       # closer to straight ahead than this: no turn, the
                            # glance is the head lift and the look alone
-HELD_FRAMES = 2            # something held up on this many settled frames in a row
+# SHOWING it something (2026-11-08): "something in a near person's hand" was
+# not a request -- people who only came to say hi, phone or cup in hand, were
+# taken as teaching. Showing is now bringing the thing UP TO ITS EYES: big in
+# the frame (close to the lens), near the middle, held there a moment. A phone
+# held at the chest 0.75 m away is ~2% of the frame; a bottle at 30 cm is >10%.
+SHOW_AREA = 0.045          # of the frame: this big = brought close to its eyes
+SHOW_CENTRE_X = 0.30       # its centre within this of the middle (frac of width)
+SHOW_CENTRE_Y = 0.35       # ... and of height
+SHOW_S = 0.8               # held there this long: "look at this"
 TEACH_MAX_S = 12.0         # the model never answered: give up, back to the face
 TEACH_AGAIN_S = 6.0        # a failed or finished teach: no new one for this long
 TARGET_AWAY_S = 3.0        # the target must be out of sight this long before
@@ -126,7 +134,7 @@ class Brain:
         self._near_since: Optional[float] = None
         self._last_near = -1e9
         self._last_glance = -1e9
-        self._held_run = 0
+        self._show_since = None
         self._purr_at = -1e9
         self._glance_pan = None          # where the last glance went
         self._track_pan = None           # the person being followed
@@ -401,20 +409,31 @@ class Brain:
         if near:
             self._last_near = t
         self._closeness(near, pc)
-        held = pc.held if ("watch" in self.on and near) else None
-        if (held and t - self._teach_done > TEACH_AGAIN_S
-                and not (self.target and any(same_thing(held.label, w)
+        shown = (self._shown(pc) if ("watch" in self.on
+                                     and t - self._last_near < 1.5) else None)
+        if (shown and t - self._teach_done > TEACH_AGAIN_S
+                and not (self.target and any(same_thing(shown.label, w)
                                              for w in self.target["words"]))):
-            self._held_run += 1
-            if self._held_run >= HELD_FRAMES and self.p.state == "SK_LOOK":
-                self._held_run = 0
-                self._teach = dict(since=t, box=held.box, guess=held.label)
-                self._look_at(held.at, tilt=None)
+            if self._show_since is None:
+                self._show_since = t
+            if t - self._show_since >= SHOW_S and self.p.state == "SK_LOOK":
+                self._show_since = None
+                self._teach = dict(since=t, box=shown.box, guess=shown.label)
+                self._look_at(shown.at, tilt=None)
                 self.p.request("SK_CURIOUS")         # -> SK_FOLLOW while it is named
                 self._go("TEACH", say="Ooh, what's that?")
-                self.emit("identify", box=held.box, guess=held.label, t=t)
+                self.emit("identify", box=shown.box, guess=shown.label, t=t)
         else:
-            self._held_run = 0
+            self._show_since = None
+
+    @staticmethod
+    def _shown(pc):
+        """The thing being brought up to its eyes, if any (see SHOW_AREA)."""
+        w, h = pc.wh
+        c = [q for q in pc.props if q.area >= SHOW_AREA
+             and abs(q.at.x / w - 0.5) <= SHOW_CENTRE_X
+             and abs(q.at.y / h - 0.5) <= SHOW_CENTRE_Y]
+        return max(c, key=lambda q: q.area) if c else None
 
     # ---- very close: one more step of eagerness -------------------------
     def _closeness(self, near, pc):
@@ -430,7 +449,7 @@ class Brain:
         if close != self._close:
             self.emit("close", name=(f"very close ({near.sw_frac:.0%})"
                                      if close else "calm again"))
-        self._set_close(close, quiet=pc.held is not None)
+        self._set_close(close, quiet=pc.held is not None or self._shown(pc) is not None)
 
     def _set_close(self, on, quiet=False):
         self._close = on

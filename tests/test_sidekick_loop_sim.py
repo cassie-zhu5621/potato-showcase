@@ -115,7 +115,7 @@ def test_a_visitor_shows_a_bottle_and_it_calls_when_the_bottle_turns_up(
             x, y = to_pixel(bottle[0], bottle[1], sim["player"].pose_deg())
             if not (0 <= x <= W and 0 <= y <= H):
                 return []                           # not where it is looking
-            return [Detection("water bottle", (x - 70, y - 90, x + 70, y + 90))]
+            return [Detection("water bottle", (x - 130, y - 170, x + 130, y + 170))]
 
     class Poses:
         def estimate(self, frame):

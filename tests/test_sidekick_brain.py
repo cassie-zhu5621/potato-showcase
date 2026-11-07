@@ -61,22 +61,29 @@ class FakePlayer:
         return {"pan": 0.0, "tilt": -8.0, "nod": 0.0}
 
 
-def tgt(pan=0.0, gaze=10.0):
-    return Target(x=0, y=0, pan=pan, nod=gaze + 12.0, gaze=gaze)
+def tgt(pan=0.0, gaze=10.0, x=640.0, y=360.0):
+    return Target(x=x, y=y, pan=pan, nod=gaze + 12.0, gaze=gaze)
 
 
 def face(pan=0.0, near=True):
     return Person(pid=1, head=tgt(pan, 15.0), sw_frac=0.35 if near else 0.1, near=near)
 
 
-def prop(label="banana", pan=0.0, gaze=5.0, held=True, hand_near=None):
-    return Prop(label=label, box=(0, 0, 10, 10), area=0.02, at=tgt(pan, gaze),
+def prop(label="banana", pan=0.0, gaze=5.0, held=True, hand_near=None,
+         area=0.08, x=640.0):
+    return Prop(label=label, box=(0, 0, 10, 10), area=area, at=tgt(pan, gaze, x=x),
                 held=held, hand_near=held if hand_near is None else hand_near)
 
 
 def pc(clock, people=(), props=()):
     return Percept(t=clock.t, pose={"pan": 0.0, "tilt": -12.0, "nod": 22.0},
                    people=list(people), props=list(props))
+
+
+def show(clock, brain, label, **kw):
+    """Bring it up to its eyes and hold it there long enough."""
+    for _ in range(int(B.SHOW_S / 0.25) + 2):
+        step(clock, brain, 0.25, people=[face()], props=[prop(label, **kw)])
 
 
 def setup():
@@ -201,8 +208,7 @@ def test_a_passer_straight_ahead_gets_a_glance_without_a_turn():
 def teach(label="water bottle", name="a blue water bottle"):
     clock, player, brain, events = setup()
     awake(clock, player, brain)
-    step(clock, brain, 0.25, people=[face()], props=[prop(label)])
-    step(clock, brain, 0.25, people=[face()], props=[prop(label)])
+    show(clock, brain, label)
     assert brain.phase == "TEACH" and player.state == "SK_CURIOUS"
     assert events[-1][0] == "identify" and events[-1][1]["guess"] == label
     player.finish()
@@ -279,8 +285,7 @@ def test_a_new_visitor_shows_a_new_thing_and_it_replaces_the_old():
     clock, player, brain, events = teach()
     for _ in range(int(B.TEACH_AGAIN_S / 0.25) + 1):
         step(clock, brain, 0.25, people=[face()])
-    step(clock, brain, 0.25, people=[face()], props=[prop("keys")])
-    step(clock, brain, 0.25, people=[face()], props=[prop("keys")])
+    show(clock, brain, "keys")
     assert brain.phase == "TEACH"
     player.finish()
     brain.on_identified("a set of keys", "keys")
@@ -290,8 +295,7 @@ def test_a_new_visitor_shows_a_new_thing_and_it_replaces_the_old():
 def test_the_model_could_not_tell_and_it_says_so():
     clock, player, brain, events = setup()
     awake(clock, player, brain)
-    step(clock, brain, 0.25, people=[face()], props=[prop("toy")])
-    step(clock, brain, 0.25, people=[face()], props=[prop("toy")])
+    show(clock, brain, "toy")
     player.finish()
     brain.on_identified(None, None)
     assert brain.phase == "LOOK" and brain.target is None
@@ -301,8 +305,7 @@ def test_the_model_could_not_tell_and_it_says_so():
 def test_an_answer_during_the_curious_beat_waits_for_it_to_finish():
     clock, player, brain, events = setup()
     awake(clock, player, brain)
-    step(clock, brain, 0.25, people=[face()], props=[prop("cup")])
-    step(clock, brain, 0.25, people=[face()], props=[prop("cup")])
+    show(clock, brain, "cup")
     brain.on_identified("a red cup", "cup")           # still SK_CURIOUS
     assert player.state == "SK_CURIOUS" and brain.phase == "TEACH"
     player.finish()                                    # -> SK_FOLLOW
@@ -366,8 +369,7 @@ def test_the_detectors_first_word_still_finds_it():
     model: the detector keeps saying 'headphones', and that must still count."""
     clock, player, brain, events = setup()
     awake(clock, player, brain)
-    step(clock, brain, 0.25, people=[face()], props=[prop("headphones")])
-    step(clock, brain, 0.25, people=[face()], props=[prop("headphones")])
+    show(clock, brain, "headphones")
     player.finish()
     brain.on_identified("a black earbud case", "earbud case")
     player.finish()
@@ -471,3 +473,29 @@ def test_leaving_look_stops_the_bounces():
     assert player.lively
     brain._sleep()
     assert not player.lively
+
+
+def test_saying_hi_with_a_phone_in_hand_is_not_showing():
+    """Small in the frame (held at the chest, a step away): it just follows."""
+    clock, player, brain, events = setup()
+    awake(clock, player, brain)
+    for _ in range(12):
+        step(clock, brain, 0.25, people=[face()], props=[prop("cell phone", area=0.02)])
+    assert brain.phase == "LOOK" and "identify" not in [k for k, _ in events]
+
+
+def test_brought_up_but_at_the_edge_of_its_view_is_not_showing():
+    clock, player, brain, events = setup()
+    awake(clock, player, brain)
+    for _ in range(12):
+        step(clock, brain, 0.25, people=[face()], props=[prop("cup", x=1200.0)])
+    assert brain.phase == "LOOK"
+
+
+def test_a_quick_flash_past_its_eyes_is_not_showing():
+    clock, player, brain, events = setup()
+    awake(clock, player, brain)
+    for _ in range(6):
+        step(clock, brain, 0.25, people=[face()], props=[prop("cup")])
+        step(clock, brain, 0.25, people=[face()])
+    assert brain.phase == "LOOK"

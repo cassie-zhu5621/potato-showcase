@@ -46,7 +46,7 @@ git pull                       # 如果在另一台电脑上改过
 | 摸头 | 醒来，往手里蹭 | `[brain] phase LOOK` |
 | 走到 ~1.5 m 内 | 抬头看你、跟着你 | `[sense] NEAR (size 30%…)` |
 | 再走到 ~0.75 m 内 | 一下一下往前探，灯变亮，`*o_o*` | `[brain] close very close (57%)` |
-| 举起水瓶，放在画面中间 | 后缩，"hm?"，前探，然后点头 + 同意音效；屏幕显示 "OK! I'll look out for …" | `[identify] '…' -> watching for '…'` |
+| 把水瓶**举到它眼前**（~30 cm），停 1 秒 | 后缩，"hm?"，前探，然后点头 + 同意音效；屏幕显示 "OK! I'll look out for …" | `[identify] '…' -> watching for '…'` |
 | 收起来 **3 秒以上**，再拿出来 | 指向它，叫唤 | `[brain] found …` |
 | 叫唤时摸头 | 点头，回来看你 | `[brain] phase LOOK` |
 | 走开 | ~6 s 后抬头打盹；有目标时不会低头睡 | `[brain] phase DOZE` |
@@ -65,9 +65,10 @@ git pull                       # 如果在另一台电脑上改过
 | 现象 | 先做这个 |
 |---|---|
 | 不醒 | 看终端 `[sense]`：显示 nobody 就是没认出人（检查光线、摄像头编号）。睡着时只有摸头或手靠近传感器才能叫醒它 |
-| 不好奇 | 东西要**举在画面中间、离它近、拿稳**；举东西的人要被判成 NEAR |
+| 不好奇 | 东西要**举到它眼前、在画面中间、停 1 秒**；live 窗口里东西旁边的百分比要 ≥ 4.5%（`SHOW_AREA`）。小东西要拿得更近 |
 | 显示 "I couldn't tell what that was" | 网络问题：跑一下 `net_check`；不行就重启并加 `--offline`（用检测器自己的词，不调用 Gemini） |
 | 东西拿回来它不叫 | 要先**完全藏起来 3 秒**；看 `[identify] … watching for '…'`，词太偏的东西（检测器认不出）换一样常见的道具 |
+| 打招呼也被当成在给它看 | 看那件东西的百分比，把 `SHOW_AREA` 调高一点 |
 | "很近"太早或太晚触发 | 记下终端里显示的百分比，之后调 `CLOSE_ENTER_FRAC`（`session/sidekick_brain.py`） |
 | 头不动、卡住 | Ctrl-C，跑 `check_bus.py`，看电压，再重新开始 |
 | 舵机抖、电压 < 5 V | 换电源或给电池充电 |

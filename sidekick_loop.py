@@ -210,7 +210,7 @@ def draw_view(frame, pc, people, brain, player, stage, saying=""):
         cv2.rectangle(im, (x0, y0), (x1, y1), col, 3)
         cv2.putText(im, f"{q.label} {'HELD' if q.held else ''}"
                         f"{' hand' if q.hand_near and not q.held else ''} "
-                        f"gaze {q.at.gaze:+.0f}", (x0, max(25, y0 - 8)),
+                        f"{q.area:.1%}", (x0, max(25, y0 - 8)),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, col, 2)
     # Header: only what state it is in and its face (stage, clip and caption
     # are in the terminal).

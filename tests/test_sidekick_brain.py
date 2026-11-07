@@ -301,7 +301,7 @@ def test_the_voice_sends_a_wav_in_order_and_a_newer_line_wins(monkeypatch):
     class Link:
         def event(self, cmd, arg=""):
             sent.append((cmd, arg))
-    monkeypatch.setattr(RV, "make_wav", lambda text, voice: b"RIFF" + b"x" * 3000)
+    monkeypatch.setattr(RV, "make_wav", lambda text, voice, pitch=1.0: b"RIFF" + b"x" * 3000)
     monkeypatch.setattr(RV, "PACE_S", 0.0)
     v = RV.RobotVoice(Link())
     v._send("hello", v._gen)
@@ -329,7 +329,7 @@ def test_the_voice_waits_for_each_ack_from_a_v21_board(monkeypatch):
         def wait_wav(self, prefixes, timeout):
             last = sent[-1][0]
             return {"WAVBEGIN": "IN WAV ready 9", "WAVDATA": "IN WAVACK 1"}[last]
-    monkeypatch.setattr(RV, "make_wav", lambda text, voice: b"RIFF" + b"x" * 1000)
+    monkeypatch.setattr(RV, "make_wav", lambda text, voice, pitch=1.0: b"RIFF" + b"x" * 1000)
     slept = []
     monkeypatch.setattr(RV.time, "sleep", lambda s: slept.append(s))
     v = RV.RobotVoice(Link())

@@ -211,6 +211,8 @@ def main():
     ap.add_argument("--voice", default="Samantha",
                     help="macOS `say` voice the robot speaks with "
                          "(`say -v ?` lists them). Needs firmware v21")
+    ap.add_argument("--pitch", type=float, default=1.0,
+                    help="raise the voice: 1.3 = a small, bright robot (ffmpeg)")
     ap.add_argument("--conf", type=float, default=0.25)
     ap.add_argument("--cv-hz", type=float, default=4.0)
     ap.add_argument("--props", default=",".join(SS.PROPS),
@@ -290,7 +292,7 @@ def main():
     print(f"[web] tablet: http://<this laptop>:{a.web_port}/")
 
     from session.robot_voice import RobotVoice
-    voice = RobotVoice(link, voice=a.voice, muted=a.mute)
+    voice = RobotVoice(link, voice=a.voice, muted=a.mute, pitch=a.pitch)
     say_until = 0.0
     events = deque()
     answers = deque()               # (name, term) from the model, any thread

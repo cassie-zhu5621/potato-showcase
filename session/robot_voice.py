@@ -40,26 +40,51 @@ PACE_S = 0.03          # only for a board that does not answer (v20): with v21
 ACK_TIMEOUT_S = 0.5
 
 
-def make_wav(text: str, voice: str = "Samantha", rate_wpm: int = 175):
-    """-> WAV bytes, or None if this machine cannot speak."""
+def make_wav(text: str, voice: str = "Samantha", rate_wpm: int = 175,
+             pitch: float = 1.0):
+    """-> WAV bytes, or None if this machine cannot speak.
+
+    `pitch` > 1 raises the voice without speeding it up (1.3 is a small,
+    bright robot; it needs ffmpeg). The same voice an octave-ish higher reads as
+    a little machine rather than a person in a box."""
     if not shutil.which("say"):
         return None
     with tempfile.TemporaryDirectory() as d:
+        raw = os.path.join(d, "raw.wav")
         out = os.path.join(d, "line.wav")
         for v in (voice, "Samantha", None):          # a missing voice is not fatal
-            cmd = ["say", "-r", str(rate_wpm), "-o", out,
-                   "--file-format=WAVE", f"--data-format=UI8@{RATE}"]
+            cmd = ["say", "-r", str(rate_wpm), "-o", raw,
+                   "--file-format=WAVE", "--data-format=LEI16@16000"]
             if v:
                 cmd[1:1] = ["-v", v]
             if subprocess.run(cmd + [text], capture_output=True).returncode == 0:
                 break
         else:
             return None
+        af = "loudnorm=I=-14:TP=-1.5"
+        if pitch and abs(pitch - 1.0) > 0.01:
+            af = (f"asetrate={int(16000 * pitch)},aresample=16000,"
+                  f"atempo={1.0 / pitch:.4f},") + af
+        if shutil.which("ffmpeg"):
+            r = subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", raw, "-af", af,
+                                "-ar", str(RATE), "-ac", "1", "-c:a", "pcm_u8", out],
+                               capture_output=True)
+            if r.returncode == 0:
+                return open(out, "rb").read()
+        # no ffmpeg: no pitch, no loudness; say can write the format itself
+        cmd = ["say", "-r", str(rate_wpm), "-o", out, "--file-format=WAVE",
+               f"--data-format=UI8@{RATE}", text]
+        if voice:
+            cmd[1:1] = ["-v", voice]
+        if subprocess.run(cmd, capture_output=True).returncode != 0:
+            return None
         return open(out, "rb").read()
 
 
 class RobotVoice:
-    def __init__(self, link, voice="Samantha", muted=False, pace_s=None, chunk=None):
+    def __init__(self, link, voice="Samantha", muted=False, pace_s=None, chunk=None,
+                 pitch=1.0):
+        self.pitch = pitch
         self.pace_s = PACE_S if pace_s is None else pace_s
         self.chunk = CHUNK if chunk is None else chunk
         self.link = link
@@ -77,7 +102,7 @@ class RobotVoice:
         threading.Thread(target=self._send, args=(text, gen), daemon=True).start()
 
     def _send(self, text, gen):
-        wav = make_wav(text, self.voice)
+        wav = make_wav(text, self.voice, pitch=self.pitch)
         if not wav:
             return
         b64 = base64.b64encode(wav).decode("ascii")

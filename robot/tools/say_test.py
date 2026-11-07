@@ -25,15 +25,27 @@ def main():
     ap.add_argument("text", nargs="?",
                     default="OK! I'll look out for a blue water bottle.")
     ap.add_argument("--voice", default="Samantha")
+    ap.add_argument("--pitch", type=float, default=1.0,
+                    help="1.3 = higher, smaller, cuter (needs ffmpeg)")
+    ap.add_argument("--here", action="store_true",
+                    help="play it on this Mac instead of the robot (audition)")
     ap.add_argument("--pace", type=float, default=None,
                     help="seconds between data lines (default session.robot_voice.PACE_S)")
     ap.add_argument("--chunk", type=int, default=None,
                     help="base64 characters per line (default 512)")
     a = ap.parse_args()
-    wav = make_wav(a.text, a.voice)
+    wav = make_wav(a.text, a.voice, pitch=a.pitch)
     if not wav:
         sys.exit("`say` could not make the line (this needs a Mac).")
     print(f"line: {a.text!r}  ({len(wav) / 1024:.0f} KB of audio)")
+    if a.here:
+        import subprocess
+        import tempfile
+        with tempfile.NamedTemporaryFile(suffix=".wav") as f:
+            f.write(wav)
+            f.flush()
+            subprocess.run(["afplay", f.name])
+        return
     port = find_cores3()
     if not port:
         sys.exit("no CoreS3 found")
@@ -43,7 +55,8 @@ def main():
     link.skface("^_^")
     link.sksay(a.text)
     t0 = time.time()
-    voice = RobotVoice(link, voice=a.voice, pace_s=a.pace, chunk=a.chunk)
+    voice = RobotVoice(link, voice=a.voice, pace_s=a.pace, chunk=a.chunk,
+                       pitch=a.pitch)
     voice._send(a.text, voice._gen)        # in this thread, so we can time it
     print(f"sent in {time.time() - t0:.1f}s")
     time.sleep(4)

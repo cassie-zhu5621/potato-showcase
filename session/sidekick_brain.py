@@ -93,6 +93,11 @@ WAVE_FACE_S = 1.8          # the face waves this long ...
 WAVE_FACE_STEP = 0.3       # ... switching hands this often
 WAVE_FACES = ("\\^o^", "^o^/")
 WAVE_SFX = "alert"         # two short level blips; free since the guard went
+# PASSING IT ON (2026-11-08): what one visitor showed it is kept for the next
+# -- across a restart (the loop saves it) and across "next visitor" (the
+# operator's key). Woken by the next visitor, it tells them once.
+RELAY_AFTER_S = 1.0        # looking at them this long first
+RELAY_LINE = "Someone showed me {name}. I'm still looking out for it!"
 
 KAOMOJI = {
     "SLEEP": "-_- zz", "DOZE": "-.-", "LOOK": "o_o", "TEACH": "o_O?",
@@ -129,8 +134,12 @@ def clips_for_stage(n):
 
 class Brain:
     def __init__(self, player, on_event: Callable = None,
-                 clock: Callable[[], float] = time.time, stage: int = 3):
+                 clock: Callable[[], float] = time.time, stage: int = 3,
+                 memory: Optional[dict] = None):
+        """`memory`: a target kept from before (term, name, words), e.g. the
+        last visitor's thing saved by the loop before a restart."""
         self.p = player
+        self.stage = stage
         self.on = set(STAGES[stage])
         # Asleep is the paper's S0_IDLE pose at every stage: head down, which
         # reads as asleep from across a room (the head-up SK_DOZE did not).
@@ -167,6 +176,29 @@ class Brain:
         self._found_run = 0
         self._call_since = -1e9
         self._entered = t
+        self._relay = False              # tell the next visitor about the target
+        if memory and memory.get("term"):
+            self.target = dict(term=memory["term"],
+                               name=memory.get("name") or memory["term"],
+                               words=list(memory.get("words") or [memory["term"]]),
+                               since=t)
+            self._target_seen = t
+            self._relay = "watch" in self.on
+
+    def next_visitor(self):
+        """The operator says a new visitor is here: back to how it starts --
+        asleep, nobody followed, nothing half done -- but still looking out
+        for the last thing it was shown, and it will tell them about it."""
+        target = self.target
+        self._set_close(False)
+        self.p.clear_aim()
+        self.__init__(self.p, on_event=self.emit, clock=self.now, stage=self.stage)
+        self.p.request(self.rest)
+        if target:
+            self.target = target
+            self._target_seen = self.now()
+            self._relay = "watch" in self.on
+        self.emit("next_visitor", name=(target or {}).get("name", ""))
 
     # ---- outputs --------------------------------------------------------
     def _go(self, phase, face=None, say=None):
@@ -432,6 +464,16 @@ class Brain:
         if near:
             self._last_near = t
         self._closeness(near, pc)
+        if (self._relay and self.target and self.p.state == "SK_LOOK"
+                and t - self._entered >= RELAY_AFTER_S
+                and self._shown(pc) is None):       # showing something: let them
+            self._relay = False
+            line = RELAY_LINE.format(name=self.target["name"])[:96]
+            self.p.request("SK_ACK", resume_to="SK_LOOK")
+            self._go("LOOK", face="ACK", say=line)
+            self.emit("relay", name=self.target["name"])
+            self.emit("say", text=line)
+            return
         shown = (self._shown(pc) if ("watch" in self.on
                                      and t - self._last_near < 1.5) else None)
         if (shown and t - self._teach_done > TEACH_AGAIN_S
@@ -441,6 +483,7 @@ class Brain:
                 self._show_since = t
             if t - self._show_since >= SHOW_S and self.p.state == "SK_LOOK":
                 self._show_since = None
+                self._relay = False                  # a new thing replaces it
                 self._teach = dict(since=t, box=shown.box, guess=shown.label)
                 self._look_at(shown.at, tilt=None)
                 self.p.request("SK_CURIOUS")         # -> SK_FOLLOW while it is named

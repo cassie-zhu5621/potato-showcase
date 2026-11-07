@@ -156,6 +156,9 @@ def test_a_visitor_shows_a_bottle_and_it_calls_when_the_bottle_turns_up(
     assert not sim.get("timeout"), kinds
     assert kinds[:2] == ["identify", "taught"], kinds
     assert kinds[-1] == "found", kinds
+    import json
+    mem = json.load(open(tmp_path / "booth_memory.json"))      # outlives the run
+    assert mem["term"] == "water bottle" and "water bottle" in mem["words"]
     page = L.PAGE.snapshot()
     assert [c["kind"] for c in page["cards"]][:2] == ["found", "watch"]
 

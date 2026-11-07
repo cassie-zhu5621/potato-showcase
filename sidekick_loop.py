@@ -23,6 +23,7 @@ process cannot leak into each other.
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import sys
 import threading
@@ -280,6 +281,9 @@ def main():
                     help="debug window: what the camera sees, the people and props "
                          "it found, and what it decided (on by default with "
                          "--no-robot)")
+    ap.add_argument("--forget", action="store_true",
+                    help="start with nothing to look out for: delete the saved "
+                         "memory of the last thing shown (session_feed/booth_memory.json)")
     ap.add_argument("--offline", action="store_true",
                     help="no model calls: the robot's lines are the fallbacks")
     a = ap.parse_args()
@@ -295,6 +299,23 @@ def main():
     # after a run is "why didn't it ...", and the terminal is gone by then.
     _stdout = _tee(os.path.join(feed, "run.log"))
     print(f"[run] cards and stories -> {feed}")
+
+    # THE LAST THING SHOWN OUTLIVES THE RUN: kept beside the run folders, not
+    # in one, so a restart (or the next day, unless --forget) carries it on.
+    mem_dir = a.feed_dir or os.path.join(ROOT, "session_feed")
+    mem_path = os.path.join(mem_dir, "booth_memory.json")
+    memory = None
+    if a.forget and os.path.exists(mem_path):
+        os.remove(mem_path)
+        print("[memory] forgotten")
+    elif os.path.exists(mem_path):
+        try:
+            with open(mem_path) as fh:
+                memory = json.load(fh)
+            print(f"[memory] still looking out for {memory.get('name')!r} "
+                  f"(shown {memory.get('shown', '?')}); --forget to clear")
+        except Exception as e:
+            print(f"[memory] !! could not read {mem_path}: {e}")
 
     if a.no_robot:
         from robot.fakebus import FakeBus
@@ -357,8 +378,30 @@ def main():
     events = deque()
     answers = deque()               # (name, term) from the model, any thread
     teach_jpg = {"jpg": None}
+    def target_vocab(keep):
+        """The detector's words: the usual props, minus any overlapping the
+        target's words, plus those."""
+        from session.sidekick_brain import same_thing
+        v = tuple(w for w in SS.PROPS if not any(same_thing(w, k) for k in keep))
+        v += tuple(dict.fromkeys(keep))
+        if det is not None and hasattr(det, "set_vocab"):
+            det.set_vocab(list(v))
+        return v
+
+    if memory and memory.get("words"):
+        props = target_vocab(memory["words"])
     brain = Brain(player, on_event=lambda k, **kw: events.append((k, kw)),
-                  stage=a.stage)
+                  stage=a.stage, memory=memory)
+
+    # NEXT VISITOR, by hand: 'n' in the view window, or n + Enter in the
+    # terminal. Back to how it starts; the last thing shown is kept.
+    commands = deque()
+    if sys.stdin is not None and sys.stdin.isatty():
+        def read_stdin():
+            for line in sys.stdin:
+                commands.append(line.strip().lower())
+        threading.Thread(target=read_stdin, daemon=True).start()
+    print("[run] next visitor: press n in the view window, or type n + Enter here")
     player.start()
     player.request(brain.rest)
 
@@ -378,6 +421,13 @@ def main():
         while True:
             now = time.time()
             # ---- the board: touches and the palm ----
+            while commands:
+                if commands.popleft() in ("n", "next"):
+                    print("[run] next visitor")
+                    brain.next_visitor()
+                    say_until = 0.0
+                    if link:
+                        link.sksay("")
             while pending:
                 line = pending.popleft()
                 if "BODYTAP" in line:
@@ -413,7 +463,9 @@ def main():
                 if a.view:
                     key = draw_view(frame, pc, people, brain, player, a.stage,
                                     saying=saying if now < say_until else "")
-                    if key == ord("t"):
+                    if key == ord("n"):
+                        commands.append("n")
+                    elif key == ord("t"):
                         brain.on_tap()
                     elif key == ord("p"):
                         brain.on_palm()
@@ -423,7 +475,9 @@ def main():
                 brain.tick()
                 if a.view and frame is not None:
                     key = cv2.waitKey(1) & 0xFF
-                    if key == ord("t"):
+                    if key == ord("n"):
+                        commands.append("n")
+                    elif key == ord("t"):
                         brain.on_tap()
                     elif key == ord("p"):
                         brain.on_palm()
@@ -450,7 +504,20 @@ def main():
                     def ask(jpg=jpg, guess=kw["guess"]):
                         answers.append(identify(jpg, guess, a.offline))
                     threading.Thread(target=ask, daemon=True).start()
-                elif kind == "taught" and teach_jpg["jpg"]:
+                if kind == "taught" and brain.target:
+                    try:
+                        with open(mem_path, "w") as fh:
+                            json.dump(dict(term=brain.target["term"],
+                                           name=brain.target["name"],
+                                           words=brain.target["words"],
+                                           shown=time.strftime("%Y-%m-%d %H:%M")),
+                                      fh, indent=1)
+                        if teach_jpg["jpg"]:
+                            with open(os.path.join(mem_dir, "booth_memory.jpg"), "wb") as fh:
+                                fh.write(teach_jpg["jpg"])
+                    except Exception as e:
+                        print(f"[memory] !! could not save: {e}")
+                if kind == "taught" and teach_jpg["jpg"]:
                     name = f"{cid}.jpg"
                     open(os.path.join(feed, name), "wb").write(teach_jpg["jpg"])
                     PAGE.add_card(cid, "watch", kw["name"], name,
@@ -476,13 +543,8 @@ def main():
                     # that overlap it are dropped too: asked for both 'bottle'
                     # and 'water bottle', the detector can call the target by
                     # the other one.
-                    from session.sidekick_brain import same_thing
                     guess = brain._teach.get("guess") if brain._teach else None
-                    keep = [term] + ([guess] if guess else [])
-                    props = tuple(w for w in SS.PROPS
-                                  if not any(same_thing(w, k) for k in keep))
-                    props += tuple(dict.fromkeys(keep))
-                    det.set_vocab(list(props))
+                    props = target_vocab([term] + ([guess] if guess else []))
                 brain.on_identified(name, term)
             # ---- face, colour, tablet ----
             if player.state != last_state and player.state:

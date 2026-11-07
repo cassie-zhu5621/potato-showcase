@@ -543,3 +543,42 @@ def test_showing_something_is_not_waving():
     awake(clock, player, brain)
     waving(clock, brain, props=[prop("cup")])
     assert not hasattr(player, "hops")
+
+
+def test_next_visitor_starts_over_but_keeps_the_thing_and_tells_them():
+    clock, player, brain, events = teach()
+    brain.next_visitor()
+    assert brain.phase == "SLEEP" and player.state == "S0_IDLE"
+    assert brain.target["term"] == "water bottle"
+    awake(clock, player, brain)
+    for _ in range(int(B.RELAY_AFTER_S / 0.25) + 1):
+        step(clock, brain, 0.25, people=[face(20.0)])
+    assert player.state == "SK_ACK"
+    line = B.RELAY_LINE.format(name="a blue water bottle")
+    assert events[-1] == ("say", {"text": line})
+    player.finish()
+    for _ in range(8):                                 # once, not again
+        step(clock, brain, 0.25, people=[face(20.0)])
+    assert [e for e in events if e[0] == "relay"].__len__() == 1
+
+
+def test_a_remembered_thing_is_looked_for_after_a_restart():
+    clock, player, events = Clock(), FakePlayer(), []
+    brain = B.Brain(player, on_event=lambda k, **kw: events.append((k, kw)),
+                    clock=clock, memory=dict(term="teddy bear", name="a teddy bear",
+                                             words=["teddy bear", "toy"]))
+    assert brain.target["words"] == ["teddy bear", "toy"] and brain._relay
+    awake(clock, player, brain)
+    for _ in range(int(B.TARGET_AWAY_S / 0.25) + 2):
+        step(clock, brain, 0.25, people=[face()])
+    step(clock, brain, 0.25, people=[face()], props=[prop("toy", held=False)])
+    step(clock, brain, 0.25, people=[face()], props=[prop("toy", held=False)])
+    assert brain.phase == "CALL"
+
+
+def test_showing_something_new_replaces_it_without_telling():
+    clock, player, brain, events = teach()
+    brain.next_visitor()
+    awake(clock, player, brain)
+    show(clock, brain, "cup")
+    assert brain.phase == "TEACH" and not brain._relay

@@ -1,0 +1,69 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>Booth sign</title>
+<style>
+@page { size: A4 landscape; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 297mm; height: 210mm; background: #fff; color: #141414;
+  font-family: "Helvetica Neue", Helvetica, "Noto Sans", "Liberation Sans", Arial, sans-serif; }
+.page { width: 297mm; height: 210mm; padding: 16mm 16mm 12mm; display: flex; flex-direction: column; }
+h1 { font-size: 15mm; line-height: 1.05; font-weight: 800; letter-spacing: -0.3mm; }
+h1 span { background: #cfe33a; padding: 0 2mm; }
+.sub { font-size: 5.6mm; color: #5c5a54; margin-top: 3.5mm; }
+.steps { flex: 1; display: grid; grid-template-columns: repeat(4, 1fr); gap: 7mm; margin-top: 11mm; }
+.step { display: flex; flex-direction: column; }
+.screen { background: #141414; border-radius: 6mm; height: 40mm; display: flex;
+  align-items: center; justify-content: center; gap: 2mm; }
+.face { font-family: Menlo, "DejaVu Sans Mono", "Noto Sans Mono", monospace; font-weight: 700;
+  color: #cfe33a; font-size: 13mm; white-space: nowrap; }
+.face.small { font-size: 9mm; }
+.arrow { color: #7d796f; font-size: 7mm; }
+.num { display: inline-flex; width: 10mm; height: 10mm; border-radius: 50%; background: #cfe33a;
+  align-items: center; justify-content: center; font-weight: 800; font-size: 6mm; margin-right: 2.5mm;
+  flex: none; }
+.head { display: flex; align-items: center; margin-top: 6mm; font-size: 7.4mm; font-weight: 800;
+  line-height: 1.1; }
+.body { font-size: 5mm; line-height: 1.4; color: #3a3833; margin-top: 3mm; }
+.body em { font-style: normal; background: #f1f4d6; padding: 0 1mm; }
+.foot { display: flex; justify-content: space-between; align-items: center;
+  border-top: 0.5mm solid #e4e2dc; padding-top: 5mm; font-size: 4.8mm; color: #5c5a54; }
+.foot .face { color: #141414; font-size: 6mm; margin-right: 2.5mm; }
+.foot div { display: flex; align-items: center; }
+</style></head>
+<body><div class="page">
+
+<h1>Show me something.<br><span>I'll look out for it.</span></h1>
+<div class="sub">No buttons. Just come close and play.</div>
+
+<div class="steps">
+  <div class="step">
+    <div class="screen"><span class="face">o_o</span></div>
+    <div class="head"><span class="num">1</span>Come close</div>
+    <div class="body">I wake up and keep my eyes on you.</div>
+  </div>
+
+  <div class="step">
+    <div class="screen"><span class="face small">o_O?</span><span class="arrow">&rarr;</span><span class="face small">^_^</span></div>
+    <div class="head"><span class="num">2</span>Hold it up</div>
+    <div class="body">Show me anything you carry. I lean in, work out what it is, and nod. Now I'm looking out for it.</div>
+  </div>
+
+  <div class="step">
+    <div class="screen"><span class="face">\^o^/</span></div>
+    <div class="head"><span class="num">3</span>Hide it</div>
+    <div class="body">Put it away for a few seconds, then bring it back. When I spot it, I point at it and call you.</div>
+  </div>
+
+  <div class="step">
+    <div class="screen"><span class="face">=^_^=</span></div>
+    <div class="head"><span class="num">4</span>Pat my head</div>
+    <div class="body">I push up into your hand. When I'm calling, a touch tells me you've seen it.</div>
+  </div>
+</div>
+
+<div class="foot">
+  <div><span class="face">-_- zz</span>Asleep? Pat my head to wake me.</div>
+  <div>New object, new job: the last thing shown is the one I look for.</div>
+</div>
+
+</div></body></html>

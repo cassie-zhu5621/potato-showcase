@@ -8,7 +8,9 @@ guidance needed.
 
 ## What a visitor does
 
-Sign on the table: **"Hold something up to show it what to look out for. Touch its head."**
+Sign on the table: `docs/booth_sign/booth_sign.pdf` (A4 landscape; edit the
+.html and re-export if the behaviour changes). Four steps: come close, hold it
+up, hide it, pat my head.
 
 | visitor | robot | face |
 |---|---|---|

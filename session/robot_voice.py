@@ -2,7 +2,7 @@
 robot_voice.py -- the robot says a line out of its own speaker (CoreS3, v20).
 
   from session.robot_voice import RobotVoice
-  voice = RobotVoice(link, voice="Samantha")
+  voice = RobotVoice(link)        # Junior, pitch 1.15: chosen 2026-11-07
   voice.say("OK! I'll look out for a blue water bottle.")    # returns at once
 
 The line is made on the Mac by `say` (a synthetic voice, so it sounds like the
@@ -40,8 +40,8 @@ PACE_S = 0.03          # only for a board that does not answer (v20): with v21
 ACK_TIMEOUT_S = 0.5
 
 
-def make_wav(text: str, voice: str = "Samantha", rate_wpm: int = 175,
-             pitch: float = 1.0):
+def make_wav(text: str, voice: str = "Junior", rate_wpm: int = 175,
+             pitch: float = 1.15):
     """-> WAV bytes, or None if this machine cannot speak.
 
     `pitch` > 1 raises the voice without speeding it up (1.3 is a small,
@@ -82,8 +82,8 @@ def make_wav(text: str, voice: str = "Samantha", rate_wpm: int = 175,
 
 
 class RobotVoice:
-    def __init__(self, link, voice="Samantha", muted=False, pace_s=None, chunk=None,
-                 pitch=1.0):
+    def __init__(self, link, voice="Junior", muted=False, pace_s=None, chunk=None,
+                 pitch=1.15):
         self.pitch = pitch
         self.pace_s = PACE_S if pace_s is None else pace_s
         self.chunk = CHUNK if chunk is None else chunk

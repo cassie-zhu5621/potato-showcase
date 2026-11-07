@@ -160,7 +160,7 @@ PHASE_COL = {"SLEEP": (90, 90, 90), "DOZE": (120, 120, 120), "LOOK": (60, 200, 2
              "GUARD": (255, 160, 60), "CALL": (200, 80, 255)}
 
 
-def draw_view(frame, pc, people, brain, player, stage):
+def draw_view(frame, pc, people, brain, player, stage, saying=""):
     """The debug window: every person and prop the robot found, as it judged
     them, and what it decided. Nothing here feeds back into the decisions."""
     im = frame.copy()
@@ -192,6 +192,22 @@ def draw_view(frame, pc, people, brain, player, stage):
                 (16, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.9, bar, 2)
     cv2.putText(im, brain.caption or "", (16, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                 (220, 220, 220), 2)
+    if saying:
+        # What it is saying right now, as a subtitle: big, at the bottom.
+        words, lines, cur = saying.split(), [], ""
+        for wd in words:
+            if len(cur) + len(wd) + 1 > 42:
+                lines.append(cur)
+                cur = wd
+            else:
+                cur = (cur + " " + wd).strip()
+        lines.append(cur)
+        y0 = h - 30 - 48 * (len(lines) - 1)
+        cv2.rectangle(im, (0, y0 - 46), (w, h), (20, 20, 20), -1)
+        for k, ln in enumerate(lines):
+            tw = cv2.getTextSize(ln, cv2.FONT_HERSHEY_SIMPLEX, 1.3, 3)[0][0]
+            cv2.putText(im, ln, ((w - tw) // 2, y0 + 48 * k),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1.3, (60, 230, 255), 3)
     s = 1100.0 / w
     cv2.imshow(VIEW, cv2.resize(im, (int(w * s), int(h * s))))
     return cv2.waitKey(1) & 0xFF
@@ -208,11 +224,12 @@ def main():
                          "3 + show it something to look out for; it calls when "
                          "that turns up. Each stage needs only its own clips.")
     ap.add_argument("--mute", action="store_true")
-    ap.add_argument("--voice", default="Samantha",
+    ap.add_argument("--voice", default="Junior",
                     help="macOS `say` voice the robot speaks with "
                          "(`say -v ?` lists them). Needs firmware v21")
-    ap.add_argument("--pitch", type=float, default=1.0,
-                    help="raise the voice: 1.3 = a small, bright robot (ffmpeg)")
+    ap.add_argument("--pitch", type=float, default=1.15,
+                    help="raise the voice (needs ffmpeg). Junior at 1.15 was "
+                         "chosen for the booth: a small robot, still clear")
     ap.add_argument("--conf", type=float, default=0.25)
     ap.add_argument("--cv-hz", type=float, default=4.0)
     ap.add_argument("--props", default=",".join(SS.PROPS),
@@ -294,6 +311,7 @@ def main():
     from session.robot_voice import RobotVoice
     voice = RobotVoice(link, voice=a.voice, muted=a.mute, pitch=a.pitch)
     say_until = 0.0
+    saying = ""
     events = deque()
     answers = deque()               # (name, term) from the model, any thread
     teach_jpg = {"jpg": None}
@@ -350,7 +368,8 @@ def main():
                 else:
                     brain.tick()
                 if a.view:
-                    key = draw_view(frame, pc, people, brain, player, a.stage)
+                    key = draw_view(frame, pc, people, brain, player, a.stage,
+                                    saying=saying if now < say_until else "")
                     if key == ord("t"):
                         brain.on_tap()
                     elif key == ord("p"):
@@ -376,6 +395,7 @@ def main():
                     # Spoken from its own speaker, and written under its face
                     # for as long as it takes to read.
                     voice.say(kw["text"])
+                    saying = kw["text"]
                     if link:
                         link.sksay(kw["text"])
                     say_until = now + 7.0

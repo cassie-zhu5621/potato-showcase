@@ -24,8 +24,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("text", nargs="?",
                     default="OK! I'll look out for a blue water bottle.")
-    ap.add_argument("--voice", default="Samantha")
-    ap.add_argument("--pitch", type=float, default=1.0,
+    ap.add_argument("--voice", default="Junior")
+    ap.add_argument("--pitch", type=float, default=1.15,
                     help="1.3 = higher, smaller, cuter (needs ffmpeg)")
     ap.add_argument("--here", action="store_true",
                     help="play it on this Mac instead of the robot (audition)")

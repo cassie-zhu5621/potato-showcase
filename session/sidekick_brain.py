@@ -274,9 +274,11 @@ class Brain:
         self._call_since = t
         line = f"Look! I found {self.target['name']}!"
         self._go("CALL", say=line)
+        # NOT SPOKEN. The finding is announced the paper's way: S5A_FOUND's
+        # "excited" call and the summon light, then S5B_BECKON pushing at it.
+        # The words go to the tablet only.
         self.emit("found", term=self.target["term"], name=self.target["name"],
                   box=q.box, t=t)
-        self.emit("say", text=line)
         return True
 
     # ---- per phase ------------------------------------------------------

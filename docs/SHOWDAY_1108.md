@@ -18,7 +18,7 @@ Sign on the table: **"Hold something up to show it what to look out for. Touch i
 | holds something up | pulls back, holds, leans in, "hm?" (rising sound), follows it while the model names it | `o_O?` / `O_O` |
 | -- named | nods and SAYS "OK! I'll look out for a blue water bottle." (also under its face and on the tablet) | `^_^` |
 | keeps holding it / puts it away | nothing: being shown is not finding | |
-| later, that kind of thing is in its view again | points at it, calls, says "Look! I found a blue water bottle!"; tablet: "spotted it!" with the picture | `\^o^/` |
+| later, that kind of thing is in its view again | points at it with the call sound (no speech); tablet: "spotted it!" with the picture | `\^o^/` |
 | touches its head while it calls | nods, "seen it", back to looking at you | `^_^` |
 | touches its head otherwise | presses up into the hand | `=^_^=` |
 | someone else holds up something else | the new thing replaces the old one | |

@@ -235,7 +235,7 @@ def test_after_it_was_gone_seeing_it_again_calls():
          props=[prop("water bottle", pan=-30.0, held=False)])
     assert brain.phase == "CALL" and player.state == "S5A_FOUND"
     assert player.found_pan == -30.0
-    assert [k for k, _ in events][-2:] == ["found", "say"]
+    assert events[-1][0] == "found"            # a call, not a spoken line
     brain.on_tap()                                       # "seen it"
     assert player.state == "SK_ACK"
     player.finish()

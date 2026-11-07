@@ -29,6 +29,10 @@ import threading
 import time
 from collections import deque
 
+# MediaPipe's own logging ("Failed to send to clearcut") is noise in this
+# terminal; set before mediapipe is imported anywhere.
+os.environ.setdefault("GLOG_minloglevel", "2")
+
 import cv2
 import numpy as np
 
@@ -437,8 +441,13 @@ def main():
                 if (term and det is not None and term not in props
                         and hasattr(det, "set_vocab")):
                     # The detector is told the new word; the old target's word
-                    # is dropped, so it only ever looks out for one thing.
-                    props = tuple(SS.PROPS) + (term,)
+                    # is dropped, so it only ever looks out for one thing. Words
+                    # that overlap it are dropped too: asked for both 'bottle'
+                    # and 'water bottle', the detector can call the target by
+                    # the other one.
+                    from session.sidekick_brain import same_thing
+                    props = tuple(w for w in SS.PROPS
+                                  if not same_thing(w, term)) + (term,)
                     det.set_vocab(list(props))
                 brain.on_identified(name, term)
             # ---- face, colour, tablet ----

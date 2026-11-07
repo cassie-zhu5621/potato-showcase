@@ -78,6 +78,13 @@ CLIPS_FOR = {
 }
 
 
+def same_thing(label: str, term: str) -> bool:
+    """Is a detector label the target? Exact, or one contains the other: taught
+    'water bottle', the detector may still say 'bottle' for it, and vice versa."""
+    a, b = label.strip().lower(), term.strip().lower()
+    return a == b or (len(a) >= 3 and len(b) >= 3 and (a in b or b in a))
+
+
 def clips_for_stage(n):
     return tuple(c for f in STAGES[n] for c in CLIPS_FOR[f])
 
@@ -250,9 +257,13 @@ class Brain:
         if not self.target or "watch" not in self.on:
             return False
         t = pc.t
-        hits = [q for q in pc.props if q.label == self.target["term"]]
-        # Being SHOWN to it is not finding it: a near person holding it up.
-        hits = [q for q in hits if not (q.held and pc.near)]
+        hits = [q for q in pc.props if same_thing(q.label, self.target["term"])]
+        # IN SOMEONE'S HAND COUNTS. The first version excluded "held by a near
+        # person" as being shown rather than found -- so bringing the bottle
+        # back, in your hand, found nothing (2026-11-07). Being shown right
+        # after teaching is already covered by `armed`: the thing has to be
+        # out of sight TARGET_AWAY_S first. After that, wherever it turns up,
+        # hand or table, it is found.
         if not hits:
             self._found_run = 0
             if t - self._target_seen >= TARGET_AWAY_S:
@@ -340,7 +351,7 @@ class Brain:
                 self._look_at(near.head)
         held = pc.held if ("watch" in self.on and near) else None
         if (held and t - self._teach_done > TEACH_AGAIN_S
-                and not (self.target and held.label == self.target["term"])):
+                and not (self.target and same_thing(held.label, self.target["term"]))):
             self._held_run += 1
             if self._held_run >= HELD_FRAMES and self.p.state == "SK_LOOK":
                 self._held_run = 0

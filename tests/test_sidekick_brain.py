@@ -218,6 +218,26 @@ def test_hold_something_up_and_it_agrees_to_look_out_for_it():
     assert brain.target["term"] == "water bottle"
 
 
+def test_brought_back_in_a_hand_it_is_found():
+    """Out of sight, then back in someone's hand: that is finding it."""
+    clock, player, brain, events = teach()
+    for _ in range(int(B.TARGET_AWAY_S / 0.25) + 2):
+        step(clock, brain, 0.25, people=[face()])
+    step(clock, brain, 0.25, people=[face()], props=[prop("water bottle")])
+    step(clock, brain, 0.25, people=[face()], props=[prop("water bottle")])
+    assert brain.phase == "CALL"
+
+
+def test_the_detector_may_use_a_shorter_word_for_it():
+    clock, player, brain, events = teach()
+    for _ in range(int(B.TARGET_AWAY_S / 0.25) + 2):
+        step(clock, brain, 0.25, people=[face()])
+    step(clock, brain, 0.25, people=[face()], props=[prop("bottle", held=False)])
+    step(clock, brain, 0.25, people=[face()], props=[prop("bottle", held=False)])
+    assert brain.phase == "CALL"
+    assert not B.same_thing("keys", "water bottle")
+
+
 def test_still_in_the_owners_hand_is_not_a_finding():
     clock, player, brain, events = teach()
     for _ in range(12):                        # they keep holding it

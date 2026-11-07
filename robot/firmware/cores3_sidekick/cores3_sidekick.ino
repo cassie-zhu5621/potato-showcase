@@ -37,6 +37,8 @@
  *       (GREEN/ALARM still accepted -- old names, new colours)
  *     EVT SFX <name>       curious ack shutter puzzled excited lost purr alert | NONE
  *     EVT SKFACE <text>    sidekick mode: one big face, no buttons (v19)
+ *     EVT SKSAY <text>     sidekick mode: a line under the face; empty clears (v20)
+ *     EVT WAVBEGIN <n> / WAVDATA <base64> / WAVPLAY   speak one line (v20)
  *     EVT LEVEL <0-100>    mic level for the recording bar
  *     EVT VOL <0-255>      speaker volume; 0 for a silent run
  *     EVT NAME <text>      what the participant called it. ASCII only (the GFX
@@ -44,7 +46,7 @@
  *                          `hello`. Data, not firmware: one flash teaches the
  *                          command, every later name is a serial line.
  *     EVT REST             end of a run: go quiet, back to idle + warm breath
- *     EVT PING             -> `IN PONG cores3_sidekick v19`
+ *     EVT PING             -> `IN PONG cores3_sidekick v20`
  *
  *   BUMP THE VERSION WITH EVERY FLASH THAT MATTERS. This link is flaky enough
  *   that an upload can fail after the sketch has compiled, and then the board
@@ -78,6 +80,7 @@
  */
 
 #include <M5Unified.h>
+#include "mbedtls/base64.h"   // v20: spoken lines arrive from the laptop as base64
 
 // EVERY struct used in a function signature belongs up here, above the LAST
 // #include in the file (which is ChainableLED.h, a few lines down -- not this
@@ -806,6 +809,16 @@ String botName = "";
 // alone, no buttons -- in that mode the body and the head are the interface,
 // and this screen is only the face that agrees with them.
 String skFace = "-_-";
+// v20: what the robot is saying, shown under its face while it says it. Empty
+// = the face alone, large.
+String skSay = "";
+
+// v20: ONE SPOKEN LINE AT A TIME, sent by the laptop (macOS `say` -> 16 kHz
+// mono WAV) as base64 lines: EVT WAVBEGIN <bytes>, EVT WAVDATA <b64>...,
+// EVT WAVPLAY. Held in PSRAM until the next line replaces it, because
+// playWav() plays from the buffer it is given, after it has returned.
+static uint8_t* wavBuf = nullptr;
+static size_t wavCap = 0, wavLen = 0;
 
 // Big for a short name, smaller for a long one, rather than one size that either
 // wastes the screen or overruns it. Char cell is 6*size px wide; 300 px usable.
@@ -949,8 +962,31 @@ void uiDraw() {
   } else if (uiScreen == "sk") {
     M5.Display.setTextColor(TFT_WHITE);
     M5.Display.setTextDatum(middle_center);
-    M5.Display.setTextSize(skFace.length() > 5 ? 6 : 8);
-    M5.Display.drawString(skFace, SCREEN_W / 2, 120);
+    if (!skSay.length()) {
+      M5.Display.setTextSize(skFace.length() > 5 ? 6 : 8);
+      M5.Display.drawString(skFace, SCREEN_W / 2, 120);
+    } else {
+      // The face moves up and gets smaller; the line goes underneath,
+      // word-wrapped at 24 characters (size 2 is 12 px a character).
+      M5.Display.setTextSize(skFace.length() > 5 ? 4 : 5);
+      M5.Display.drawString(skFace, SCREEN_W / 2, 62);
+      M5.Display.setTextSize(2);
+      String line = "", rest = skSay + " ";
+      int y = 132;
+      while (rest.length() && y < 236) {
+        int sp = rest.indexOf(' ');
+        String word = rest.substring(0, sp);
+        rest = rest.substring(sp + 1);
+        if (line.length() && line.length() + 1 + word.length() > 24) {
+          M5.Display.drawString(line, SCREEN_W / 2, y);
+          y += 24;
+          line = word;
+        } else {
+          line = line.length() ? line + " " + word : word;
+        }
+      }
+      if (line.length() && y < 236) M5.Display.drawString(line, SCREEN_W / 2, y);
+    }
   } else if (uiScreen == "black") {
     // nothing: the fillScreen at the top already painted it black, and the
     // final else would print uiText() -- exactly the caption this screen
@@ -1238,6 +1274,37 @@ void handleLine(String line) {
   else if (cmd == "UI")      uiSet(arg);
   else if (cmd == "SKFACE")  { skFace = arg;
                                if (uiScreen == "sk") uiDraw(); else uiSet("sk"); }
+  else if (cmd == "SKSAY")   { skSay = arg;
+                               if (uiScreen == "sk") uiDraw(); else uiSet("sk"); }
+  else if (cmd == "WAVBEGIN") {
+    size_t n = (size_t)arg.toInt();
+    if (n > 44 && n <= 600000) {
+      M5.Speaker.stop();                    // never overwrite what is playing
+      if (wavCap < n) {
+        if (wavBuf) free(wavBuf);
+        wavBuf = (uint8_t*)ps_malloc(n);
+        wavCap = wavBuf ? n : 0;
+      }
+      wavLen = 0;
+      Serial.printf("IN WAV ready %u\n", (unsigned)(wavCap ? n : 0));
+    }
+  }
+  else if (cmd == "WAVDATA") {
+    if (wavBuf && wavLen < wavCap) {
+      size_t out = 0;
+      int rc = mbedtls_base64_decode(wavBuf + wavLen, wavCap - wavLen, &out,
+                                     (const unsigned char*)arg.c_str(), arg.length());
+      if (rc == 0) wavLen += out;
+    }
+  }
+  else if (cmd == "WAVPLAY") {
+    if (wavBuf && wavLen > 44) {
+      M5.Speaker.playWav(wavBuf, wavLen);
+      Serial.printf("IN WAV play %u\n", (unsigned)wavLen);
+    } else {
+      Serial.println("IN WAV none");
+    }
+  }
   else if (cmd == "NOTICED") { noticedN = arg.toInt();
                                if (uiScreen == "noticed") uiDraw(); }
   else if (cmd == "LEVEL")   recLevel = arg.toInt();
@@ -1350,7 +1417,7 @@ void handleLine(String line) {
     setAntennaHue(255, 242, 224);   // = WARM. Keep in sync with HUE above.
     uiSet("idle");
   }
-  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v19");
+  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v20");
   // ASKABLE, because the boot line is not readable. USB CDC enumerates after
   // setup() has already run, so `IN TOF READY` and `IN TOF FAIL` are printed
   // into a port nothing is listening to yet and are simply lost. Without this
@@ -1469,7 +1536,7 @@ void setup() {
   tapInit();
   tofInit();
   uiDraw();                 // the idle screen, immediately -- no legacy layout
-  Serial.println("IN HELLO cores3_sidekick v19");
+  Serial.println("IN HELLO cores3_sidekick v20");
 }
 
 void loop() {

@@ -107,7 +107,7 @@ def test_a_visitor_shows_a_bottle_and_it_calls_when_the_bottle_turns_up(
             if time.time() - world.t0 > 40:
                 sim["timeout"] = True
                 raise KeyboardInterrupt
-            if sim["events"] and sim["events"][-1][0] == "found":
+            if any(k == "found" for k, _ in sim["events"]):
                 raise KeyboardInterrupt
             bottle = world.scene()
             if bottle is None:
@@ -152,7 +152,7 @@ def test_a_visitor_shows_a_bottle_and_it_calls_when_the_bottle_turns_up(
                                       "--stage", "3", "--offline", "--cv-hz", "8",
                                       "--feed-dir", str(tmp_path)])
     L.main()
-    kinds = [k for k, _ in sim["events"]]
+    kinds = [k for k, _ in sim["events"] if k != "say"]
     assert not sim.get("timeout"), kinds
     assert kinds[:2] == ["identify", "taught"], kinds
     assert kinds[-1] == "found", kinds

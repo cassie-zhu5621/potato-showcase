@@ -37,7 +37,7 @@ except ImportError:
 # "v3", this check still said "match", and the antenna was still blue. A version
 # that tracks only the protocol cannot answer the one question it is asked --
 # "is the thing in front of me built from the code in front of me".
-FIRMWARE_V = "v19"   # v19: purr + alert sounds for the sidekick mode
+FIRMWARE_V = "v20"   # v20: spoken lines (WAV over serial) and a caption under the face
 
 
 def _older(board: str, want: str) -> bool:
@@ -225,6 +225,7 @@ class CoreS3Link:
     def tofraw(self):             self.event("TOFRAW") # -> IN TOFRAW rdy=.. signal=..
     def tofbus(self, n):          self.event("TOFBUS", int(n))  # 0=Wire 1=Wire1
     def skface(self, text):       self.event("SKFACE", str(text)[:8])  # v19 sidekick
+    def sksay(self, text):        self.event("SKSAY", str(text)[:96])  # v20: caption
     def say(self, n=1):           self.event("SAY", int(n))  # a baked-in line
     def dist(self, on=True):      self.event("DIST", 1 if on else 0)  # the 20 Hz stream
     def beat(self, period_ms):    self.event("BEAT", int(period_ms))  # one line per beat

@@ -206,7 +206,8 @@ def teach(label="water bottle", name="a blue water bottle"):
     assert player.state == "SK_FOLLOW"                # follows it while it is named
     brain.on_identified(name, label)
     assert player.state == "SK_ACK" and brain.phase == "LOOK"
-    assert events[-1] == ("taught", {"term": label, "name": name})
+    assert events[-2] == ("taught", {"term": label, "name": name})
+    assert events[-1] == ("say", {"text": f"OK! I'll look out for {name}."})
     player.finish()
     assert player.state == "SK_LOOK"
     return clock, player, brain, events
@@ -234,7 +235,7 @@ def test_after_it_was_gone_seeing_it_again_calls():
          props=[prop("water bottle", pan=-30.0, held=False)])
     assert brain.phase == "CALL" and player.state == "S5A_FOUND"
     assert player.found_pan == -30.0
-    assert events[-1][0] == "found"
+    assert [k for k, _ in events][-2:] == ["found", "say"]
     brain.on_tap()                                       # "seen it"
     assert player.state == "SK_ACK"
     player.finish()
@@ -284,3 +285,31 @@ def test_an_answer_during_the_curious_beat_waits_for_it_to_finish():
     player.finish()                                    # -> SK_FOLLOW
     brain.tick()
     assert player.state == "SK_ACK" and brain.target["term"] == "cup"
+
+
+def test_with_a_target_it_never_falls_asleep():
+    clock, player, brain, events = teach()
+    for _ in range(int((B.LOST_S + B.DOZE_TO_SLEEP_S * 3) / 0.25)):
+        step(clock, brain, 0.25)
+    assert brain.phase == "DOZE" and player.state == "SK_DOZE"   # head up
+
+
+def test_the_voice_sends_a_wav_in_order_and_a_newer_line_wins(monkeypatch):
+    from session import robot_voice as RV
+    sent = []
+
+    class Link:
+        def event(self, cmd, arg=""):
+            sent.append((cmd, arg))
+    monkeypatch.setattr(RV, "make_wav", lambda text, voice: b"RIFF" + b"x" * 3000)
+    monkeypatch.setattr(RV, "PACE_S", 0.0)
+    v = RV.RobotVoice(Link())
+    v._send("hello", v._gen)
+    assert sent[0] == ("WAVBEGIN", 3004) and sent[-1] == ("WAVPLAY", "")
+    import base64
+    data = "".join(a for c, a in sent if c == "WAVDATA")
+    assert base64.b64decode(data) == b"RIFF" + b"x" * 3000
+    sent.clear()
+    v._gen = 5
+    v._send("old line", 4)                  # replaced before it was sent
+    assert ("WAVPLAY", "") not in sent

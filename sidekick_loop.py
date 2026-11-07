@@ -208,6 +208,9 @@ def main():
                          "3 + show it something to look out for; it calls when "
                          "that turns up. Each stage needs only its own clips.")
     ap.add_argument("--mute", action="store_true")
+    ap.add_argument("--voice", default="Zarvox",
+                    help="macOS `say` voice the robot speaks with (Zarvox: robotic; "
+                         "`say -v ?` lists them). Needs firmware v20")
     ap.add_argument("--conf", type=float, default=0.25)
     ap.add_argument("--cv-hz", type=float, default=4.0)
     ap.add_argument("--props", default=",".join(SS.PROPS),
@@ -286,6 +289,9 @@ def main():
     PAGE.serve(feed, a.web_port)
     print(f"[web] tablet: http://<this laptop>:{a.web_port}/")
 
+    from session.robot_voice import RobotVoice
+    voice = RobotVoice(link, voice=a.voice, muted=a.mute)
+    say_until = 0.0
     events = deque()
     answers = deque()               # (name, term) from the model, any thread
     teach_jpg = {"jpg": None}
@@ -364,6 +370,14 @@ def main():
                 kind, kw = events.popleft()
                 n_card += 1
                 cid = f"{kind}_{n_card}"
+                if kind == "say":
+                    # Spoken from its own speaker, and written under its face
+                    # for as long as it takes to read.
+                    voice.say(kw["text"])
+                    if link:
+                        link.sksay(kw["text"])
+                    say_until = now + 7.0
+                    continue
                 if kind == "identify" and frame is not None:
                     jpg = crop_jpeg(frame, kw["box"], pad=0.6)
                     teach_jpg["jpg"] = jpg
@@ -406,6 +420,10 @@ def main():
                 last_face = brain.face
                 if link:
                     link.skface(last_face)
+            if say_until and now > say_until:
+                say_until = 0.0
+                if link:
+                    link.sksay("")
             if brain.phase != last_phase:
                 last_phase = brain.phase
                 print(f"[brain] phase {last_phase}")

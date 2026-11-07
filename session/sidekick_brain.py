@@ -17,7 +17,8 @@ a one-shot inside one of these)
          the table, so only a hand at the wake sensor or a touch wakes it.
   DOZE   just after someone left: head up, seeing the room, glances at
          passers-by and wakes by itself if someone comes close. If nobody comes
-         for DOZE_TO_SLEEP_S, it nods off into SLEEP.
+         for DOZE_TO_SLEEP_S, it nods off into SLEEP -- but never while it has a
+         target to look out for: asleep, it could not see it.
   LOOK   someone is with it: it looks at their face.
   TEACH  they hold something up to it: curious, it follows the thing while the
          model names it, then nods -- "I'll look out for that". The thing
@@ -162,8 +163,12 @@ class Brain:
         if self.phase == "LOOK" and t - self._last_near > LOST_S:
             self._sleep()
         elif (self.phase == "DOZE" and "notice" in self.on
+                and not self.target
                 and t - self._doze_since > DOZE_TO_SLEEP_S
                 and self.p.state == "SK_DOZE"):
+            # WITH A TARGET IT NEVER FALLS ASLEEP: head down, the camera sees
+            # the table and could not see the thing it promised to look out
+            # for. It dozes head-up for as long as it has something to find.
             self.p.request(self.rest)
             self._near_since = None
             self._go("SLEEP", say="")
@@ -219,9 +224,10 @@ class Brain:
         self._teach = None
         self.p.request("SK_ACK", resume_to="SK_LOOK")
         self._last_near = self.now()
-        self._go("LOOK", face="ACK",
-                 say=f"OK! I'll look out for {self.target['name']}.")
+        line = f"OK! I'll look out for {self.target['name']}."
+        self._go("LOOK", face="ACK", say=line)
         self.emit("taught", term=term, name=self.target["name"])
+        self.emit("say", text=line)
 
     def _apply_held_answer(self):
         ans = self._teach.get("answer") if self._teach else None
@@ -236,6 +242,7 @@ class Brain:
         self.p.request("SK_LOOK")
         self._last_near = self.now()
         self._go("LOOK", say=say)
+        self.emit("say", text=say)
 
     # ---- watching for the target, underneath everything else -------------
     def _watch(self, pc):
@@ -265,10 +272,11 @@ class Brain:
         self.p.set_found_pan_deg(q.at.pan)
         self.p.request("S5A_FOUND")
         self._call_since = t
-        self._go("CALL", say=f"Look! {self.target['name'][:1].upper()}"
-                              f"{self.target['name'][1:]}!")
+        line = f"Look! I found {self.target['name']}!"
+        self._go("CALL", say=line)
         self.emit("found", term=self.target["term"], name=self.target["name"],
                   box=q.box, t=t)
+        self.emit("say", text=line)
         return True
 
     # ---- per phase ------------------------------------------------------

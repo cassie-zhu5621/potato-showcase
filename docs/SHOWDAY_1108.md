@@ -16,13 +16,13 @@ Sign on the table: **"Hold something up to show it what to look out for. Touch i
 | walks past (just after a visit) | dozing, head up; glances at them (also straight ahead), goes back | `-.-` |
 | comes close (~1.5 m) | wakes, looks at their face, follows it | `o_o` |
 | holds something up | pulls back, holds, leans in, "hm?" (rising sound), follows it while the model names it | `o_O?` / `O_O` |
-| -- named | nods: "OK! I'll look out for a blue water bottle." Tablet card | `^_^` |
+| -- named | nods and SAYS "OK! I'll look out for a blue water bottle." (also under its face and on the tablet) | `^_^` |
 | keeps holding it / puts it away | nothing: being shown is not finding | |
-| later, that kind of thing is in its view again | points at it and calls; tablet: "spotted it!" with the picture | `\^o^/` |
+| later, that kind of thing is in its view again | points at it, calls, says "Look! I found a blue water bottle!"; tablet: "spotted it!" with the picture | `\^o^/` |
 | touches its head while it calls | nods, "seen it", back to looking at you | `^_^` |
 | touches its head otherwise | presses up into the hand | `=^_^=` |
 | someone else holds up something else | the new thing replaces the old one | |
-| leaves | dozes (head up) after ~6 s, falls asleep (head down) after ~20 s more | `-.-` then `-_- zz` |
+| leaves | dozes (head up) after ~6 s; falls asleep (head down) after ~20 s more -- only if it has nothing to look out for | `-.-` then `-_- zz` |
 
 "The same thing" means the same kind (any water bottle), found by YOLO-World
 with the word the model gave it. Anything can be shown: the model names it.
@@ -60,8 +60,10 @@ On the laptop alone (no robot): `python3 sidekick_loop.py --no-robot --cam 0`
 
 ## Before the day -- once
 
-1. **Firmware v19** (purr / alert / rising curious sound, big-face screen):
-   `pio run -t upload`, then `python3 robot/tools/tof_test.py` must say v19.
+1. **Firmware v20** (sounds, big-face screen, and v20: it SPEAKS its lines and
+   shows them under its face): `pio run -t upload`, then
+   `python3 robot/tools/tof_test.py` must say v20. The voice is macOS `say`
+   (`--voice Zarvox` by default, robotic; `say -v ?` lists others).
 2. **Aim signs** are measured and set (AIM_X_SIGN -1, AIM_Y_SIGN +1,
    2026-11-07). Re-run `python3 robot/tools/aim_check.py --cam N` only if the
    camera or a servo is remounted.

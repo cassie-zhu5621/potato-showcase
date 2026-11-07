@@ -48,6 +48,9 @@ class FakePlayer:
     def clear_aim(self):
         self.aim = {}
 
+    def set_lively(self, on):
+        self.lively = on
+
     def set_glance_target_deg(self, d):
         self.glance = d
 
@@ -439,3 +442,32 @@ def test_following_someone_survives_the_near_line_flicker():
     for _ in range(int(B.LOST_S / 0.25) + 4):
         step(clock, brain, 0.25, people=[edge])
     assert brain.phase == "LOOK"
+
+
+def test_very_close_makes_it_eager_with_hysteresis_and_not_while_shown():
+    clock, player, brain, events = setup()
+    awake(clock, player, brain)
+    def who(frac):
+        return [Person(pid=1, head=tgt(20.0, 15.0), sw_frac=frac, near=True)]
+    step(clock, brain, 0.25, people=who(0.40))
+    assert not getattr(player, "lively", False)
+    step(clock, brain, 0.25, people=who(0.60))
+    assert player.lively and brain.face == B.KAOMOJI["CLOSE"]
+    step(clock, brain, 0.25, people=who(0.50))           # between the lines: stays
+    assert player.lively
+    step(clock, brain, 0.25, people=who(0.50), props=[prop()])   # held: still
+    assert not player.lively and brain._close
+    for _ in range(4):
+        step(clock, brain, 0.25, people=who(0.40))
+    assert not player.lively and brain.face == B.KAOMOJI["LOOK"]
+    assert [k for k, _ in events].count("close") == 2
+
+
+def test_leaving_look_stops_the_bounces():
+    clock, player, brain, _ = setup()
+    awake(clock, player, brain)
+    step(clock, brain, 0.25, people=[Person(pid=1, head=tgt(20.0, 15.0),
+                                            sw_frac=0.6, near=True)])
+    assert player.lively
+    brain._sleep()
+    assert not player.lively

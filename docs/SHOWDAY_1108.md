@@ -17,6 +17,7 @@ up, hide it, pat my head.
 | (nobody for a while) | asleep, head down -- woken by a hand at the sensor or a touch | `-_- zz` |
 | walks past (just after a visit) | dozing, head up; glances at them (also straight ahead), goes back | `-.-` |
 | comes close (~1.5 m) | wakes, looks at their face, follows it | `o_o` |
+| comes very close (~0.75 m) | eager: leans in and back in quick bounces, eyes stay on them, light brighter (paused while something is held up) | `*o_o*` |
 | holds something up | pulls back, holds, leans in, "hm?" (rising sound), follows it while the model names it | `o_O?` / `O_O` |
 | -- named | nods with the "got it" sound; "OK! I'll look out for a blue water bottle." appears under its face, on the tablet and in the view (not spoken; `--speak` turns a voice on) | `^_^` |
 | keeps holding it / puts it away | nothing: being shown is not finding | |
@@ -113,4 +114,5 @@ All in `session/sidekick_brain.py` unless said otherwise.
 | TARGET_AWAY_S | 3 s | out of sight this long before seeing it again counts |
 | FOUND_FRAMES | 2 | seen this many frames: found |
 | CALL_MAX_S | 25 s | the call gives up |
+| CLOSE_ENTER / EXIT_FRAC | 0.55 / 0.45 | shoulders this wide: very close / calm again |
 | AIM_DEAD_DEG (states.py) | pan 4, tilt 3, nod 5 | how far a target moves before the head re-aims |

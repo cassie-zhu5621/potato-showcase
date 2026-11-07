@@ -180,6 +180,33 @@ def test_live_aim_saccades_to_the_target_and_holds(clips_dir):
         p.stop(relax=False)
 
 
+def test_very_close_bounces_lean_in_keep_the_gaze_and_leave_still_frames(clips_dir):
+    p = _player(clips_dir).start(home=False)
+    try:
+        p.set_aim_deg(pan=0.0, tilt=ST.LOOK_TILT, nod=ST.LOOK_NOD)
+        p.request("SK_LOOK")
+        assert _wait(lambda: abs(p.pose_deg()["nod"] - ST.LOOK_NOD) < 1.0)
+        time.sleep(0.3)
+        p.set_lively(True)
+        tilts, gazes, still = [], [], 0.0
+        t0 = time.time()
+        while time.time() - t0 < 2.5:
+            q = p.pose_deg()
+            tilts.append(q["tilt"])
+            gazes.append(q["tilt"] + q["nod"])
+            still = max(still, p.settled_ms)
+            time.sleep(0.01)
+        lean = ST.LOOK_TILT - min(tilts)
+        assert lean > 0.8 * ST.CLOSE_BOB_DEG                 # it leans in
+        assert max(gazes) - min(gazes) < 1.5                 # eyes stay on them
+        assert still >= ST.AIM_SAMPLE_SETTLED_MS             # camera still gets frames
+        p.set_lively(False)
+        time.sleep(ST.CLOSE_BOUNCE_S + 0.2)
+        assert abs(p.pose_deg()["tilt"] - ST.LOOK_TILT) < 1.0   # back, not leaning
+    finally:
+        p.stop(relax=False)
+
+
 def test_a_pat_returns_to_what_it_interrupted(clips_dir):
     p = _player(clips_dir)
     p.clips["SK_PURR"] = p.clips["SK_PURR"][:6]     # keep the test short

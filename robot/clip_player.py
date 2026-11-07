@@ -24,7 +24,7 @@ Standalone:
   python3 clip_player.py                 # walk the designed cycle
   python3 clip_player.py S5A_FOUND             # one state, then hold
 """
-import csv, os, sys, threading, time
+import csv, math, os, sys, threading, time
 
 # Run me directly: put the repo ROOT on the path so the packages import.
 # (Kept as a two-line preamble rather than a helper module, because a
@@ -337,6 +337,7 @@ class ClipPlayer:
         self._next_override = None    # armed now, consumed by the next `then`
         self._user_pan = None         # where the person is; None = play S7 as authored
         self._aim = {}                # live-aim target, Blender degrees per joint
+        self._lively = False          # very close: bounce between saccades
         self._glance_target = None    # SK_GLANCE's bearing, Blender degrees
         self._found_pan = None        # S5A_FOUND's bearing, if not where it looks
         self._resume_to = None        # the state a `resume` one-shot interrupted
@@ -493,6 +494,13 @@ class ClipPlayer:
     def clear_aim(self):
         with self._lock:
             self._aim = {}
+
+    def set_lively(self, on):
+        """Very close: eager bounces between saccades, and a brighter light
+        (states.CLOSE_*). Only a live state plays them; a bounce in progress
+        always finishes, so switching off never leaves the body leaning."""
+        with self._lock:
+            self._lively = bool(on)
 
     def set_found_pan_deg(self, deg):
         """Where S5A_FOUND should point, set BEFORE requesting it. Without
@@ -1023,10 +1031,16 @@ class ClipPlayer:
 
         A saccade in flight is not retargeted: it lands, and the next one
         corrects. Retargeting mid-flight is what makes a tracking head wobble.
+
+        LIVELY (set_lively, SK_LOOK only): bounces are an OFFSET on top of the
+        aimed pose -- tilt leans in, nod lifts by the same amount, so the gaze
+        does not move -- each followed by a still hold for the camera.
         """
         period = 1.0 / 30.0
-        cur = {j: unit_to_deg(j, self.cur[j]) for j in JOINTS}
+        cur = {j: unit_to_deg(j, self.cur[j]) for j in JOINTS}   # aimed pose
         move = None
+        bounce = None                  # start time of the bounce in progress
+        still_since = time.perf_counter()
         last_led = 0.0
         for sid in IDS.values():
             self.bus.torque(sid, True)
@@ -1037,13 +1051,24 @@ class ClipPlayer:
                     self.bus.flush_input()
                     return
                 aim = dict(self._aim)
+                lively = self._lively and self.state == "SK_LOOK"
             now = time.perf_counter()
             if self.on_led is not None and now - last_led > LED_HEARTBEAT_S:
                 last_led = now
                 try:
-                    self.on_led(LIVE_LED)
+                    self.on_led(ST.CLOSE_LED if lively else LIVE_LED)
                 except Exception:
                     pass
+            if bounce is None and lively and now - still_since >= ST.CLOSE_HOLD_S:
+                bounce = now
+            off = 0.0
+            bouncing = bounce is not None
+            if bouncing:
+                u = (now - bounce) / ST.CLOSE_BOUNCE_S
+                if u >= 1.0:
+                    bounce, still_since = None, now      # lands exactly on 0
+                else:
+                    off = ST.CLOSE_BOB_DEG * 0.5 * (1.0 - math.cos(2.0 * math.pi * u))
             if move is None and aim:
                 end, dist = dict(cur), 0.0
                 for j, d in aim.items():
@@ -1053,15 +1078,21 @@ class ClipPlayer:
                 if dist > 0.0:
                     dur = max(ST.AIM_MIN_S, 1.875 * dist / ST.AIM_PEAK_DPS)
                     move = (now, dur, dict(cur), end)
-            if move is not None:
-                t0, dur, a, b = move
-                u = (now - t0) / dur
-                if u >= 1.0:
-                    pose, move = b, None
-                else:
-                    e = min_jerk(u)
-                    pose = {j: a[j] + (b[j] - a[j]) * e for j in JOINTS}
-                self._send({j: deg_to_cmd(j, pose[j])[0] for j in JOINTS})
+            if move is not None or bouncing:
+                pose = cur
+                if move is not None:
+                    t0, dur, a, b = move
+                    u = (now - t0) / dur
+                    if u >= 1.0:
+                        pose, move = b, None
+                    else:
+                        e = min_jerk(u)
+                        pose = {j: a[j] + (b[j] - a[j]) * e for j in JOINTS}
+                    still_since = now
+                out = dict(pose)
+                out["tilt"] -= off             # lean in ...
+                out["nod"] += off              # ... eyes stay level
+                self._send({j: deg_to_cmd(j, out[j])[0] for j in JOINTS})
                 cur = pose
             n += 1
             if n % 30 == 0:

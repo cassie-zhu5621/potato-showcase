@@ -212,12 +212,12 @@ def draw_view(frame, pc, people, brain, player, stage, saying=""):
                         f"{' hand' if q.hand_near and not q.held else ''} "
                         f"gaze {q.at.gaze:+.0f}", (x0, max(25, y0 - 8)),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, col, 2)
+    # Header: only what state it is in and its face (stage, clip and caption
+    # are in the terminal).
     bar = PHASE_COL.get(brain.phase, (255, 255, 255))
-    cv2.rectangle(im, (0, 0), (w, 70), (20, 20, 20), -1)
-    cv2.putText(im, f"stage {stage}  {brain.phase}  {player.state or ''}  {brain.face}",
-                (16, 32), cv2.FONT_HERSHEY_SIMPLEX, 0.9, bar, 2)
-    cv2.putText(im, brain.caption or "", (16, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                (220, 220, 220), 2)
+    cv2.rectangle(im, (0, 0), (w, 50), (20, 20, 20), -1)
+    cv2.putText(im, f"{brain.phase}  {brain.face}",
+                (16, 36), cv2.FONT_HERSHEY_SIMPLEX, 1.0, bar, 2)
     if saying:
         # What it is saying right now, as a subtitle: big, at the bottom.
         words, lines, cur = saying.split(), [], ""

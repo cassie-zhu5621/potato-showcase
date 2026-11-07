@@ -69,10 +69,14 @@ LEAD_MAX_DEG = 6.0         # ... but never more than this
 EDGE_FRAC = 0.30           # last seen this far from the centre = left at an edge
 CHASE_WITHIN_S = 1.5       # and only if that was this recent
 CHASE_DEG = 20.0           # one saccade on, in their direction
+CLOSE_ENTER_FRAC = 0.55    # VERY CLOSE (~0.75 m; shoulders 0.41 at 1 m): eager
+CLOSE_EXIT_FRAC = 0.45     # bounces (states.CLOSE_*) until smaller than this
+CLOSE_KEEP_S = 0.6         # a frame or two without them does not end it
 
 KAOMOJI = {
     "SLEEP": "-_- zz", "DOZE": "-.-", "LOOK": "o_o", "TEACH": "o_O?",
     "FOLLOW": "O_O", "ACK": "^_^", "PURR": "=^_^=", "CALL": "\\^o^/",
+    "CLOSE": "*o_o*",
 }
 
 
@@ -129,7 +133,9 @@ class Brain:
         self._track_t = -1e9
         self._track_x = 0.5
         self._chased = False
-        self._teach = None               # dict(since, box, guess) while naming
+        self._close = False              # someone VERY close (eager bounces)
+        self._close_t = -1e9
+        self._teach = None              # dict(since, box, guess) while naming
         self._teach_done = -1e9
         self.target = None               # dict(term, name, since) once taught
         self._target_seen = -1e9         # last settled frame the target was in
@@ -140,6 +146,8 @@ class Brain:
 
     # ---- outputs --------------------------------------------------------
     def _go(self, phase, face=None, say=None):
+        if phase != "LOOK":
+            self._set_close(False)
         self.phase = phase
         self.face = KAOMOJI[face or phase]
         if say is not None:
@@ -392,6 +400,7 @@ class Brain:
         near = self._follow_person(pc)
         if near:
             self._last_near = t
+        self._closeness(near, pc)
         held = pc.held if ("watch" in self.on and near) else None
         if (held and t - self._teach_done > TEACH_AGAIN_S
                 and not (self.target and any(same_thing(held.label, w)
@@ -406,6 +415,32 @@ class Brain:
                 self.emit("identify", box=held.box, guess=held.label, t=t)
         else:
             self._held_run = 0
+
+    # ---- very close: one more step of eagerness -------------------------
+    def _closeness(self, near, pc):
+        """Someone VERY close gets eager bounces and a brighter light, so
+        coming closer is answered. Two lines (enter / exit) so standing at the
+        edge does not flicker it, and paused while something is held up: the
+        camera must be still to see what is being shown."""
+        t = pc.t
+        line = CLOSE_EXIT_FRAC if self._close else CLOSE_ENTER_FRAC
+        if near is not None and near.sw_frac >= line:
+            self._close_t = t
+        close = t - self._close_t < CLOSE_KEEP_S
+        if close != self._close:
+            self.emit("close", name=(f"very close ({near.sw_frac:.0%})"
+                                     if close else "calm again"))
+        self._set_close(close, quiet=pc.held is not None)
+
+    def _set_close(self, on, quiet=False):
+        self._close = on
+        lively = getattr(self.p, "set_lively", None)
+        if lively is not None:
+            lively(on and not quiet)
+        if on and self.face == KAOMOJI["LOOK"]:
+            self.face = KAOMOJI["CLOSE"]
+        elif not on and self.face == KAOMOJI["CLOSE"]:
+            self.face = KAOMOJI["LOOK"]
 
     # ---- following a person: the part visitors liked, made firmer ---------
     def _follow_person(self, pc):

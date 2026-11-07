@@ -21,7 +21,8 @@ Deps: pyserial  (pip install pyserial)
 """
 from __future__ import annotations
 import threading
-from collections import deque, time
+import time
+from collections import deque
 
 try:
     import serial  # pyserial

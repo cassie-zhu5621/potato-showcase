@@ -153,6 +153,15 @@ def test_a_visitor_shows_guards_and_loses_a_banana(monkeypatch, clips_dir, tmp_p
     monkeypatch.setattr(L.PAGE, "serve", lambda d, p: None)
     monkeypatch.setattr(P, "make_detector", lambda *a, **k: Det())
     monkeypatch.setattr(R, "PoseEstimator", lambda **k: Poses())
+    import perception.gaze as GZ
+
+    class NoFaces:
+        def estimate(self, frame):
+            return []
+
+        def close(self):
+            pass
+    monkeypatch.setattr(GZ, "HeadPoseEstimator", lambda **k: NoFaces())
     monkeypatch.setattr(sys, "argv", ["sidekick_loop.py", "--clips", clips_dir,
                                       "--offline", "--cv-hz", "8",
                                       "--feed-dir", str(tmp_path)])

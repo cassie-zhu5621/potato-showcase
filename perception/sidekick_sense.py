@@ -33,6 +33,14 @@ MIN_HAND_VIS = 0.5
 NEAR_SW_FRAC = 0.25        # closer than ~1.6 m: "with" the robot
 PASSER_SW_FRAC = 0.07      # a body at all (further than ~6 m is not a passer-by)
 
+# A FACE COUNTS AS A PERSON. The body detector needs both shoulders in frame,
+# and someone standing close to a robot that is looking up at their face has
+# no shoulders in frame -- on 2026-11-07 the robot woke, looked up at Cassie,
+# lost her body, and went back to dozing while she stood there. A face's width
+# is turned into the same "shoulder width" scale: a face is ~0.15 m across
+# (landmark box), shoulders ~0.42 m.
+FACE_TO_SHOULDER = 2.8
+
 MIN_PROP_AREA = 0.004      # of the frame. Smaller is a detection of nothing.
 HELD_CLOSE_AREA = 0.06     # this big is held up to the eye, hand seen or not
 HAND_ON_MARGIN = 0.10      # of the box diagonal: a hand holding it (knuckles
@@ -136,7 +144,7 @@ def _hand_points(person):
 
 def sense(people: Sequence, dets: Sequence, wh: Tuple[int, int],
           pose: Dict[str, float], t: float,
-          props: Sequence[str] = PROPS) -> Percept:
+          props: Sequence[str] = PROPS, faces: Sequence = ()) -> Percept:
     w, h = wh
     out = Percept(t=t, pose=dict(pose))
     hands = []
@@ -150,6 +158,22 @@ def sense(people: Sequence, dets: Sequence, wh: Tuple[int, int],
         out.people.append(Person(pid=p.pid, head=to_target(hp[0], hp[1], w, h, pose),
                                  sw_frac=sw, near=sw >= NEAR_SW_FRAC))
         hands.extend(_hand_points(p))
+    # Faces whose person the body detector missed (too close, or half out of
+    # frame). A face inside a body already counted is that same person.
+    for k, f in enumerate(faces):
+        if getattr(f, "coarse", False):
+            continue
+        x0, y0, x1, y1 = f.face_box
+        mx, my = 0.25 * (x1 - x0), 0.25 * (y1 - y0)
+        if any(x0 - mx <= q.head.x <= x1 + mx and y0 - my <= q.head.y <= y1 + my
+               for q in out.people):
+            continue
+        sw = FACE_TO_SHOULDER * (x1 - x0) / float(w)
+        if sw < PASSER_SW_FRAC:
+            continue
+        nx, ny = f.origin
+        out.people.append(Person(pid=-100 - k, head=to_target(nx, ny, w, h, pose),
+                                 sw_frac=sw, near=sw >= NEAR_SW_FRAC))
     for d in dets:
         if d.label not in props:
             continue

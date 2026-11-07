@@ -61,3 +61,22 @@ def test_people_and_furniture_are_not_props():
     p = SS.sense([], [Detection("person", (0, 0, 600, 700)),
                       Detection("chair", (0, 0, 300, 300))], (W, H), POSE, 0.0)
     assert p.props == []
+
+
+def test_a_face_close_up_is_a_near_person_without_shoulders():
+    """Close to the robot, the shoulders are out of frame and the body detector
+    drops the person. The face alone must keep them there."""
+    from perception.gaze import GazeRay
+    face = GazeRay(origin=(640, 300), dir=(0, 1), yaw=0, pitch=0,
+                   face_box=(520, 180, 760, 440))
+    p = SS.sense([], [], (W, H), POSE, 0.0, faces=[face])
+    assert p.near is not None
+    assert abs(p.near.head.pan - POSE["pan"]) < 1.0
+
+
+def test_a_face_inside_a_counted_body_is_not_a_second_person():
+    from perception.gaze import GazeRay
+    face = GazeRay(origin=(400, 200), dir=(0, 1), yaw=0, pitch=0,
+                   face_box=(360, 150, 440, 250))
+    p = SS.sense([person(400, 0.35 * W)], [], (W, H), POSE, 0.0, faces=[face])
+    assert len(p.people) == 1

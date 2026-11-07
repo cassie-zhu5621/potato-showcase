@@ -234,14 +234,16 @@ def main():
     player = ClipPlayer(bus, a.clips, on_led=on_led, on_sfx=on_sfx, sidekick=need)
     # Stage 1 answers a touch and nothing else, so it needs no camera at all:
     # it can be tried with only SK_PURR exported and nothing else set up.
-    cam = det = poses = tracker = None
+    cam = det = poses = tracker = faces = None
     if a.stage >= 2 or a.view:
         cam = HeadCam(a.cam)
         print("[cv] loading detector + pose ...")
         from perception.perceive import make_detector
         from perception.relations import PoseEstimator, Tracker
+        from perception.gaze import HeadPoseEstimator
         det = make_detector("yoloworld", list(props), conf=a.conf)
         poses, tracker = PoseEstimator(max_people=4), Tracker()
+        faces = HeadPoseEstimator(max_faces=4)
     PAGE.serve(feed, a.web_port)
     print(f"[web] tablet: http://<this laptop>:{a.web_port}/")
 
@@ -252,6 +254,7 @@ def main():
     player.request(brain.rest)
 
     last_state, last_face = None, None
+    last_seen, last_phase = None, None
     period = 1.0 / a.cv_hz
     next_cv = 0.0
     frame = None
@@ -283,7 +286,16 @@ def main():
                 h, w = frame.shape[:2]
                 people = tracker.assign(poses.estimate(frame), (w, h), now)
                 dets = det.detect(frame)
-                pc = SS.sense(people, dets, (w, h), pose, now, props)
+                rays = faces.estimate(frame)
+                pc = SS.sense(people, dets, (w, h), pose, now, props, faces=rays)
+                # One line when what it sees CHANGES, so a run can be read back
+                # from the terminal: nobody / passer / NEAR, and its decision.
+                seen = ("NEAR" if pc.near else ("passer" if pc.people else "nobody"))
+                if seen != last_seen:
+                    last_seen = seen
+                    n = pc.nearest
+                    print(f"[sense] {seen}"
+                          + (f" (size {n.sw_frac:.0%}, bearing {n.head.pan:+.0f})" if n else ""))
                 if a.stage >= 2:
                     brain.on_percept(pc)
                 else:
@@ -339,6 +351,9 @@ def main():
                 last_face = brain.face
                 if link:
                     link.skface(last_face)
+            if brain.phase != last_phase:
+                last_phase = brain.phase
+                print(f"[brain] phase {last_phase}")
             PAGE.publish(brain.face, brain.caption, brain.phase)
             if player.error:
                 print(f"[player] !! {player.error}")
@@ -360,6 +375,8 @@ def main():
             link.close()
         if poses:
             poses.close()
+        if faces:
+            faces.close()
         if a.view:
             cv2.destroyAllWindows()
 

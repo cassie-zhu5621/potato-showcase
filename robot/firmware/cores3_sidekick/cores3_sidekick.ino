@@ -38,7 +38,8 @@
  *     EVT SFX <name>       curious ack shutter puzzled excited lost purr alert | NONE
  *     EVT SKFACE <text>    sidekick mode: one big face, no buttons (v19)
  *     EVT SKSAY <text>     sidekick mode: a line under the face; empty clears (v20)
- *     EVT WAVBEGIN <n> / WAVDATA <base64> / WAVPLAY   speak one line (v20)
+ *     EVT WAVBEGIN <n> / WAVDATA <base64> / WAVPLAY   speak one line (v20);
+ *                          v21 answers every WAVDATA with IN WAVACK <bytes>
  *     EVT LEVEL <0-100>    mic level for the recording bar
  *     EVT VOL <0-255>      speaker volume; 0 for a silent run
  *     EVT NAME <text>      what the participant called it. ASCII only (the GFX
@@ -46,7 +47,7 @@
  *                          `hello`. Data, not firmware: one flash teaches the
  *                          command, every later name is a serial line.
  *     EVT REST             end of a run: go quiet, back to idle + warm breath
- *     EVT PING             -> `IN PONG cores3_sidekick v20`
+ *     EVT PING             -> `IN PONG cores3_sidekick v21`
  *
  *   BUMP THE VERSION WITH EVERY FLASH THAT MATTERS. This link is flaky enough
  *   that an upload can fail after the sketch has compiled, and then the board
@@ -1295,6 +1296,12 @@ void handleLine(String line) {
       int rc = mbedtls_base64_decode(wavBuf + wavLen, wavCap - wavLen, &out,
                                      (const unsigned char*)arg.c_str(), arg.length());
       if (rc == 0) wavLen += out;
+      // v21: EVERY LINE IS ANSWERED, and the laptop waits for the answer
+      // before sending the next. The USB serial receive buffer here is ~256
+      // bytes; v20 sent lines back to back, they overran it, lost their
+      // newlines, ran together and failed to decode -- 42 KB sent, 0 played.
+      if (rc == 0) Serial.printf("IN WAVACK %u\n", (unsigned)wavLen);
+      else         Serial.printf("IN WAVBAD %d\n", rc);
     }
   }
   else if (cmd == "WAVPLAY") {
@@ -1417,7 +1424,7 @@ void handleLine(String line) {
     setAntennaHue(255, 242, 224);   // = WARM. Keep in sync with HUE above.
     uiSet("idle");
   }
-  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v20");
+  else if (cmd == "PING") Serial.println("IN PONG cores3_sidekick v21");
   // ASKABLE, because the boot line is not readable. USB CDC enumerates after
   // setup() has already run, so `IN TOF READY` and `IN TOF FAIL` are printed
   // into a port nothing is listening to yet and are simply lost. Without this
@@ -1536,7 +1543,7 @@ void setup() {
   tapInit();
   tofInit();
   uiDraw();                 // the idle screen, immediately -- no legacy layout
-  Serial.println("IN HELLO cores3_sidekick v20");
+  Serial.println("IN HELLO cores3_sidekick v21");
 }
 
 void loop() {

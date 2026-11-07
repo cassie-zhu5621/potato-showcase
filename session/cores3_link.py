@@ -20,7 +20,8 @@ like the servo adapter -- so find_cores3() asks it instead. See below.
 Deps: pyserial  (pip install pyserial)
 """
 from __future__ import annotations
-import threading, time
+import threading
+from collections import deque, time
 
 try:
     import serial  # pyserial
@@ -37,7 +38,7 @@ except ImportError:
 # "v3", this check still said "match", and the antenna was still blue. A version
 # that tracks only the protocol cannot answer the one question it is asked --
 # "is the thing in front of me built from the code in front of me".
-FIRMWARE_V = "v20"   # v20: spoken lines (WAV over serial) and a caption under the face
+FIRMWARE_V = "v21"   # v21: every spoken-line chunk is acknowledged (v20 overran the USB buffer)
 
 
 def _older(board: str, want: str) -> bool:
@@ -161,6 +162,11 @@ class CoreS3Link:
         self.ser = serial.Serial(port, baud, timeout=0.1, write_timeout=0.5)
         self.on_input = on_input            # callback(str) for each "IN ..." line
         self._wlock = threading.Lock()      # serialize writes (main thread + reader thread)
+        # Lines starting "IN WAV" are also kept here, for RobotVoice to wait on
+        # (v21 answers every chunk of a spoken line). They still go to
+        # on_input as well, so nothing else changes.
+        self._wav_lines = deque(maxlen=64)
+        self._wav_cv = threading.Condition()
         self._stop = False
         self._t = threading.Thread(target=self._reader, daemon=True)
         self._t.start()
@@ -178,10 +184,32 @@ class CoreS3Link:
                 while b"\n" in buf:
                     line, buf = buf.split(b"\n", 1)
                     s = line.decode("utf-8", "ignore").strip()
+                    if s.startswith("IN WAV"):
+                        with self._wav_cv:
+                            self._wav_lines.append(s)
+                            self._wav_cv.notify_all()
                     if s and self.on_input:
                         self.on_input(s)
             except Exception:
                 time.sleep(0.2)
+
+    def wait_wav(self, prefixes, timeout):
+        """The next 'IN WAV...' line starting with one of `prefixes`, or None."""
+        end = time.time() + timeout
+        with self._wav_cv:
+            while True:
+                while self._wav_lines:
+                    s = self._wav_lines.popleft()
+                    if s.startswith(prefixes):
+                        return s
+                left = end - time.time()
+                if left <= 0:
+                    return None
+                self._wav_cv.wait(left)
+
+    def clear_wav(self):
+        with self._wav_cv:
+            self._wav_lines.clear()
 
     # ---- send ----
     def event(self, cmd: str, arg=""):

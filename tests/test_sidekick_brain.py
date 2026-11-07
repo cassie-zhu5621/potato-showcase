@@ -313,3 +313,26 @@ def test_the_voice_sends_a_wav_in_order_and_a_newer_line_wins(monkeypatch):
     v._gen = 5
     v._send("old line", 4)                  # replaced before it was sent
     assert ("WAVPLAY", "") not in sent
+
+
+def test_the_voice_waits_for_each_ack_from_a_v21_board(monkeypatch):
+    from session import robot_voice as RV
+    sent = []
+
+    class Link:
+        def event(self, cmd, arg=""):
+            sent.append((cmd, arg))
+
+        def clear_wav(self):
+            pass
+
+        def wait_wav(self, prefixes, timeout):
+            last = sent[-1][0]
+            return {"WAVBEGIN": "IN WAV ready 9", "WAVDATA": "IN WAVACK 1"}[last]
+    monkeypatch.setattr(RV, "make_wav", lambda text, voice: b"RIFF" + b"x" * 1000)
+    slept = []
+    monkeypatch.setattr(RV.time, "sleep", lambda s: slept.append(s))
+    v = RV.RobotVoice(Link())
+    v._send("hello", v._gen)
+    assert sent[-1] == ("WAVPLAY", "") and not slept      # no pacing needed
+    assert all(len(a) <= RV.CHUNK for c, a in sent if c == "WAVDATA")

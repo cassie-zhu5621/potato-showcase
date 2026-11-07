@@ -60,10 +60,11 @@ On the laptop alone (no robot): `python3 sidekick_loop.py --no-robot --cam 0`
 
 ## Before the day -- once
 
-1. **Firmware v20** (sounds, big-face screen, and v20: it SPEAKS its lines and
-   shows them under its face): `pio run -t upload`, then
-   `python3 robot/tools/tof_test.py` must say v20. The voice is macOS `say`
-   (`--voice Zarvox` by default, robotic; `say -v ?` lists others).
+1. **Firmware v21** (sounds, big-face screen, spoken lines shown under its
+   face): `pio run -t upload`, then `python3 robot/tools/tof_test.py` must say
+   v21, then `python3 robot/tools/say_test.py` -- it should speak in ~2 s.
+   The voice is macOS `say` (`--voice Samantha` by default; `say -v ?` lists
+   others, try them with `say -v <name> "hello"`).
 2. **Aim signs** are measured and set (AIM_X_SIGN -1, AIM_Y_SIGN +1,
    2026-11-07). Re-run `python3 robot/tools/aim_check.py --cam N` only if the
    camera or a servo is remounted.

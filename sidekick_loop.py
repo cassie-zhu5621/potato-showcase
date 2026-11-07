@@ -208,9 +208,9 @@ def main():
                          "3 + show it something to look out for; it calls when "
                          "that turns up. Each stage needs only its own clips.")
     ap.add_argument("--mute", action="store_true")
-    ap.add_argument("--voice", default="Zarvox",
-                    help="macOS `say` voice the robot speaks with (Zarvox: robotic; "
-                         "`say -v ?` lists them). Needs firmware v20")
+    ap.add_argument("--voice", default="Samantha",
+                    help="macOS `say` voice the robot speaks with "
+                         "(`say -v ?` lists them). Needs firmware v21")
     ap.add_argument("--conf", type=float, default=0.25)
     ap.add_argument("--cv-hz", type=float, default=4.0)
     ap.add_argument("--props", default=",".join(SS.PROPS),

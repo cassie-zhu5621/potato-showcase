@@ -24,7 +24,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("text", nargs="?",
                     default="OK! I'll look out for a blue water bottle.")
-    ap.add_argument("--voice", default="Zarvox")
+    ap.add_argument("--voice", default="Samantha")
     ap.add_argument("--pace", type=float, default=None,
                     help="seconds between data lines (default session.robot_voice.PACE_S)")
     ap.add_argument("--chunk", type=int, default=None,

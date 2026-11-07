@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1130" width="1600" height="1130">
+<defs>
+<filter id="wob" x="-5%" y="-5%" width="110%" height="110%">
+ <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="7"/>
+ <feDisplacementMap in="SourceGraphic" scale="5"/></filter>
+<filter id="wobt" x="-5%" y="-20%" width="110%" height="140%">
+ <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="1" seed="3"/>
+ <feDisplacementMap in="SourceGraphic" scale="2"/></filter>
+</defs>
+<rect width="1600" height="1130" fill="#f4f4f2"/>
+<g filter="url(#wob)">
+<path d="M-20,-10 L1080,-10 L1060,120 L-20,135 Z" fill="#5cc3ec" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g filter="url(#wobt)">
+<text x="70" y="78" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="58" font-weight="700" fill="#111">あそびかた</text>
+<text x="420" y="78" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="40" fill="#111">How to play with me</text>
+</g>
+<g filter="url(#wob)">
+<path d="M570,905 L570,950 Q760,1015 950,950 L950,905" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#fff"/>
+<ellipse cx="760" cy="905" rx="190" ry="55" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#fff"/>
+<ellipse cx="760" cy="900" rx="150" ry="38" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="none" stroke-opacity=".5"/>
+<path d="M685,905 L685,800 L830,800 L830,880" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M705,905 L705,820 L810,820" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M750,835 L830,835 L830,900 L750,900 Z" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#a9dcef"/>
+<path d="M742,800 L742,520 M778,800 L778,520" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M712,430 L812,430 L812,525 L712,525 Z" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#a9dcef"/>
+<path d="M665,350 L665,500 Q665,512 680,512 L698,512 Q710,512 710,500 L710,400" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#fff"/>
+<path d="M650,270 L850,250 L850,420 L650,410" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#fff"/>
+<ellipse cx="650" cy="340" rx="38" ry="70" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#fff"/>
+<path d="M740,262 Q748,340 740,414" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" stroke-opacity=".6"/>
+<ellipse cx="865" cy="335" rx="62" ry="98" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#fff"/>
+<ellipse cx="872" cy="335" rx="32" ry="52" fill="#111" stroke="#111" stroke-width="3"/>
+<circle cx="882" cy="316" r="8" fill="#fff"/>
+<path d="M700,215 Q710,195 700,175 M730,210 Q740,185 730,160 M760,215 Q770,195 760,175" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M990,985 q8,-12 16,0 q8,-12 16,0 q8,-12 16,0 M430,990 q8,-12 16,0 q8,-12 16,0" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M1240,190 q-10,-40 30,-40 q20,-35 55,-5 q40,-15 45,25 q30,20 -5,40 q-20,25 -55,5 q-40,20 -60,-5 q-35,-5 -10,-20 Z" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#fff"/>
+</g>
+<g filter="url(#wob)">
+<circle cx="300" cy="740" r="22" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#fff"/>
+<path d="M300,762 L300,830 M300,830 L282,880 M300,830 L318,880" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M300,780 L275,810 M300,780 L322,745 L330,712" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M345,695 q10,15 0,30 M360,685 q14,25 0,50" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<ellipse cx="370" cy="888" rx="11" ry="6" fill="#111"/>
+<ellipse cx="420" cy="905" rx="11" ry="6" fill="#111"/>
+<ellipse cx="470" cy="888" rx="11" ry="6" fill="#111"/>
+<ellipse cx="520" cy="905" rx="11" ry="6" fill="#111"/>
+<path d="M1000,320 L1016,320 L1016,335 Q1034,345 1034,370 L1034,450 L982,450 L982,370 Q982,345 1000,335 Z" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#fff"/>
+<path d="M982,395 L1034,395" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<g filter="url(#wobt)">
+<text x="130" y="250" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="44" font-weight="700" fill="#111" text-anchor="start">あたまをポンポン</text>
+<text x="130" y="290" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="28" fill="#111" text-anchor="start">Pat my head</text>
+<text x="130" y="334" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="26" fill="#555" text-anchor="start">→ すりすりするよ</text>
+<text x="130" y="366" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="22" fill="#555" text-anchor="start">I'll nuzzle up into your hand</text>
+<path d="M470,275 Q600,215 685,262" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M685,262 L673.2,243.4" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M685,262 L663.0,261.9" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1110" y="310" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="44" font-weight="700" fill="#111" text-anchor="start">目の前で見せてね</text>
+<text x="1110" y="350" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="28" fill="#111" text-anchor="start">Hold it up to my eyes</text>
+<text x="1110" y="394" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="26" fill="#555" text-anchor="start">→ おぼえて、さがしておくね</text>
+<text x="1110" y="426" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="22" fill="#555" text-anchor="start">I'll look out for it</text>
+<path d="M975,350 Q955,335 935,345" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M935,345 L957.0,345.8" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M935,345 L947.6,326.9" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="1100" y="590" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="44" font-weight="700" fill="#111" text-anchor="start">かくして、また出してね</text>
+<text x="1100" y="630" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="28" fill="#111" text-anchor="start">Hide it, then bring it back</text>
+<text x="1100" y="674" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="26" fill="#555" text-anchor="start">→ 見つけたら呼ぶよ！</text>
+<text x="1100" y="706" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="22" fill="#555" text-anchor="start">I'll point at it and call you</text>
+<path d="M1090,620 Q960,600 880,450" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M880,450 L879.8,472.0" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M880,450 L898.4,462.1" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="110" y="520" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="44" font-weight="700" fill="#111" text-anchor="start">手をふってね</text>
+<text x="110" y="560" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="28" fill="#111" text-anchor="start">Wave hi</text>
+<text x="110" y="604" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="26" fill="#555" text-anchor="start">→ ふりかえすよ</text>
+<text x="110" y="636" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="22" fill="#555" text-anchor="start">I'll wave back</text>
+<path d="M250,640 Q300,680 340,675" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M340,675 L319.5,666.9" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M340,675 L322.2,687.9" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="110" y="965" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="44" font-weight="700" fill="#111" text-anchor="start">ちかづいてね</text>
+<text x="110" y="1005" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="28" fill="#111" text-anchor="start">Come close</text>
+<text x="110" y="1049" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="26" fill="#555" text-anchor="start">→ じっと見てるよ</text>
+<text x="110" y="1081" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="22" fill="#555" text-anchor="start">I'll keep my eyes on you</text>
+<text x="1490" y="1050" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="26" fill="#555" text-anchor="end">ねてたら（-_- zz）あたまをポンポン</text>
+<text x="1490" y="1084" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="22" fill="#555" text-anchor="end">Asleep? Pat my head to wake me</text>
+</g>
+</svg>

@@ -83,14 +83,42 @@ def actual(player):
     from robot.pose import IDS, unit_to_deg
     out = {}
     for j, sid in IDS.items():
-        u = player.bus.read_pos(sid)
+        u = None
+        for _ in range(3):              # a read can drop a packet; ask again
+            u = player.bus.read_pos(sid)
+            if u is not None:
+                break
+            time.sleep(0.02)
         out[j] = None if u is None else round(unit_to_deg(j, u), 1)
     return out
 
 
 def shift(a, b):
-    (dx, dy), resp = cv2.phaseCorrelate(a, b)
-    return dx, dy, resp
+    """How far the picture slid between two frames, in pixels, and how sure.
+
+    Feature matching with a RANSAC fit, not phase correlation. The first
+    version used phaseCorrelate, and on 2026-11-07 it reported 0 px for a turn
+    that had plainly slid the room 150 px: the person standing close to the
+    lens filled half of each frame and moved on her own, and phase correlation
+    averages over everything. RANSAC keeps the matches that agree -- the room --
+    and ignores the ones that do not."""
+    A = cv2.normalize(a, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    B = cv2.normalize(b, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
+    orb = cv2.ORB_create(3000)
+    ka, da = orb.detectAndCompute(A, None)
+    kb, db = orb.detectAndCompute(B, None)
+    if da is None or db is None:
+        return 0.0, 0.0, 0.0
+    m = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True).match(da, db)
+    if len(m) < 20:
+        return 0.0, 0.0, 0.0
+    pa = np.float32([ka[x.queryIdx].pt for x in m])
+    pb = np.float32([kb[x.trainIdx].pt for x in m])
+    M, inl = cv2.estimateAffinePartial2D(pa, pb, method=cv2.RANSAC,
+                                         ransacReprojThreshold=4)
+    if M is None:
+        return 0.0, 0.0, 0.0
+    return float(M[0, 2]), float(M[1, 2]), float(inl.sum()) / len(m)
 
 
 def main():
@@ -163,10 +191,12 @@ def main():
               "NOT the camera on the head. Try another number "
               "(python3 noticebot_loop.py --list-cams).")
         return 1
-    print(f"pan +{STEP:.0f} deg -> picture moved {dx:+.0f} px (confidence {r1:.2f})")
-    print(f"nod +{STEP:.0f} deg -> picture moved {dy:+.0f} px (confidence {r2:.2f})")
+    print(f"pan +{STEP:.0f} deg -> picture moved {dx:+.0f} px "
+          f"({r1:.0%} of matches agree)")
+    print(f"nod +{STEP:.0f} deg -> picture moved {dy:+.0f} px "
+          f"({r2:.0%} of matches agree)")
     print(f"expected about {STEP * px_per_deg:.0f} px for each")
-    if min(r1, r2) < 0.05 or min(abs(dx), abs(dy)) < 0.3 * STEP * px_per_deg:
+    if min(r1, r2) < 0.15 or min(abs(dx), abs(dy)) < 0.3 * STEP * px_per_deg:
         print("\n!! the measurement is weak. Point the head at something with "
               "texture (not a blank wall) and run again.")
         return 1

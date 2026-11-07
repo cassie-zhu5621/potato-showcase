@@ -305,8 +305,13 @@ AIM_PEAK_DPS = 150.0       # under the 200 ceiling, with room for the dead-band 
 AIM_MIN_S = 0.18           # a saccade is never shorter than this
 AIM_SAMPLE_SETTLED_MS = 150.0   # the conductor only aims from frames taken still
 CAM_HFOV_DEG = 58.0        # = generate_s3_scan.py CAM_HFOV (OV4688 module)
-AIM_X_SIGN = +1            # image right -> pan +1 or -1. SET ON HARDWARE with
-AIM_Y_SIGN = +1            # robot/tools/aim_check.py; image up -> nod +1 or -1.
+AIM_X_SIGN = -1            # MEASURED 2026-11-07 (aim_check frames): pan +8 slid
+                           # the room ~+150 px RIGHT, so a thing on the image's
+                           # right needs LESS pan. Re-run aim_check.py only if the
+                           # camera or a servo is remounted.
+AIM_Y_SIGN = +1            # MEASURED 2026-11-07: nod +8 slid the room ~+113 px
+                           # DOWN (the eye went up), so a thing near the top of
+                           # the image needs MORE nod.
 GLANCE_TEMPLATE_DEG = 60.0  # = generate_sk_glance.py TARGET_PAN
 
 # The designed cycle, for reference and for the runner's --demo sweep.

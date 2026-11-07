@@ -402,3 +402,40 @@ def test_it_follows_someone_out_of_the_frame_once():
     player.aim = {}
     step(clock, brain, 0.25)
     assert player.aim == {}                           # only once
+
+
+def test_a_resting_finger_is_one_purr_not_a_stack():
+    clock, player, brain, _ = setup()
+    awake(clock, player, brain)
+    brain.on_tap()
+    assert player.state == "SK_PURR"
+    n = len(player.log)
+    brain.on_tap()                                  # still touching
+    clock.t += 0.3
+    brain.on_tap()
+    assert len(player.log) == n                     # no new purr while purring
+    player.finish()
+    clock.t += 0.3
+    brain.on_tap()
+    assert len(player.log) == n                     # nor right after it
+    clock.t += B.PURR_AGAIN_S
+    brain.on_tap()
+    assert player.log[-1] == "SK_PURR"
+
+
+def test_someone_standing_far_off_gets_one_glance_not_one_every_12_s():
+    clock, player, brain, _ = dozing()
+    step(clock, brain, 0.25, people=[face(-30.0, near=False)])
+    player.finish()
+    for _ in range(int(B.GLANCE_REFRACTORY_S / 0.25) + 4):
+        step(clock, brain, 0.25, people=[face(-28.0, near=False)])
+    assert player.log.count("SK_GLANCE") == 1
+
+
+def test_following_someone_survives_the_near_line_flicker():
+    clock, player, brain, _ = setup()
+    awake(clock, player, brain)
+    edge = Person(pid=1, head=tgt(20.0, 15.0), sw_frac=0.22, near=False)
+    for _ in range(int(B.LOST_S / 0.25) + 4):
+        step(clock, brain, 0.25, people=[edge])
+    assert brain.phase == "LOOK"

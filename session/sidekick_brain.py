@@ -56,6 +56,14 @@ TARGET_AWAY_S = 3.0        # the target must be out of sight this long before
                            # seeing it again counts as finding it
 FOUND_FRAMES = 2           # seen on this many settled frames in a row: found
 CALL_MAX_S = 25.0          # nobody answered the call
+PURR_AGAIN_S = 1.0         # after a purr ends, touches this soon are the same touch
+PURR_NOD_ROOM = 66.0       # nod reach is ~69.7: rising 16 from above 50 clips
+NEAR_KEEP_FRAC = 0.18      # once following someone, keep them until they are
+                           # this small (the NEAR line is 0.25): stops the
+                           # NEAR / passer flicker at 25-27% from dropping them
+GLANCE_SAME_DEG = 12.0     # the same spot as the last glance...
+GLANCE_SAME_S = 40.0       # ... within this long: someone standing there, not
+                           # passing -- one glance is enough
 LEAD_S = 0.25              # aim this far ahead of a moving person...
 LEAD_MAX_DEG = 6.0         # ... but never more than this
 EDGE_FRAC = 0.30           # last seen this far from the centre = left at an edge
@@ -115,6 +123,8 @@ class Brain:
         self._last_near = -1e9
         self._last_glance = -1e9
         self._held_run = 0
+        self._purr_at = -1e9
+        self._glance_pan = None          # where the last glance went
         self._track_pan = None           # the person being followed
         self._track_t = -1e9
         self._track_x = 0.5
@@ -157,7 +167,18 @@ class Brain:
             self._last_near = t
             self._go("LOOK", face="PURR", say="Hello!")
         elif self.phase in ("LOOK", "TEACH"):
-            self.p.request("SK_PURR")
+            # ONE PURR AT A TIME. A finger resting on the pad sends several
+            # touches; each restarted the purr from wherever the last one had
+            # lifted the head, until it ran into the top of its reach
+            # (2026-11-07 log: three in a row, "clamped on nod").
+            if self.p.state == "SK_PURR" or t - self._purr_at < PURR_AGAIN_S:
+                return
+            self._purr_at = t
+            # Looking UP at someone tall, there is no room left to rise into
+            # the hand: then it comes down to its looking pose first and
+            # purrs from there, as authored.
+            high = self.p.pose_deg()["nod"] + 16.0 > PURR_NOD_ROOM
+            self.p.request("SK_PURR", as_authored=high)
             self.face = KAOMOJI["PURR"]
         elif self.phase == "CALL":
             self.emit("call_answered")
@@ -357,9 +378,14 @@ class Brain:
             # head lift and the held look are the glance; the turn only aims it.
             target = (q.head.pan if abs(q.head.pan - pc.pose["pan"]) >= GLANCE_MIN_DEG
                       else pc.pose["pan"])
+            if (self._glance_pan is not None
+                    and abs(q.head.pan - self._glance_pan) < GLANCE_SAME_DEG
+                    and t - self._last_glance < GLANCE_SAME_S):
+                return
             self.p.set_glance_target_deg(target)
             self.p.request("SK_GLANCE")
             self._last_glance = t
+            self._glance_pan = q.head.pan
 
     def _see_look(self, pc):
         t = pc.t
@@ -395,7 +421,9 @@ class Brain:
           in that direction to find them again, before giving up on them.
         """
         t = pc.t
-        near = [q for q in pc.people if q.near]
+        keep = self._track_pan is not None and t - self._track_t < 1.5
+        near = [q for q in pc.people
+                if q.near or (keep and q.sw_frac >= NEAR_KEEP_FRAC)]
         if near:
             if self._track_pan is not None and len(near) > 1:
                 cur = min(near, key=lambda q: abs(q.head.pan - self._track_pan))

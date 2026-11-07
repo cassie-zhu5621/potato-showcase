@@ -16,7 +16,7 @@ Sign on the table: **"Hold something up to show it what to look out for. Touch i
 | walks past (just after a visit) | dozing, head up; glances at them (also straight ahead), goes back | `-.-` |
 | comes close (~1.5 m) | wakes, looks at their face, follows it | `o_o` |
 | holds something up | pulls back, holds, leans in, "hm?" (rising sound), follows it while the model names it | `o_O?` / `O_O` |
-| -- named | nods and SAYS "OK! I'll look out for a blue water bottle." (also under its face and on the tablet) | `^_^` |
+| -- named | nods with the "got it" sound; "OK! I'll look out for a blue water bottle." appears under its face, on the tablet and in the view (not spoken; `--speak` turns a voice on) | `^_^` |
 | keeps holding it / puts it away | nothing: being shown is not finding | |
 | later, that kind of thing is in its view again | points at it with the call sound (no speech); tablet: "spotted it!" with the picture | `\^o^/` |
 | touches its head while it calls | nods, "seen it", back to looking at you | `^_^` |

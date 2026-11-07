@@ -224,6 +224,10 @@ def main():
                          "3 + show it something to look out for; it calls when "
                          "that turns up. Each stage needs only its own clips.")
     ap.add_argument("--mute", action="store_true")
+    ap.add_argument("--speak", action="store_true",
+                    help="also SAY the lines out loud (off: they are only shown, "
+                         "under its face, on the tablet and in the view -- the "
+                         "acknowledgement is the nod and its 'ack' sound)")
     ap.add_argument("--voice", default="Junior",
                     help="macOS `say` voice the robot speaks with "
                          "(`say -v ?` lists them). Needs firmware v21")
@@ -309,7 +313,11 @@ def main():
     print(f"[web] tablet: http://<this laptop>:{a.web_port}/")
 
     from session.robot_voice import RobotVoice
-    voice = RobotVoice(link, voice=a.voice, muted=a.mute, pitch=a.pitch)
+    # NOT SPOKEN BY DEFAULT (2026-11-07, after trying it): the line is shown,
+    # and SK_ACK's own 'ack' sound -- the falling two-note "got it" that goes
+    # with the nod -- is the answer you hear. --speak turns the voice back on.
+    voice = RobotVoice(link, voice=a.voice, muted=a.mute or not a.speak,
+                       pitch=a.pitch)
     say_until = 0.0
     saying = ""
     events = deque()
@@ -392,8 +400,8 @@ def main():
                 n_card += 1
                 cid = f"{kind}_{n_card}"
                 if kind == "say":
-                    # Spoken from its own speaker, and written under its face
-                    # for as long as it takes to read.
+                    # Written under its face for as long as it takes to read
+                    # (and spoken too, with --speak).
                     voice.say(kw["text"])
                     saying = kw["text"]
                     if link:

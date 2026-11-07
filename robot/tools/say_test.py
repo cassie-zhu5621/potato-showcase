@@ -25,6 +25,10 @@ def main():
     ap.add_argument("text", nargs="?",
                     default="OK! I'll look out for a blue water bottle.")
     ap.add_argument("--voice", default="Zarvox")
+    ap.add_argument("--pace", type=float, default=None,
+                    help="seconds between data lines (default session.robot_voice.PACE_S)")
+    ap.add_argument("--chunk", type=int, default=None,
+                    help="base64 characters per line (default 512)")
     a = ap.parse_args()
     wav = make_wav(a.text, a.voice)
     if not wav:
@@ -39,13 +43,14 @@ def main():
     link.skface("^_^")
     link.sksay(a.text)
     t0 = time.time()
-    voice = RobotVoice(link, voice=a.voice)
+    voice = RobotVoice(link, voice=a.voice, pace_s=a.pace, chunk=a.chunk)
     voice._send(a.text, voice._gen)        # in this thread, so we can time it
     print(f"sent in {time.time() - t0:.1f}s")
     time.sleep(4)
     for s in lines:
         if "WAV" in s or "PONG" in s or "HELLO" in s:
             print("  board:", s)
+    print(f"  ({len([l for l in lines if l])} lines from the board in all)")
     if not any("WAV play" in s for s in lines):
         print("!! the board never said `IN WAV play` -- is it v20? "
               "(python3 robot/tools/tof_test.py)")

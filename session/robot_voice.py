@@ -52,7 +52,9 @@ def make_wav(text: str, voice: str = "Zarvox", rate_wpm: int = 175):
 
 
 class RobotVoice:
-    def __init__(self, link, voice="Zarvox", muted=False):
+    def __init__(self, link, voice="Zarvox", muted=False, pace_s=None, chunk=None):
+        self.pace_s = PACE_S if pace_s is None else pace_s
+        self.chunk = CHUNK if chunk is None else chunk
         self.link = link
         self.voice = voice
         self.muted = muted
@@ -74,9 +76,9 @@ class RobotVoice:
         b64 = base64.b64encode(wav).decode("ascii")
         self.link.event("WAVBEGIN", len(wav))
         time.sleep(0.03)
-        for i in range(0, len(b64), CHUNK):
+        for i in range(0, len(b64), self.chunk):
             if gen != self._gen:                 # a newer line replaced this one
                 return
-            self.link.event("WAVDATA", b64[i:i + CHUNK])
-            time.sleep(PACE_S)
+            self.link.event("WAVDATA", b64[i:i + self.chunk])
+            time.sleep(self.pace_s)
         self.link.event("WAVPLAY")

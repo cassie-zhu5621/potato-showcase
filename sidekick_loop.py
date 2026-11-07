@@ -117,7 +117,7 @@ def story_strip(event_frames, t0, t1, n=6, height=260):
 
 FIXED_POSE = {"pan": 0.0, "tilt": 0.0, "nod": 0.0}
 VIEW = "sidekick -- what it sees   (t touch  p palm  q quit)"
-PHASE_COL = {"DOZE": (120, 120, 120), "LOOK": (60, 200, 255), "SHOW": (80, 220, 120),
+PHASE_COL = {"SLEEP": (90, 90, 90), "DOZE": (120, 120, 120), "LOOK": (60, 200, 255), "SHOW": (80, 220, 120),
              "GUARD": (255, 160, 60), "CALL": (200, 80, 255)}
 
 

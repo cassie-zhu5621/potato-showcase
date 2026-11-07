@@ -10,7 +10,8 @@ A tray of the 3-4 props that passed the prop check (step 4).
 
 | visitor | robot | tablet |
 |---|---|---|
-| walks past | dozing, head up; glances at them, goes back | `-_-` breathing |
+| (nobody for a while) | asleep, head down (S0 pose) -- woken by a hand at the sensor or a touch | `-_- zz` |
+| walks past (just after a visit) | dozing, head up; glances at them, goes back | `-.-` |
 | comes close (~1.5 m) | wakes, looks at their face, follows it | `o_o` "Hi! Show me something?" |
 | holds a prop up | pulls back, leans in, "hm?" twice, then follows it | `o_O?` / `O_O` |
 | holds it still ~1 s | nods; a card appears with a line in its own voice | `^_^` |
@@ -19,7 +20,7 @@ A tray of the 3-4 props that passed the prop check (step 4).
 | someone takes it | calls; the tablet shows who took it as a strip | `\^o^/` |
 | owner touches its head while it guards | nods, "welcome back", stops guarding | `^_^` |
 | touches its head otherwise | presses up into the hand | `=^_^=` |
-| leaves | dozes again after ~6 s | `-_-` |
+| leaves | dozes (head up) after ~6 s, falls asleep (head down) after ~20 s more | `-.-` then `-_- zz` |
 
 What to say, in full: **"Show it something."** Everything else follows from it.
 

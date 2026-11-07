@@ -12,14 +12,19 @@ be tested on made-up percepts (tests/test_sidekick_brain.py).
 THE PHASES (what the robot is doing with the visitor; the player's state can be
 a one-shot inside one of these)
 
-  DOZE   resting, head up, seeing the room. Glances at passers-by.
+  SLEEP  head down (the paper's S0_IDLE pose): clearly asleep. The camera is on
+         the table, so only a hand at the wake sensor or a touch wakes it.
+  DOZE   just after someone left: head up, seeing the room, glances at
+         passers-by and wakes by itself if someone comes close. If nobody comes
+         for DOZE_TO_SLEEP_S, it nods off into SLEEP.
   LOOK   someone is with it: it looks at their face.
   SHOW   they are showing it something: curious, then following the prop.
   GUARD  they put the prop down and let go: it guards it.
   CALL   the guarded thing was taken: it calls the owner.
 
 THE TOUCH means one thing per phase (docs/SHOWCASE_1108_PLAN.md):
-  DOZE / LOOK / SHOW   affection -> SK_PURR, then carry on
+  SLEEP / DOZE         wakes it, leaning up into the hand (SK_PURR), then LOOK
+  LOOK / SHOW          affection -> SK_PURR, then carry on
   GUARD                "I'm back" -> SK_ACK, stop guarding
   CALL                 "seen it"  -> SK_ACK, the story stays on the tablet
 """
@@ -34,7 +39,8 @@ from robot import states as ST
 
 # ---- timing (seconds) -------------------------------------------------------
 WAKE_S = 0.6               # someone near this long wakes it (not a passer-by)
-LOST_S = 6.0               # nobody near this long: back to dozing
+LOST_S = 6.0               # nobody near this long: back to dozing (head up)
+DOZE_TO_SLEEP_S = 20.0     # dozing this long with nobody near: head down, asleep
 GLANCE_REFRACTORY_S = 12.0  # at most one glance per this long
 GLANCE_MIN_DEG = 8.0       # a glance must be a visible turn
 HELD_FRAMES = 2            # a held prop on this many settled frames in a row
@@ -55,7 +61,7 @@ GUARD_MAX_S = 300.0        # nobody came back: give up guarding
 CALL_MAX_S = 25.0          # nobody answered the call
 
 KAOMOJI = {
-    "DOZE": "-_-", "LOOK": "o_o", "SHOW": "o_O?", "FOLLOW": "O_O",
+    "SLEEP": "-_- zz", "DOZE": "-.-", "LOOK": "o_o", "SHOW": "o_O?", "FOLLOW": "O_O",
     "ACK": "^_^", "PURR": "=^_^=", "GUARD": ">_>",
     "ALERT": "O_O!", "CALL": "\\^o^/",
 }
@@ -84,13 +90,16 @@ class Brain:
                  clock: Callable[[], float] = time.time, stage: int = 4):
         self.p = player
         self.on = set(STAGES[stage])
-        # Before stage 2 there is no SK_DOZE clip: the robot rests in the paper's
-        # S0_IDLE, and a touch is the only thing it answers.
-        self.rest = "SK_DOZE" if "notice" in self.on else "S0_IDLE"
+        # Asleep is the paper's S0_IDLE pose at every stage: head down, which
+        # reads as asleep from across a room (the head-up SK_DOZE did not).
+        # From stage 2 SK_DOZE is the short drowsy spell between a visitor
+        # leaving and falling asleep, when the camera can still see the room.
+        self.rest = "S0_IDLE"
+        self._doze_since = -1e9
         self.emit = on_event or (lambda kind, **kw: None)
         self.now = clock
-        self.phase = "DOZE"
-        self.face = KAOMOJI["DOZE"]
+        self.phase = "SLEEP"
+        self.face = KAOMOJI["SLEEP"]
         self.caption = ""
         t = self.now()
         self._near_since: Optional[float] = None
@@ -120,14 +129,14 @@ class Brain:
     # ---- inputs ---------------------------------------------------------
     def on_tap(self):
         t = self.now()
-        if self.phase == "DOZE" and "notice" not in self.on:
+        if self.phase == "SLEEP" and "notice" not in self.on:
             # Stage 1: a touch is answered and the robot goes back to resting.
             # From the sleeping pose the purr is played AS AUTHORED: the head
             # comes all the way up into the hand first. Translated onto a head
             # hanging 42 deg down, the same rise never reached the hand.
             self.p.request("SK_PURR", resume_to=self.rest, as_authored=True)
             self.face = KAOMOJI["PURR"]
-        elif self.phase == "DOZE":
+        elif self.phase in ("SLEEP", "DOZE"):
             # A touch wakes it, and it leans into the hand as it wakes.
             pose = self.p.pose_deg()
             self.p.set_aim_deg(pan=pose["pan"], tilt=ST.LOOK_TILT, nod=ST.LOOK_NOD)
@@ -150,7 +159,7 @@ class Brain:
             self._go("LOOK", face="ACK", say="That's who took it.")
 
     def on_palm(self):
-        if self.phase == "DOZE" and "notice" in self.on:
+        if self.phase in ("SLEEP", "DOZE") and "notice" in self.on:
             pose = self.p.pose_deg()
             self.p.set_aim_deg(pan=pose["pan"], tilt=ST.LOOK_TILT, nod=ST.LOOK_NOD)
             self.p.request("SK_LOOK")
@@ -162,6 +171,12 @@ class Brain:
         t = self.now()
         if self.phase == "LOOK" and t - self._last_near > LOST_S:
             self._sleep()
+        elif (self.phase == "DOZE" and "notice" in self.on
+                and t - self._doze_since > DOZE_TO_SLEEP_S
+                and self.p.state == "SK_DOZE"):
+            self.p.request(self.rest)
+            self._near_since = None
+            self._go("SLEEP", say="")
         elif self.phase == "SHOW" and t - self._prop_seen > PROP_LOST_S:
             self.p.request("SK_LOOK")
             self._go("LOOK", say="")
@@ -175,10 +190,16 @@ class Brain:
             self._go("LOOK", say="")
 
     def _sleep(self):
+        """Nobody here any more: doze (head up) first, sleep later (tick)."""
         self.p.clear_aim()
-        self.p.request(self.rest)
         self._near_since = None
-        self._go("DOZE", say="")
+        if "notice" in self.on:
+            self.p.request("SK_DOZE")
+            self._doze_since = self.now()
+            self._go("DOZE", say="")
+        else:
+            self.p.request(self.rest)
+            self._go("SLEEP", say="")
 
     def on_percept(self, pc):
         """One SETTLED frame's Percept (perception/sidekick_sense.py)."""
@@ -186,6 +207,23 @@ class Brain:
         self.tick()
 
     # ---- per phase ------------------------------------------------------
+    def _see_sleep(self, pc):
+        """Head down, the camera sees the table. If it does see someone close
+        (leaning in over it), that wakes it; nothing else does but the hand
+        and the touch."""
+        if "notice" not in self.on:
+            return
+        near = pc.near
+        if near:
+            self._near_since = self._near_since or pc.t
+            if pc.t - self._near_since >= WAKE_S:
+                self._look_at(near.head)
+                self.p.request("SK_LOOK")
+                self._last_near = pc.t
+                self._go("LOOK", say="Hi! Show me something?")
+        else:
+            self._near_since = None
+
     def _see_doze(self, pc):
         if "notice" not in self.on:
             return
@@ -200,9 +238,11 @@ class Brain:
                 self._go("LOOK", say="Hi! Show me something?")
             return
         self._near_since = None
-        if self.p.state != self.rest or t - self._last_glance < GLANCE_REFRACTORY_S:
-            return
         far = [q for q in pc.people if not q.near]
+        if far:
+            self._doze_since = t           # people about: stay drowsy, not asleep
+        if self.p.state != "SK_DOZE" or t - self._last_glance < GLANCE_REFRACTORY_S:
+            return
         if far:
             q = max(far, key=lambda q: q.sw_frac)
             if abs(q.head.pan - pc.pose["pan"]) >= GLANCE_MIN_DEG:

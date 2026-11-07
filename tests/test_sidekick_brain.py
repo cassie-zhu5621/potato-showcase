@@ -94,14 +94,23 @@ def awake(clock, player, brain):
 def test_someone_close_wakes_it_and_it_looks_at_them():
     clock, player, brain, _ = setup()
     step(clock, brain, 0.25, people=[face(20.0)])
-    assert brain.phase == "DOZE"             # a moment is a passer-by
+    assert brain.phase == "SLEEP"            # a moment is a passer-by
     awake(clock, player, brain)
     assert abs(player.aim["pan"] - 20.0) < 1e-6
     assert player.aim["tilt"] == ST.LOOK_TILT
 
 
+def dozing():
+    """Someone just left: the robot is dozing, head up, before it falls asleep."""
+    clock, player, brain, events = setup()
+    brain._sleep()
+    assert brain.phase == "DOZE" and player.state == "SK_DOZE"
+    player.log.clear()
+    return clock, player, brain, events
+
+
 def test_a_passer_by_gets_one_glance_not_a_stream():
-    clock, player, brain, _ = setup()
+    clock, player, brain, _ = dozing()
     step(clock, brain, 0.25, people=[face(-30.0, near=False)])
     assert player.log == ["SK_GLANCE"] and player.glance == -30.0
     player.finish()
@@ -188,12 +197,35 @@ def test_a_touch_is_affection_otherwise():
     assert player.state == "SK_LOOK"
 
 
-def test_alone_it_goes_back_to_dozing():
+def test_alone_it_dozes_then_falls_asleep_head_down():
     clock, player, brain, _ = setup()
     awake(clock, player, brain)
     for _ in range(int(B.LOST_S / 0.25) + 2):
         step(clock, brain, 0.25)
     assert brain.phase == "DOZE" and player.state == "SK_DOZE"
+    for _ in range(int(B.DOZE_TO_SLEEP_S / 0.25) + 2):
+        step(clock, brain, 0.25)
+    assert brain.phase == "SLEEP" and player.state == "S0_IDLE"
+
+
+def test_passers_by_keep_it_drowsy_rather_than_asleep():
+    clock, player, brain, _ = dozing()
+    for _ in range(int(B.DOZE_TO_SLEEP_S / 0.25) * 2):
+        step(clock, brain, 0.25, people=[face(-30.0, near=False)])
+        if player.state == "SK_GLANCE":
+            player.finish()
+    assert brain.phase == "DOZE"
+
+
+def test_asleep_a_hand_or_a_touch_wakes_it():
+    clock, player, brain, _ = setup()
+    brain.on_palm()
+    assert brain.phase == "LOOK" and player.state == "SK_LOOK"
+    clock, player, brain, _ = setup()
+    brain.on_tap()
+    assert player.state == "SK_PURR" and player.as_authored
+    player.finish()
+    assert player.state == "SK_LOOK"
 
 
 # ---- stages: one interaction at a time -------------------------------------
@@ -204,7 +236,7 @@ def test_stage_1_answers_a_touch_and_nothing_else():
     assert brain.rest == "S0_IDLE"
     for _ in range(8):                         # someone close: no wake at stage 1
         step(clock, brain, 0.25, people=[face(20.0)])
-    assert player.log == [] and brain.phase == "DOZE"
+    assert player.log == [] and brain.phase == "SLEEP"
     brain.on_tap()
     assert player.state == "SK_PURR" and player.as_authored   # the full lift
     player.finish()

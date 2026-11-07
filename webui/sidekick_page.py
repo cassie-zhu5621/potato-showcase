@@ -73,7 +73,7 @@ async function poll(){
   const f=document.getElementById("face");
   if(f.textContent!==s.face){f.textContent=s.face;f.classList.add("pop");
     setTimeout(()=>f.classList.remove("pop"),250)}
-  f.classList.toggle("doze",s.phase==="DOZE");
+  f.classList.toggle("doze",s.phase==="DOZE"||s.phase==="SLEEP");
   document.getElementById("cap").textContent=s.caption||"";
   const key=s.cards.map(c=>c.id+":"+(c.line||"")).join("|");
   if(key!==shown){shown=key;

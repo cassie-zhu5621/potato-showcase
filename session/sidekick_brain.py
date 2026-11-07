@@ -42,7 +42,8 @@ WAKE_S = 0.6               # someone near this long wakes it (not a passer-by)
 LOST_S = 6.0               # nobody near this long: back to dozing (head up)
 DOZE_TO_SLEEP_S = 20.0     # dozing this long with nobody near: head down, asleep
 GLANCE_REFRACTORY_S = 12.0  # at most one glance per this long
-GLANCE_MIN_DEG = 8.0       # a glance must be a visible turn
+GLANCE_MIN_DEG = 8.0       # closer to straight ahead than this: no turn, the
+                           # glance is the head lift and the look alone
 HELD_FRAMES = 2            # a held prop on this many settled frames in a row
 STILL_S = 1.2              # held still this long -> "got it"
 STILL_DEG = 3.0            #   ... within this spread
@@ -245,10 +246,16 @@ class Brain:
             return
         if far:
             q = max(far, key=lambda q: q.sw_frac)
-            if abs(q.head.pan - pc.pose["pan"]) >= GLANCE_MIN_DEG:
-                self.p.set_glance_target_deg(q.head.pan)
-                self.p.request("SK_GLANCE")
-                self._last_glance = t
+            # Someone almost straight ahead still gets the glance -- without the
+            # turn. Requiring an 8-degree turn meant a passer-by right in front
+            # of it (the commonest case at a stand) got nothing at all
+            # (2026-11-07: four passers at bearings -2..+7, no reaction). The
+            # head lift and the held look are the glance; the turn only aims it.
+            target = (q.head.pan if abs(q.head.pan - pc.pose["pan"]) >= GLANCE_MIN_DEG
+                      else pc.pose["pan"])
+            self.p.set_glance_target_deg(target)
+            self.p.request("SK_GLANCE")
+            self._last_glance = t
 
     def _see_look(self, pc):
         t = pc.t

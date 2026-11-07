@@ -263,3 +263,9 @@ def test_without_guard_a_prop_put_down_is_not_guarded():
     for _ in range(14):
         step(clock, brain, 0.25, props=[prop(gaze=-30.0, held=False)])
     assert brain.phase == "SHOW" and "guard_start" not in events
+
+
+def test_a_passer_straight_ahead_gets_a_glance_without_a_turn():
+    clock, player, brain, _ = dozing()
+    step(clock, brain, 0.25, people=[face(3.0, near=False)])
+    assert player.log == ["SK_GLANCE"] and player.glance == 0.0

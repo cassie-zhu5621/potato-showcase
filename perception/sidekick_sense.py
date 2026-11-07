@@ -99,6 +99,11 @@ class Percept:
     wh: Tuple[int, int] = (1280, 720)
     people: List[Person] = field(default_factory=list)
     props: List[Prop] = field(default_factory=list)
+    waves: List[Tuple[int, float]] = field(default_factory=list)
+    """(pid, x) for each person with a hand raised beside their head, x the
+    wrist's side-to-side position in shoulder widths from their body's middle
+    -- measured on the body, so the head moving between frames does not look
+    like the hand moving. The brain decides from a few frames if it waves."""
 
     @property
     def nearest(self) -> Optional[Person]:
@@ -140,6 +145,12 @@ def _head_point(person) -> Optional[Tuple[float, float]]:
     return None
 
 
+# A HAND RAISED TO WAVE: wrist above the shoulder line and out beside the
+# head, not at it (a phone at the ear, a hand in the hair).
+WAVE_ABOVE_SW = 0.15       # wrist at least this far above the shoulders (sw)
+WAVE_SIDE_SW = 0.45        # ... and this far to the side of the nose (sw)
+WAVE_WRIST_VIS = 0.5
+
 MIN_WRIST_VIS = 0.3        # PoseLandmarker always returns a wrist, guessing
                            # it when the hand is out of frame; a guessed wrist
                            # near the guarded thing would be a false "I see you"
@@ -152,6 +163,21 @@ def _hand_points(person):
         need = MIN_WRIST_VIS if j in (15, 16) else MIN_HAND_VIS
         if person.vis.get(j, 0) >= need:
             yield person.pts[j]
+
+
+def _raised_hand(person) -> Optional[float]:
+    mx, my = person.mid_shoulder
+    sw = person.shoulder_w
+    nx = person.pts[NOSE][0] if person.vis.get(NOSE, 0) >= 0.5 else mx
+    best = None
+    for j in (15, 16):
+        if j not in person.pts or person.vis.get(j, 0) < WAVE_WRIST_VIS:
+            continue
+        x, y = person.pts[j]
+        if y < my - WAVE_ABOVE_SW * sw and abs(x - nx) >= WAVE_SIDE_SW * sw:
+            if best is None or y < best[1]:
+                best = ((x - mx) / sw, y)
+    return None if best is None else best[0]
 
 
 def sense(people: Sequence, dets: Sequence, wh: Tuple[int, int],
@@ -172,6 +198,9 @@ def sense(people: Sequence, dets: Sequence, wh: Tuple[int, int],
         out.people.append(Person(pid=p.pid, head=to_target(hp[0], hp[1], w, h, pose),
                                  sw_frac=sw, near=sw >= NEAR_SW_FRAC))
         hands.extend(_hand_points(p))
+        wave = _raised_hand(p)
+        if wave is not None:
+            out.waves.append((p.pid, wave))
     # Faces whose person the body detector missed (too close, or half out of
     # frame). A face inside a body already counted is that same person.
     for k, f in enumerate(faces):

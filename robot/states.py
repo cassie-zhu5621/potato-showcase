@@ -326,6 +326,12 @@ CLOSE_BOUNCE_S = 0.50      # one lean-in-and-back; average 20 deg/s, peak ~31
 CLOSE_HOLD_S = 0.45        # still between bounces (> AIM_SAMPLE_SETTLED_MS)
 CLOSE_LED = 220            # brighter than LIVE_LED (96) while very close
 
+# ---- WAVE BACK: someone waves, it hops twice (no arms; and a side-to-side
+# pan would read as "no", so the answer is up-and-down) -------------------
+HOP_TILT_DEG = 3.0         # leans back a little (floor 2.05) ...
+HOP_NOD_DEG = 7.0          # ... and looks up (floor 3.52)
+HOP_S = 0.32               # one hop; average 44 deg/s on nod, peak ~69
+
 # The designed cycle, for reference and for the runner's --demo sweep.
 CYCLE = ["S0_IDLE", "S1_ATTEND", "S2_ACKNOWLEDGE", "S3_SCAN", "S4A_SETTLE",
          "S4B_WATCH", "S6_CORRECT", "S5A_FOUND", "S5B_BECKON"]

@@ -338,6 +338,8 @@ class ClipPlayer:
         self._user_pan = None         # where the person is; None = play S7 as authored
         self._aim = {}                # live-aim target, Blender degrees per joint
         self._lively = False          # very close: bounce between saccades
+        self._hops = 0                # hops still to play (a wave back)
+        self._hop_sfx = None
         self._glance_target = None    # SK_GLANCE's bearing, Blender degrees
         self._found_pan = None        # S5A_FOUND's bearing, if not where it looks
         self._resume_to = None        # the state a `resume` one-shot interrupted
@@ -494,6 +496,22 @@ class ClipPlayer:
     def clear_aim(self):
         with self._lock:
             self._aim = {}
+
+    def hop(self, n=2, sfx=None):
+        """Quick hops of the head (states.HOP_*), played by the live state as
+        soon as it runs -- right away in SK_LOOK, or once a wake reaches it.
+        `sfx` sounds as the first hop starts, so sound and movement are one."""
+        with self._lock:
+            self._hops = int(n)
+            self._hop_sfx = sfx
+
+    def sfx(self, name):
+        """A sound now, outside any clip."""
+        if self.on_sfx is not None:
+            try:
+                self.on_sfx(name)
+            except Exception:
+                pass
 
     def set_lively(self, on):
         """Very close: eager bounces between saccades, and a brighter light
@@ -1035,11 +1053,15 @@ class ClipPlayer:
         LIVELY (set_lively, SK_LOOK only): bounces are an OFFSET on top of the
         aimed pose -- tilt leans in, nod lifts by the same amount, so the gaze
         does not move -- each followed by a still hold for the camera.
+
+        HOPS (hop(), a wave back): the same kind of offset, but the head
+        rises -- leans back a little and looks up -- twice, quickly. They go
+        before any lively bounce.
         """
         period = 1.0 / 30.0
         cur = {j: unit_to_deg(j, self.cur[j]) for j in JOINTS}   # aimed pose
         move = None
-        bounce = None                  # start time of the bounce in progress
+        bounce = None                  # (start, dur, tilt, nod) in progress
         still_since = time.perf_counter()
         last_led = 0.0
         for sid in IDS.values():
@@ -1048,10 +1070,16 @@ class ClipPlayer:
         while True:
             with self._lock:
                 if self._want or self._stop:
+                    self._hops = 0
                     self.bus.flush_input()
                     return
                 aim = dict(self._aim)
                 lively = self._lively and self.state == "SK_LOOK"
+                hop = bounce is None and self._hops > 0
+                hop_sfx = None
+                if hop:
+                    self._hops -= 1
+                    hop_sfx, self._hop_sfx = self._hop_sfx, None
             now = time.perf_counter()
             if self.on_led is not None and now - last_led > LED_HEARTBEAT_S:
                 last_led = now
@@ -1059,16 +1087,21 @@ class ClipPlayer:
                     self.on_led(ST.CLOSE_LED if lively else LIVE_LED)
                 except Exception:
                     pass
-            if bounce is None and lively and now - still_since >= ST.CLOSE_HOLD_S:
-                bounce = now
-            off = 0.0
+            if hop:
+                bounce = (now, ST.HOP_S, ST.HOP_TILT_DEG, ST.HOP_NOD_DEG)
+                if hop_sfx:
+                    self.sfx(hop_sfx)
+            elif bounce is None and lively and now - still_since >= ST.CLOSE_HOLD_S:
+                bounce = (now, ST.CLOSE_BOUNCE_S, -ST.CLOSE_BOB_DEG, ST.CLOSE_BOB_DEG)
+            off_t = off_n = 0.0
             bouncing = bounce is not None
             if bouncing:
-                u = (now - bounce) / ST.CLOSE_BOUNCE_S
+                u = (now - bounce[0]) / bounce[1]
                 if u >= 1.0:
                     bounce, still_since = None, now      # lands exactly on 0
                 else:
-                    off = ST.CLOSE_BOB_DEG * 0.5 * (1.0 - math.cos(2.0 * math.pi * u))
+                    k = 0.5 * (1.0 - math.cos(2.0 * math.pi * u))
+                    off_t, off_n = bounce[2] * k, bounce[3] * k
             if move is None and aim:
                 end, dist = dict(cur), 0.0
                 for j, d in aim.items():
@@ -1090,8 +1123,8 @@ class ClipPlayer:
                         pose = {j: a[j] + (b[j] - a[j]) * e for j in JOINTS}
                     still_since = now
                 out = dict(pose)
-                out["tilt"] -= off             # lean in ...
-                out["nod"] += off              # ... eyes stay level
+                out["tilt"] += off_t
+                out["nod"] += off_n
                 self._send({j: deg_to_cmd(j, out[j])[0] for j in JOINTS})
                 cur = pose
             n += 1

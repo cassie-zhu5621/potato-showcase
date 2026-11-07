@@ -51,6 +51,9 @@ class FakePlayer:
     def set_lively(self, on):
         self.lively = on
 
+    def hop(self, n=2, sfx=None):
+        self.hops = (n, sfx)
+
     def set_glance_target_deg(self, d):
         self.glance = d
 
@@ -93,9 +96,11 @@ def setup():
     return clock, player, brain, events
 
 
-def step(clock, brain, dt, **kw):
+def step(clock, brain, dt, waves=(), **kw):
     clock.t += dt
-    brain.on_percept(pc(clock, **kw))
+    p = pc(clock, **kw)
+    p.waves = list(waves)
+    brain.on_percept(p)
 
 
 def awake(clock, player, brain):
@@ -499,3 +504,42 @@ def test_a_quick_flash_past_its_eyes_is_not_showing():
         step(clock, brain, 0.25, people=[face()], props=[prop("cup")])
         step(clock, brain, 0.25, people=[face()])
     assert brain.phase == "LOOK"
+
+
+def waving(clock, brain, n=4, xs=(0.6, 0.9), people=None, **kw):
+    for k in range(n):
+        step(clock, brain, 0.25, people=people if people is not None else [face(20.0)],
+             waves=[(1, xs[k % len(xs)])], **kw)
+
+
+def test_a_wave_is_waved_back_with_hops_the_hi_sound_and_a_waving_face():
+    clock, player, brain, events = setup()
+    awake(clock, player, brain)
+    waving(clock, brain)
+    assert player.hops == (2, B.WAVE_SFX)
+    assert brain.face in B.WAVE_FACES
+    assert ("say", {"text": "Hi!"}) in events
+    clock.t += B.WAVE_FACE_S + 0.1
+    brain.tick()
+    assert brain.face == B.KAOMOJI["LOOK"]
+
+
+def test_a_wave_from_across_the_room_wakes_a_dozing_robot():
+    clock, player, brain, events = dozing()
+    waving(clock, brain, people=[face(-15.0, near=False)])
+    assert brain.phase == "LOOK" and player.state == "SK_LOOK"
+    assert abs(player.aim["pan"] + 15.0) < 1e-6 and player.hops
+
+
+def test_a_hand_held_still_up_there_is_not_a_wave():
+    clock, player, brain, events = setup()
+    awake(clock, player, brain)
+    waving(clock, brain, n=6, xs=(0.7, 0.72))
+    assert not hasattr(player, "hops")
+
+
+def test_showing_something_is_not_waving():
+    clock, player, brain, events = setup()
+    awake(clock, player, brain)
+    waving(clock, brain, props=[prop("cup")])
+    assert not hasattr(player, "hops")

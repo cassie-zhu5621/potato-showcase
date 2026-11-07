@@ -89,3 +89,16 @@ def test_the_target_may_be_a_weaker_detection():
     p = SS.sense([], [weak], (W, H), POSE, 0.0, props=("earbud case",),
                  target_words=("earbud case",))
     assert len(p.props) == 1
+
+
+def test_a_hand_raised_beside_the_head_is_a_wave_candidate():
+    sw = 0.35 * W
+    p = SS.sense([person(600, sw, hand=(600 + 0.7 * sw, 150))], [], (W, H), POSE, 0.0)
+    assert len(p.waves) == 1 and abs(p.waves[0][1] - 0.7) < 1e-6
+
+
+def test_a_hand_at_the_ear_or_at_the_chest_is_not():
+    sw = 0.35 * W
+    at_ear = SS.sense([person(600, sw, hand=(600 + 0.2 * sw, 200))], [], (W, H), POSE, 0.0)
+    low = SS.sense([person(600, sw, hand=(600 + 0.7 * sw, 400))], [], (W, H), POSE, 0.0)
+    assert at_ear.waves == [] and low.waves == []

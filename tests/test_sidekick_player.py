@@ -258,3 +258,25 @@ def test_a_touch_on_a_sleeping_robot_lifts_all_the_way(clips_dir):
         assert _wait(lambda: p.state == "S0_IDLE")
     finally:
         p.stop(relax=False)
+
+
+def test_a_wave_back_hops_twice_with_its_sound_and_lands_where_it_was(clips_dir):
+    p = _player(clips_dir).start(home=False)
+    sounds = []
+    p.on_sfx = sounds.append
+    try:
+        p.set_aim_deg(pan=0.0, tilt=ST.LOOK_TILT, nod=ST.LOOK_NOD)
+        p.request("SK_LOOK")
+        assert _wait(lambda: abs(p.pose_deg()["nod"] - ST.LOOK_NOD) < 1.0)
+        time.sleep(0.2)
+        p.hop(2, sfx="alert")
+        nods = []
+        t0 = time.time()
+        while time.time() - t0 < 2 * ST.HOP_S + 0.4:
+            nods.append(p.pose_deg()["nod"])
+            time.sleep(0.01)
+        assert max(nods) - ST.LOOK_NOD > 0.8 * ST.HOP_NOD_DEG
+        assert sounds == ["alert"]
+        assert abs(p.pose_deg()["nod"] - ST.LOOK_NOD) < 1.0
+    finally:
+        p.stop(relax=False)

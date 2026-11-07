@@ -212,6 +212,9 @@ def draw_view(frame, pc, people, brain, player, stage, saying=""):
                         f"{' hand' if q.hand_near and not q.held else ''} "
                         f"{q.area:.1%}", (x0, max(25, y0 - 8)),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, col, 2)
+    if pc.waves:
+        cv2.putText(im, "hand up", (w - 190, 100), cv2.FONT_HERSHEY_SIMPLEX, 1.0,
+                    (60, 230, 255), 2)
     # Header: only what state it is in and its face (stage, clip and caption
     # are in the terminal).
     bar = PHASE_COL.get(brain.phase, (255, 255, 255))

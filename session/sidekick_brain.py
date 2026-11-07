@@ -80,6 +80,19 @@ CHASE_DEG = 20.0           # one saccade on, in their direction
 CLOSE_ENTER_FRAC = 0.55    # VERY CLOSE (~0.75 m; shoulders 0.41 at 1 m): eager
 CLOSE_EXIT_FRAC = 0.45     # bounces (states.CLOSE_*) until smaller than this
 CLOSE_KEEP_S = 0.6         # a frame or two without them does not end it
+# SOMEONE WAVES (2026-11-08): it waves back. It has no arms, so the face does
+# the waving, the head hops twice, and the two "hi-hi" blips sound with it.
+# A wave is a hand raised beside the head (sidekick_sense) on WAVE_FRAMES
+# frames within WAVE_WINDOW_S, moving side to side by at least WAVE_SPREAD
+# shoulder widths -- a hand held still up there (leaning on it) is not one.
+WAVE_WINDOW_S = 1.5
+WAVE_FRAMES = 3
+WAVE_SPREAD = 0.12
+WAVE_AGAIN_S = 6.0         # one wave back per this long
+WAVE_FACE_S = 1.8          # the face waves this long ...
+WAVE_FACE_STEP = 0.3       # ... switching hands this often
+WAVE_FACES = ("\\^o^", "^o^/")
+WAVE_SFX = "alert"         # two short level blips; free since the guard went
 
 KAOMOJI = {
     "SLEEP": "-_- zz", "DOZE": "-.-", "LOOK": "o_o", "TEACH": "o_O?",
@@ -135,6 +148,9 @@ class Brain:
         self._last_near = -1e9
         self._last_glance = -1e9
         self._show_since = None
+        self._waves = {}                 # pid -> [(t, wrist x)] hand raised
+        self._waved_at = -1e9
+        self._wave_until = 0.0
         self._purr_at = -1e9
         self._glance_pan = None          # where the last glance went
         self._track_pan = None           # the person being followed
@@ -154,6 +170,7 @@ class Brain:
 
     # ---- outputs --------------------------------------------------------
     def _go(self, phase, face=None, say=None):
+        self._wave_until = 0.0
         if phase != "LOOK":
             self._set_close(False)
         self.phase = phase
@@ -213,6 +230,12 @@ class Brain:
     def tick(self):
         """Time-only rules, for when frames stop coming (nobody in view)."""
         t = self.now()
+        if self._wave_until:
+            if t < self._wave_until:
+                self.face = WAVE_FACES[int((self._wave_until - t) / WAVE_FACE_STEP) % 2]
+            else:
+                self._wave_until = 0.0
+                self.face = KAOMOJI["CLOSE" if self._close else self.phase]
         if self.phase == "LOOK" and t - self._last_near > LOST_S:
             self._sleep()
         elif (self.phase == "DOZE" and "notice" in self.on
@@ -248,7 +271,7 @@ class Brain:
 
     def on_percept(self, pc):
         """One SETTLED frame's Percept (perception/sidekick_sense.py)."""
-        if not self._watch(pc):
+        if not self._watch(pc) and not self._wave(pc):
             getattr(self, "_see_" + self.phase.lower())(pc)
         self.tick()
 
@@ -434,6 +457,53 @@ class Brain:
              and abs(q.at.x / w - 0.5) <= SHOW_CENTRE_X
              and abs(q.at.y / h - 0.5) <= SHOW_CENTRE_Y]
         return max(c, key=lambda q: q.area) if c else None
+
+    # ---- someone waves: it waves back ------------------------------------
+    def _wave(self, pc):
+        """True if it just waved back (the phase handler is skipped)."""
+        t = pc.t
+        for pid, x in pc.waves:
+            self._waves.setdefault(pid, []).append((t, x))
+        for pid in list(self._waves):
+            h = [(a, x) for a, x in self._waves[pid] if t - a <= WAVE_WINDOW_S]
+            if h:
+                self._waves[pid] = h
+            else:
+                del self._waves[pid]
+        if (self.phase not in ("DOZE", "LOOK") or "notice" not in self.on
+                or t - self._waved_at < WAVE_AGAIN_S
+                or self.p.state not in ("SK_LOOK", "SK_DOZE", "SK_GLANCE")
+                or pc.held is not None or self._shown(pc) is not None):
+            return False
+        for pid, h in self._waves.items():
+            xs = [x for _, x in h]
+            if len(xs) >= WAVE_FRAMES and max(xs) - min(xs) >= WAVE_SPREAD:
+                who = next((q for q in pc.people if q.pid == pid), None)
+                self._wave_back(t, who, pc)
+                self._waves.clear()
+                return True
+        return False
+
+    def _wave_back(self, t, who, pc):
+        self._waved_at = t
+        if who is not None:
+            self._look_at(who.head)
+            self._track_pan, self._track_t = who.head.pan, t
+        if self.phase == "DOZE":
+            if who is None:
+                self.p.set_aim_deg(pan=pc.pose["pan"], tilt=ST.LOOK_TILT,
+                                   nod=ST.LOOK_NOD)
+            self.p.request("SK_LOOK")
+            self._go("LOOK")
+        self._last_near = t
+        hop = getattr(self.p, "hop", None)
+        if hop is not None:
+            hop(2, sfx=WAVE_SFX)
+        self._wave_until = t + WAVE_FACE_S
+        self.face = WAVE_FACES[0]
+        self.caption = "Hi!"
+        self.emit("wave", name="waving back")
+        self.emit("say", text="Hi!")
 
     # ---- very close: one more step of eagerness -------------------------
     def _closeness(self, near, pc):

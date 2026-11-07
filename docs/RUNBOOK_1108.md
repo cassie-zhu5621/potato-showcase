@@ -45,6 +45,7 @@ git pull                       # 如果在另一台电脑上改过
 |---|---|---|
 | 摸头 | 醒来，往手里蹭 | `[brain] phase LOOK` |
 | 走到 ~1.5 m 内 | 抬头看你、跟着你 | `[sense] NEAR (size 30%…)` |
+| 站在 1–2 m 处挥手（手举到头旁边左右摆） | 屏幕上的脸挥手 `\^o^`/`^o^/`，头弹两下，"嘀嘀"两声，显示 "Hi!" | `[brain] wave waving back` |
 | 再走到 ~0.75 m 内 | 一下一下往前探，灯变亮，`*o_o*` | `[brain] close very close (57%)` |
 | 把水瓶**举到它眼前**（~30 cm），停 1 秒 | 后缩，"hm?"，前探，然后点头 + 同意音效；屏幕显示 "OK! I'll look out for …" | `[identify] '…' -> watching for '…'` |
 | 收起来 **3 秒以上**，再拿出来 | 指向它，叫唤 | `[brain] found …` |
@@ -69,6 +70,7 @@ git pull                       # 如果在另一台电脑上改过
 | 显示 "I couldn't tell what that was" | 网络问题：跑一下 `net_check`；不行就重启并加 `--offline`（用检测器自己的词，不调用 Gemini） |
 | 东西拿回来它不叫 | 要先**完全藏起来 3 秒**；看 `[identify] … watching for '…'`，词太偏的东西（检测器认不出）换一样常见的道具 |
 | 打招呼也被当成在给它看 | 看那件东西的百分比，把 `SHOW_AREA` 调高一点 |
+| 挥手没反应 | live 窗口右上角有没有 "hand up"：没有 = 手没举过肩或身体没被认出（站远一点，让肩膀进画面）；有但不回应 = 挥的幅度再大一点 |
 | "很近"太早或太晚触发 | 记下终端里显示的百分比，之后调 `CLOSE_ENTER_FRAC`（`session/sidekick_brain.py`） |
 | 头不动、卡住 | Ctrl-C，跑 `check_bus.py`，看电压，再重新开始 |
 | 舵机抖、电压 < 5 V | 换电源或给电池充电 |

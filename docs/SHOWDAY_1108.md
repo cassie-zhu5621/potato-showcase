@@ -23,6 +23,7 @@ up, hide it, pat my head.
 | keeps holding it / puts it away | nothing: being shown is not finding | |
 | later, that kind of thing is in its view again | points at it with the call sound (no speech); tablet: "spotted it!" with the picture | `\^o^/` |
 | touches its head while it calls | nods, "seen it", back to looking at you | `^_^` |
+| waves at it (hand up beside the head, side to side) | waves back: face `\^o^` / `^o^/` for ~2 s, head hops twice with two "hi-hi" blips, "Hi!" under its face; wakes it from dozing too | `^o^/` |
 | touches its head otherwise | presses up into the hand | `=^_^=` |
 | someone else holds up something else | the new thing replaces the old one | |
 | leaves | dozes (head up) after ~6 s; falls asleep (head down) after ~20 s more -- only if it has nothing to look out for | `-.-` then `-_- zz` |
@@ -117,4 +118,6 @@ All in `session/sidekick_brain.py` unless said otherwise.
 | FOUND_FRAMES | 2 | seen this many frames: found |
 | CALL_MAX_S | 25 s | the call gives up |
 | CLOSE_ENTER / EXIT_FRAC | 0.55 / 0.45 | shoulders this wide: very close / calm again |
+| WAVE_FRAMES / WAVE_WINDOW_S / WAVE_SPREAD | 3 / 1.5 s / 0.12 | hand up on this many frames, in this long, moving this many shoulder widths: a wave (--view shows "hand up") |
+| WAVE_AGAIN_S | 6 s | one wave back per this long |
 | AIM_DEAD_DEG (states.py) | pan 4, tilt 3, nod 5 | how far a target moves before the head re-aims |

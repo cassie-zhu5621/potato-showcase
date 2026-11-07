@@ -47,11 +47,15 @@ HAND_ON_MARGIN = 0.10      # of the box diagonal: a hand holding it (knuckles
                            # sit on the edge of a held thing, not inside it)
 HAND_NEAR_MARGIN = 0.25    # a hand reaching for it
 
-PROPS = ("banana", "apple", "orange", "teddy bear", "cup", "bottle",
-         "rubber duck", "toy car", "ball", "book")
-"""Candidates. robot/tools/sidekick_prop_check.py measures which of these the
-detector finds reliably on the booth's lighting; keep the best three or four
-and put the same words on the tray."""
+PROPS = ("cell phone", "keys", "wallet", "water bottle", "bottle", "cup", "mug",
+         "glasses", "sunglasses", "book", "notebook", "pen", "umbrella", "bag",
+         "hat", "toy", "stuffed animal", "teddy bear", "ball", "apple", "banana",
+         "orange", "can", "headphones", "camera", "card", "remote control",
+         "watch", "plant", "scissors")
+"""What visitors carry and might hold up to show it. The detector is asked for
+all of these so that "something is being held up" is noticed at once; the model
+then names what it actually is (any object), and that name is added to this
+list as the robot's target (sidekick_loop.py)."""
 
 
 @dataclass

@@ -3,8 +3,8 @@ detector and pose estimator, and a visitor who reacts to what the robot does.
 
 The visitor lives in ROBOT ANGLES (where things are in the room), and the fake
 camera turns them into pixels for whatever pose the head is in at that moment.
-So the robot only "sees" the banana move down to the table if it actually
-follows it there -- the test exercises aiming, not just the decisions.
+So the robot only sees what its head is actually pointed at -- the test
+exercises aiming, not just the decisions.
 """
 import math
 import os
@@ -39,38 +39,27 @@ def to_pixel(pan, gaze, pose):
 
 
 class World:
-    """A visitor who does the next thing when the robot has done its part."""
+    """A visitor who does the next thing when the robot has done its part:
+    comes close, holds up a water bottle, keeps holding it while it is named,
+    puts it away, and a little later the bottle turns up on the table."""
 
     def __init__(self, sim):
         self.sim = sim
-        self.step = "approach"
         self.t0 = time.time()
-        self.wiggle = 0
 
     def scene(self):
         b = self.sim["brain"]
         ev = [k for k, _ in self.sim["events"]]
-        face = (15.0, 25.0)                 # pan, gaze of the visitor's face
-        banana = None                       # (pan, gaze, held, hand_near)
-        if b is None or b.phase == "DOZE":
+        bottle = None                       # (pan, gaze, held)
+        if b is None or b.phase in ("SLEEP", "DOZE"):
             pass
-        elif b.phase == "LOOK" and "shown" not in ev:
-            wig = int((time.time() - self.t0) * 2) % 2     # waved about
-            banana = (5.0 + wig * 6, 8.0, True, True)
-        elif b.phase == "SHOW" and "shown" not in ev:
-            banana = (5.0, 8.0, True, True)            # held still
-        elif b.phase == "SHOW":
-            banana = (5.0, -30.0, False, False)        # put down on the table
-        elif b.phase == "GUARD":
-            since = self.sim.setdefault("guard_t", time.time())
-            dt = time.time() - since
-            if dt < 3.0:
-                banana = (5.0, -30.0, False, False)
-            elif dt < 3.8:
-                banana = (5.0, -30.0, False, True)     # a hand comes near
-            else:
-                banana = None                          # and takes it
-        return face, banana
+        elif "taught" not in ev:
+            bottle = (8.0, 12.0, True)                  # held up to it
+        else:
+            since = self.sim.setdefault("taught_t", time.time())
+            if time.time() - since > 4.5:               # away, then it turns
+                bottle = (5.0, 10.0, False)             # up again, in view
+        return bottle
 
 
 class FakeCam:
@@ -85,21 +74,18 @@ class FakeCam:
         pass
 
 
-def test_a_visitor_shows_guards_and_loses_a_banana(monkeypatch, clips_dir, tmp_path):
+def test_a_visitor_shows_a_bottle_and_it_calls_when_the_bottle_turns_up(
+        monkeypatch, clips_dir, tmp_path):
     import sidekick_loop as L
     import perception.perceive as P
     import perception.relations as R
+    import perception.gaze as GZ
     from session import sidekick_brain as B
 
     sim = {"brain": None, "events": [], "player": None}
     world = World(sim)
-
-    # make the long waits short; the order of things is what is tested
     monkeypatch.setattr(B, "WAKE_S", 0.2)
-    monkeypatch.setattr(B, "STILL_S", 0.6)
-    monkeypatch.setattr(B, "PLACE_S", 0.4)
-    monkeypatch.setattr(B, "GUARD_SETTLE_S", 1.0)
-
+    monkeypatch.setattr(B, "TARGET_AWAY_S", 1.5)
     real_brain = L.Brain
 
     def brain_spy(player, on_event=None, **kw):
@@ -111,23 +97,25 @@ def test_a_visitor_shows_guards_and_loses_a_banana(monkeypatch, clips_dir, tmp_p
         return b
 
     class Det:
+        def __init__(self):
+            self.vocab = []
+
+        def set_vocab(self, v):
+            self.vocab = list(v)
+
         def detect(self, frame):
             if time.time() - world.t0 > 40:
                 sim["timeout"] = True
                 raise KeyboardInterrupt
-            face, banana = world.scene()
-            b, p = sim["brain"], sim["player"]
-            if os.environ.get("SIM_DEBUG"):
-                print(f"[sim] {time.time() - world.t0:5.1f} {b.phase:5} {str(p.state):14} "
-                      f"{banana} pose={ {k: round(v) for k, v in p.pose_deg().items()} }")
-            if sim["events"] and sim["events"][-1][0] == "taken":
-                if time.time() - sim.setdefault("taken_t", time.time()) > 0.5:
-                    raise KeyboardInterrupt
-            if banana is None:
+            if sim["events"] and sim["events"][-1][0] == "found":
+                raise KeyboardInterrupt
+            bottle = world.scene()
+            if bottle is None:
                 return []
-            pose = sim["player"].pose_deg()
-            x, y = to_pixel(banana[0], banana[1], pose)
-            return [Detection("banana", (x - 60, y - 30, x + 60, y + 30))]
+            x, y = to_pixel(bottle[0], bottle[1], sim["player"].pose_deg())
+            if not (0 <= x <= W and 0 <= y <= H):
+                return []                           # not where it is looking
+            return [Detection("water bottle", (x - 70, y - 90, x + 70, y + 90))]
 
     class Poses:
         def estimate(self, frame):
@@ -136,12 +124,18 @@ def test_a_visitor_shows_guards_and_loses_a_banana(monkeypatch, clips_dir, tmp_p
             pts = {SS.NOSE: (fx, fy), SS.L_SH: (fx - 220, fy + 150),
                    SS.R_SH: (fx + 220, fy + 150), 23: (fx - 150, fy + 600),
                    24: (fx + 150, fy + 600)}
-            _, banana = world.scene()
-            if banana and (banana[2] or banana[3]):
-                bx, by = to_pixel(banana[0], banana[1], pose)
-                pts[15] = (bx, by + (25 if banana[2] else 50))
-            vis = {k: 0.9 for k in pts}
-            return [PersonPose(pid=-1, pts=pts, vis=vis)]
+            bottle = world.scene()
+            if bottle and bottle[2]:
+                bx, by = to_pixel(bottle[0], bottle[1], pose)
+                pts[15] = (bx, by + 60)
+            return [PersonPose(pid=-1, pts=pts, vis={k: 0.9 for k in pts})]
+
+        def close(self):
+            pass
+
+    class NoFaces:
+        def estimate(self, frame):
+            return []
 
         def close(self):
             pass
@@ -153,27 +147,17 @@ def test_a_visitor_shows_guards_and_loses_a_banana(monkeypatch, clips_dir, tmp_p
     monkeypatch.setattr(L.PAGE, "serve", lambda d, p: None)
     monkeypatch.setattr(P, "make_detector", lambda *a, **k: Det())
     monkeypatch.setattr(R, "PoseEstimator", lambda **k: Poses())
-    import perception.gaze as GZ
-
-    class NoFaces:
-        def estimate(self, frame):
-            return []
-
-        def close(self):
-            pass
     monkeypatch.setattr(GZ, "HeadPoseEstimator", lambda **k: NoFaces())
     monkeypatch.setattr(sys, "argv", ["sidekick_loop.py", "--clips", clips_dir,
-                                      "--offline", "--cv-hz", "8",
+                                      "--stage", "3", "--offline", "--cv-hz", "8",
                                       "--feed-dir", str(tmp_path)])
-    t0 = time.time()
     L.main()
-    assert not sim.get("timeout"), [k for k, _ in sim["events"]]
     kinds = [k for k, _ in sim["events"]]
-    assert kinds[:3] == ["shown", "guard_start", "alert"], kinds
-    assert kinds[-1] == "taken", kinds
+    assert not sim.get("timeout"), kinds
+    assert kinds[:2] == ["identify", "taught"], kinds
+    assert kinds[-1] == "found", kinds
     page = L.PAGE.snapshot()
-    assert [c["kind"] for c in page["cards"]][:3] == ["taken", "guard", "shown"]
-    assert time.time() - t0 < 60
+    assert [c["kind"] for c in page["cards"]][:2] == ["found", "watch"]
 
 
 @pytest.fixture(scope="module")

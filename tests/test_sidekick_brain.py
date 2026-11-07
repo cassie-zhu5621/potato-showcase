@@ -51,6 +51,9 @@ class FakePlayer:
     def set_glance_target_deg(self, d):
         self.glance = d
 
+    def set_found_pan_deg(self, d):
+        self.found_pan = d
+
     def pose_deg(self):
         return {"pan": 0.0, "tilt": -8.0, "nod": 0.0}
 
@@ -116,73 +119,6 @@ def test_a_passer_by_gets_one_glance_not_a_stream():
     player.finish()
     step(clock, brain, 0.25, people=[face(-30.0, near=False)])
     assert player.log == ["SK_GLANCE"]
-
-
-def test_show_it_something_then_hold_it_still():
-    clock, player, brain, events = setup()
-    awake(clock, player, brain)
-    step(clock, brain, 0.25, people=[face()], props=[prop()])
-    step(clock, brain, 0.25, people=[face()], props=[prop()])
-    assert player.state == "SK_CURIOUS" and brain.phase == "SHOW"
-    player.finish()
-    assert player.state == "SK_FOLLOW"
-    for _ in range(6):
-        step(clock, brain, 0.25, props=[prop(pan=5.0)])
-    assert ("shown", ) == tuple(k for k, _ in events)[:1]
-    assert player.state == "SK_ACK"
-    player.finish()
-    assert player.state == "SK_FOLLOW"       # it goes back to following it
-
-
-def guarded():
-    clock, player, brain, events = setup()
-    awake(clock, player, brain)
-    step(clock, brain, 0.25, props=[prop()])
-    step(clock, brain, 0.25, props=[prop()])
-    player.finish()
-    for _ in range(12):                        # ~3 s: let go, still, then guard
-        step(clock, brain, 0.25, props=[prop(gaze=-30.0, held=False)])
-    assert brain.phase == "GUARD" and player.state == "SK_GUARD"
-    assert events[-1][0] == "guard_start"
-    return clock, player, brain, events
-
-
-def test_put_it_down_and_it_guards_it():
-    guarded()
-
-
-def test_a_hand_near_it_is_seen_and_taking_it_calls_the_owner():
-    clock, player, brain, events = guarded()
-    for _ in range(9):
-        step(clock, brain, 0.25, props=[prop(gaze=-30.0, held=False)])
-    step(clock, brain, 0.25, props=[prop(gaze=-30.0, held=False, hand_near=True)])
-    assert player.state == "SK_GUARD_ALERT"
-    player.finish()
-    for _ in range(6):
-        step(clock, brain, 0.25)
-    assert brain.phase == "CALL" and player.state == "S5A_FOUND"
-    assert events[-1][0] == "taken"
-
-
-def test_a_detector_blink_is_not_a_theft():
-    clock, player, brain, events = guarded()
-    for _ in range(9):
-        step(clock, brain, 0.25, props=[prop(gaze=-30.0, held=False)])
-    for _ in range(8):                         # 2 s missing, no hand ever
-        step(clock, brain, 0.25)
-    assert brain.phase == "GUARD"
-    for _ in range(14):                        # 5.5 s: then it is gone
-        step(clock, brain, 0.25)
-    assert brain.phase == "CALL"
-
-
-def test_the_owners_touch_ends_the_guard():
-    clock, player, brain, events = guarded()
-    brain.on_tap()
-    assert player.state == "SK_ACK" and brain.phase == "LOOK"
-    player.finish()
-    assert player.state == "SK_LOOK"
-    assert events[-1] == ("guard_end", {"label": "banana", "how": "returned"})
 
 
 def test_a_touch_is_affection_otherwise():
@@ -252,20 +188,99 @@ def test_each_stage_needs_only_its_own_clips():
     assert B.clips_for_stage(1) == ("SK_PURR",)
 
 
-def test_without_guard_a_prop_put_down_is_not_guarded():
-    clock, player, events = Clock(), FakePlayer(), []
-    brain = B.Brain(player, on_event=lambda k, **kw: events.append(k),
-                    clock=clock, stage=3)
-    awake(clock, player, brain)
-    step(clock, brain, 0.25, props=[prop()])
-    step(clock, brain, 0.25, props=[prop()])
-    player.finish()
-    for _ in range(14):
-        step(clock, brain, 0.25, props=[prop(gaze=-30.0, held=False)])
-    assert brain.phase == "SHOW" and "guard_start" not in events
-
-
 def test_a_passer_straight_ahead_gets_a_glance_without_a_turn():
     clock, player, brain, _ = dozing()
     step(clock, brain, 0.25, people=[face(3.0, near=False)])
     assert player.log == ["SK_GLANCE"] and player.glance == 0.0
+
+
+# ---- stage 3: show it something, it looks out for it -----------------------
+def teach(label="water bottle", name="a blue water bottle"):
+    clock, player, brain, events = setup()
+    awake(clock, player, brain)
+    step(clock, brain, 0.25, people=[face()], props=[prop(label)])
+    step(clock, brain, 0.25, people=[face()], props=[prop(label)])
+    assert brain.phase == "TEACH" and player.state == "SK_CURIOUS"
+    assert events[-1][0] == "identify" and events[-1][1]["guess"] == label
+    player.finish()
+    assert player.state == "SK_FOLLOW"                # follows it while it is named
+    brain.on_identified(name, label)
+    assert player.state == "SK_ACK" and brain.phase == "LOOK"
+    assert events[-1] == ("taught", {"term": label, "name": name})
+    player.finish()
+    assert player.state == "SK_LOOK"
+    return clock, player, brain, events
+
+
+def test_hold_something_up_and_it_agrees_to_look_out_for_it():
+    clock, player, brain, events = teach()
+    assert brain.target["term"] == "water bottle"
+
+
+def test_still_in_the_owners_hand_is_not_a_finding():
+    clock, player, brain, events = teach()
+    for _ in range(12):                        # they keep holding it
+        step(clock, brain, 0.25, people=[face()], props=[prop("water bottle")])
+    assert brain.phase == "LOOK" and "found" not in [k for k, _ in events]
+
+
+def test_after_it_was_gone_seeing_it_again_calls():
+    clock, player, brain, events = teach()
+    for _ in range(int(B.TARGET_AWAY_S / 0.25) + 2):    # put away
+        step(clock, brain, 0.25, people=[face()])
+    step(clock, brain, 0.25, people=[face()],
+         props=[prop("water bottle", pan=-30.0, held=False)])
+    step(clock, brain, 0.25, people=[face()],
+         props=[prop("water bottle", pan=-30.0, held=False)])
+    assert brain.phase == "CALL" and player.state == "S5A_FOUND"
+    assert player.found_pan == -30.0
+    assert events[-1][0] == "found"
+    brain.on_tap()                                       # "seen it"
+    assert player.state == "SK_ACK"
+    player.finish()
+    assert player.state == "SK_LOOK"
+
+
+def test_it_finds_it_while_dozing_too():
+    clock, player, brain, events = teach()
+    for _ in range(int(B.LOST_S / 0.25) + 2):            # everyone leaves
+        step(clock, brain, 0.25)
+    assert brain.phase == "DOZE"
+    step(clock, brain, 0.25, props=[prop("water bottle", held=False)])
+    step(clock, brain, 0.25, props=[prop("water bottle", held=False)])
+    assert brain.phase == "CALL"
+
+
+def test_a_new_visitor_shows_a_new_thing_and_it_replaces_the_old():
+    clock, player, brain, events = teach()
+    for _ in range(int(B.TEACH_AGAIN_S / 0.25) + 1):
+        step(clock, brain, 0.25, people=[face()])
+    step(clock, brain, 0.25, people=[face()], props=[prop("keys")])
+    step(clock, brain, 0.25, people=[face()], props=[prop("keys")])
+    assert brain.phase == "TEACH"
+    player.finish()
+    brain.on_identified("a set of keys", "keys")
+    assert brain.target["term"] == "keys"
+
+
+def test_the_model_could_not_tell_and_it_says_so():
+    clock, player, brain, events = setup()
+    awake(clock, player, brain)
+    step(clock, brain, 0.25, people=[face()], props=[prop("toy")])
+    step(clock, brain, 0.25, people=[face()], props=[prop("toy")])
+    player.finish()
+    brain.on_identified(None, None)
+    assert brain.phase == "LOOK" and brain.target is None
+    assert "couldn't" in brain.caption
+
+
+def test_an_answer_during_the_curious_beat_waits_for_it_to_finish():
+    clock, player, brain, events = setup()
+    awake(clock, player, brain)
+    step(clock, brain, 0.25, people=[face()], props=[prop("cup")])
+    step(clock, brain, 0.25, people=[face()], props=[prop("cup")])
+    brain.on_identified("a red cup", "cup")           # still SK_CURIOUS
+    assert player.state == "SK_CURIOUS" and brain.phase == "TEACH"
+    player.finish()                                    # -> SK_FOLLOW
+    brain.tick()
+    assert player.state == "SK_ACK" and brain.target["term"] == "cup"

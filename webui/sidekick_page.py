@@ -7,8 +7,8 @@ What it shows, top to bottom:
   * the robot's face, big -- the same typographic face the CoreS3 wears, so a
     visitor who looks from one to the other sees the same thing twice
   * one line in the robot's voice: what it is doing with you right now
-  * its notebook: the things people showed it, and the stories of who took what
-    it was guarding, newest first
+  * its notebook: what it was asked to look out for, and what it spotted,
+    newest first
 
 The tablet is a display. Nothing on it is a button: the robot is touched, not
 the screen (docs/SHOWCASE_1108_PLAN.md).
@@ -52,17 +52,16 @@ html,body{margin:0;height:100%;background:#141414;color:#f2f0ea;
  flex-direction:column;animation:in .5s ease-out}
 @keyframes in{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 .card img{width:100%;height:15vh;object-fit:cover;background:#000;display:block}
-.card.taken img{object-fit:contain}
+
 .card .t{padding:10px 14px 4px;font-weight:700;font-size:clamp(14px,1.6vw,20px)}
 .card .l{padding:0 14px 12px;color:#bdb8aa;font-size:clamp(13px,1.4vw,18px);line-height:1.35}
-.card.taken{grid-column:span 3}
-.card.taken img{height:19vh}
+.card.found img{height:15vh}
 .tag{display:inline-block;font-size:.75em;padding:2px 8px;border-radius:10px;
  margin-right:8px;background:#cfe33a;color:#141414;font-weight:700}
-.taken .tag{background:#ff6b8b}
+.found .tag{background:#ff6b8b}
 </style></head><body>
 <div id=top><div id=face class=doze>-_-</div><div id=cap></div>
-<div id=hint>Show it something &middot; Put it down for it to guard &middot; Touch its head</div></div>
+<div id=hint>Hold something up to show it what to look out for &middot; Touch its head</div></div>
 <div id=wall></div>
 <script>
 let last="", shown="";
@@ -79,7 +78,7 @@ async function poll(){
   if(key!==shown){shown=key;
    document.getElementById("wall").innerHTML=s.cards.map(c=>
     `<div class="card ${c.kind}"><img src="/img/${encodeURIComponent(c.img)}">`+
-    `<div class=t><span class=tag>${c.kind==="taken"?"who took it":(c.kind==="guard"?"guarding":"you showed me")}</span>${esc(c.label)}</div>`+
+    `<div class=t><span class=tag>${c.kind==="found"?"spotted it!":(c.kind==="watch"?"looking out for":"you showed me")}</span>${esc(c.label)}</div>`+
     `<div class=l>${esc(c.line)}</div></div>`).join("")}
  }catch(e){}
  setTimeout(poll,400)}

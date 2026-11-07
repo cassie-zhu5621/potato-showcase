@@ -338,6 +338,7 @@ class ClipPlayer:
         self._user_pan = None         # where the person is; None = play S7 as authored
         self._aim = {}                # live-aim target, Blender degrees per joint
         self._glance_target = None    # SK_GLANCE's bearing, Blender degrees
+        self._found_pan = None        # S5A_FOUND's bearing, if not where it looks
         self._resume_to = None        # the state a `resume` one-shot interrupted
         self._resume_override = None  # request(..., resume_to=) for the next one
         self._as_authored = False     # request(..., as_authored=True) for the next one
@@ -492,6 +493,14 @@ class ClipPlayer:
     def clear_aim(self):
         with self._lock:
             self._aim = {}
+
+    def set_found_pan_deg(self, deg):
+        """Where S5A_FOUND should point, set BEFORE requesting it. Without
+        this S5A points wherever the head already is -- right for the paper,
+        where the head was watching the very spot; wrong for the sidekick,
+        which finds its target anywhere in the frame while looking at a face."""
+        with self._lock:
+            self._found_pan = None if deg is None else clamp_deg("pan", deg)[0]
 
     def set_glance_target_deg(self, deg):
         """The bearing SK_GLANCE turns to. Set BEFORE requesting SK_GLANCE."""
@@ -883,8 +892,13 @@ class ClipPlayer:
                 # and the camera is on the head, so the turn took the eye off
                 # the finding for 3.4 s at exactly the moment the storyboard
                 # opens. See generate_s5a_found.py's header.
+                with self._lock:
+                    found, self._found_pan = (
+                        (self._found_pan, None) if nxt == "S5A_FOUND"
+                        else (None, self._found_pan))
                 frames = shift_pan_centre(
-                    frames, unit_to_deg("pan", self.cur["pan"]),
+                    frames, found if found is not None
+                    else unit_to_deg("pan", self.cur["pan"]),
                     verbose=self.verbose)
             elif nxt in ST.USER_FACING:
                 # Face the person, wherever they actually are. The clip's own pan

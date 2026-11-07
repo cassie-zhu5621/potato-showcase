@@ -3,168 +3,95 @@
 Branch `showcase-1108`. The paper demo (`main`, docs/SHOWDAY.md) is untouched
 and still runs from this branch: it is a different program, not a setting.
 
+A simple first try toward the next paper: interaction first, little or no
+guidance needed.
+
 ## What a visitor does
 
-Sign on the table: **"Show it something. Put it down for it to guard. Touch its head."**
-A tray of the 3-4 props that passed the prop check (step 4).
+Sign on the table: **"Hold something up to show it what to look out for. Touch its head."**
 
-| visitor | robot | tablet |
+| visitor | robot | face |
 |---|---|---|
-| (nobody for a while) | asleep, head down (S0 pose) -- woken by a hand at the sensor or a touch | `-_- zz` |
-| walks past (just after a visit) | dozing, head up; glances at them, goes back | `-.-` |
-| comes close (~1.5 m) | wakes, looks at their face, follows it | `o_o` "Hi! Show me something?" |
-| holds a prop up | pulls back, leans in, "hm?" twice, then follows it | `o_O?` / `O_O` |
-| holds it still ~1 s | nods; a card appears with a line in its own voice | `^_^` |
-| puts it down and lets go | turns to it and guards it | `>_>` "I'll keep an eye on your ..." |
-| a hand comes near it | snaps upright and freezes, eye still on it | `O_O!` "I see you..." |
-| someone takes it | calls; the tablet shows who took it as a strip | `\^o^/` |
-| owner touches its head while it guards | nods, "welcome back", stops guarding | `^_^` |
+| (nobody for a while) | asleep, head down -- woken by a hand at the sensor or a touch | `-_- zz` |
+| walks past (just after a visit) | dozing, head up; glances at them (also straight ahead), goes back | `-.-` |
+| comes close (~1.5 m) | wakes, looks at their face, follows it | `o_o` |
+| holds something up | pulls back, holds, leans in, "hm?" (rising sound), follows it while the model names it | `o_O?` / `O_O` |
+| -- named | nods: "OK! I'll look out for a blue water bottle." Tablet card | `^_^` |
+| keeps holding it / puts it away | nothing: being shown is not finding | |
+| later, that kind of thing is in its view again | points at it and calls; tablet: "spotted it!" with the picture | `\^o^/` |
+| touches its head while it calls | nods, "seen it", back to looking at you | `^_^` |
 | touches its head otherwise | presses up into the hand | `=^_^=` |
+| someone else holds up something else | the new thing replaces the old one | |
 | leaves | dozes (head up) after ~6 s, falls asleep (head down) after ~20 s more | `-.-` then `-_- zz` |
 
-What to say, in full: **"Show it something."** Everything else follows from it.
+"The same thing" means the same kind (any water bottle), found by YOLO-World
+with the word the model gave it. Anything can be shown: the model names it.
 
 ## One interaction at a time
 
-The booth is built in four stages. Each stage adds ONE interaction and needs
-only its own clips, so a stage can be exported, tried on the robot and tuned
-before the next one exists. `--stage N` runs exactly that much.
+Three stages; each adds ONE interaction and needs only its own clips.
+`--stage N` runs exactly that much.
 
-| stage | the visitor can | clips to export | also needs |
+| stage | the visitor can | clips | also needs |
 |---|---|---|---|
-| **1 touch** | touch its head: it presses up into the hand, then rests again | SK_PURR | nothing else (no camera) |
-| 2 notice | + it dozes with its head up, glances at passers-by, wakes and looks at you | + SK_DOZE, SK_GLANCE | camera, `aim_check.py` |
-| 3 show | + show it a prop: curious, follows it, nods "got it", tablet card | + SK_CURIOUS, SK_ACK | `sidekick_prop_check.py` |
-| 4 guard | + put it down: guards it, "I see you", calls if taken | + SK_GUARD_ALERT | -- |
+| 1 touch | touch its head: it presses up into the hand | SK_PURR | no camera |
+| 2 notice | + sleeps/dozes, glances at passers-by, wakes and looks at you | + SK_DOZE, SK_GLANCE | camera |
+| **3 watch** | + show it something; it looks out for it and calls when it turns up | + SK_CURIOUS, SK_ACK (+ the paper's S5A/S5B for the call) | network (Gemini names the thing) |
 
-**Start with stage 1.** Export SK_PURR only (below), check it with
-`play_on_hardware.py`, then:
-
-```bash
-python3 sidekick_loop.py --stage 1 --cores3
-```
-
-Touch the head: purr, then back to the sleeping pose. When that is right, move
-on to stage 2 and export its two clips. The table further down describes the
-finished booth (stage 4).
-
-### Exporting one clip
-
-Step by step in `motion/sidekick/README.md` (SK_PURR as the example). The
-exporter there writes straight into `motion/clips/`.
-
-## On the laptop alone (no robot)
-
-Detection, decisions and the tablet can all be tried with the laptop camera:
-
-```bash
-python3 sidekick_loop.py --no-robot --stage 4 --cam 0
-```
-
-A window shows what the camera sees, each person (NEAR / passer, shoulder
-width) and each prop (green = held, red = a hand near it, with its gaze angle),
-and what the robot decided. Keys: **t** = touch its head, **p** = palm on the
-sensor, **q** = quit. The tablet page is at `http://localhost:8000/`. The servos
-are simulated and the camera does not move, so this tests everything except
-the aiming.
-
-## Before the day -- once (what each stage needs)
-
-### 1. Export the six new clips (Blender)
-
-See `motion/sidekick/README.md`. For each SK clip: Save As `SK_<NAME>.blend`,
-run its generator, save, run `export_sk_clip.py`.
-A generator that runs is a clip the servos can perform: it refuses anything
-under the amplitude or smoothness floors or over 200 deg/s.
-
-Then on the robot, one at a time, watch each:
-
-```bash
-python3 robot/tools/play_on_hardware.py motion/clips/SK_PURR.csv
-```
-
-### 2. Flash firmware v19
-
-v19 adds two sounds (purr, alert) and the big-face screen. Same as every flash:
-
-```bash
-lsof /dev/cu.usbmodem*
-pio run -t upload
-python3 robot/tools/tof_test.py      # first line must say v19
-```
-
-A v18 board still runs the booth, with no purr/alert sound and the old screen.
-
-### 3. Which way is "image right" (30 s, nobody needed)
-
-```bash
-python3 robot/tools/aim_check.py --cam N
-```
-
-Point the head at something with texture first (not a blank wall). It turns
-8 deg each way, measures how the picture slid, and prints `AIM_X_SIGN` and
-`AIM_Y_SIGN` for `robot/states.py`. **Wrong signs = the robot confidently looks
-away from everything it is shown.** Do this before anything else on hardware.
-
-### 4. Which props it sees (5 min)
-
-```bash
-python3 robot/tools/sidekick_prop_check.py --cam N
-```
-
-Hold each candidate up at arm's length while it counts. Keep the ones marked
-KEEP (found in >= 80% of frames, rarely confused). Put only those on the tray,
-and pass only those words (fewer words, fewer confusions):
-
-```bash
---props "banana,cup,teddy bear"
-```
+Clips are made in Blender: `motion/sidekick/README.md`.
 
 ## Run it
 
 ```bash
 cd ~/Documents/potatobot/showcase
-python3 sidekick_loop.py --stage 4 --cam N --cores3 --props "banana,cup,teddy bear"
+conda activate sidekick
+python3 sidekick_loop.py --stage 3 --cam N --cores3 --view
 ```
 
-`--mute` while testing beside people. `--offline` if the network is bad: the
-robot's lines become the built-in ones, everything else is the same.
+- `N`: the InnoMaker head camera (`python3 noticebot_loop.py --list-cams`).
+- `--view`: debug window -- people (NEAR / passer), things it sees, its phase.
+- `--mute` beside people who are working. `--offline` without a network: the
+  thing is named by the detector's own word and the lines are built-in ones.
+- Tablet: `http://<laptop IP>:8000/`, full screen. Nothing on it is a button.
+- Stop with Ctrl-C: it lies down and lets go of the servos.
 
-Tablet: `http://<laptop IP>:8000/`, full screen. Nothing on it is a button.
+On the laptop alone (no robot): `python3 sidekick_loop.py --no-robot --cam 0`
+(keys in the window: t = touch, p = palm, q = quit).
 
-Stop with Ctrl-C: it lies down to doze and lets go of the servos.
+## Before the day -- once
+
+1. **Firmware v19** (purr / alert / rising curious sound, big-face screen):
+   `pio run -t upload`, then `python3 robot/tools/tof_test.py` must say v19.
+2. **Aim signs** are measured and set (AIM_X_SIGN -1, AIM_Y_SIGN +1,
+   2026-11-07). Re-run `python3 robot/tools/aim_check.py --cam N` only if the
+   camera or a servo is remounted.
+3. **Servo supply**: `python3 robot/tools/check_bus.py`, 5-6 V.
 
 ## Switching to the paper demo
 
-Ctrl-C this, then run the demo exactly as in docs/SHOWDAY.md. Two programs that
-never share a process cannot leak into each other.
+Ctrl-C this, then run the demo exactly as in docs/SHOWDAY.md.
 
 ## When something is off
 
-**It never wakes.** It wakes on someone close (shoulders a quarter of the
-frame wide, about 1.5 m). Further than that it only glances. A hand in front of
-the wake sensor or a touch on the head also wakes it.
+Read the terminal: `[sense]` says what it sees (nobody / passer / NEAR),
+`[brain]` what it does, `[identify]` what the model named.
 
-**It turns away from things.** The signs in step 3. Re-run `aim_check.py`.
+**It never wakes.** Someone close (about 1.5 m) wakes it from dozing; asleep
+(head down) only a hand at the sensor or a touch does.
 
-**It never gets curious.** The prop is not in the list it was given, or is
-too small in frame (hold it nearer), or the detector does not see it here --
-step 4.
+**It never gets curious.** The thing must be held up, close and near the middle
+of its view, by someone it sees as NEAR. Very unusual objects may not be among
+the detector's words (`PROPS` in `perception/sidekick_sense.py`).
 
-**It does not start guarding.** It needs to have followed the prop down: show
-it first, then put it down in view, let go, keep still about a second. A prop
-put down while it was looking at your face is not seen.
+**"I couldn't tell what that was."** The model said nothing was clearly being
+shown, or did not answer in 12 s (`TEACH_MAX_S`). Hold it closer, still.
 
-**"I see you" when nobody is near.** A guessed wrist. Raise `MIN_WRIST_VIS` in
-`perception/sidekick_sense.py` (0.3 now).
+**It calls while the visitor still holds it.** It should not: the thing must be
+out of sight 3 s (`TARGET_AWAY_S`) before seeing it again counts.
 
-**It says "taken" when the prop was only hidden.** Without a hand seen near it
-the robot waits 5 s (`GONE_S` in `session/sidekick_brain.py`) before calling it
-taken; with a hand seen, 1.2 s.
-
-**The tablet shows people.** It does: the "who took it" strip is camera
-frames. Tell people at the table; the images live in
-`session_feed/sidekick_<time>/` (gitignored) -- delete the folder after the show.
+**The tablet shows people.** "Spotted it" pictures are crops around the thing,
+but people can be in them. Images live in `session_feed/sidekick_<time>/`
+(gitignored) -- delete the folder after the show.
 
 ## Numbers worth knowing
 
@@ -174,9 +101,11 @@ All in `session/sidekick_brain.py` unless said otherwise.
 |---|---|---|
 | WAKE_S | 0.6 s | someone close this long wakes it |
 | LOST_S | 6 s | nobody close this long: dozes |
+| DOZE_TO_SLEEP_S | 20 s | dozing this long: falls asleep, head down |
 | GLANCE_REFRACTORY_S | 12 s | at most one glance per this long |
-| STILL_S / STILL_DEG | 1.2 s / 3 deg | "held still" for the nod |
-| PLACE_S / DESK_GAZE | 1.0 s / -15 deg | put down and still, below the eye -> guard |
-| TAKEN_S / GONE_S | 1.2 s / 5 s | missing after a hand / without one -> taken |
+| HELD_FRAMES | 2 | held up this many frames: curious |
+| TEACH_MAX_S | 12 s | the model gets this long to name it |
+| TARGET_AWAY_S | 3 s | out of sight this long before seeing it again counts |
+| FOUND_FRAMES | 2 | seen this many frames: found |
 | CALL_MAX_S | 25 s | the call gives up |
 | AIM_DEAD_DEG (states.py) | pan 4, tilt 3, nod 5 | how far a target moves before the head re-aims |

@@ -6,14 +6,15 @@ sidekick_loop.py -- the showcase-1108 booth: a robot that attends WITH you.
   python3 sidekick_loop.py --cam 1 --cores3 --mute     # testing beside people
   open http://<this laptop>:8000 on the iPad
 
-What a visitor can do, and nothing else is needed (docs/SHOWCASE_1108_PLAN.md):
-  come close            it wakes and looks at you
-  hold a prop up        it leans in, curious, and follows it as you move it
-  hold it still         it nods, and the tablet notes what you showed it
-  put it down, let go   it guards it; a hand near it gets an "I see you";
-                        taking it makes it call, and the tablet shows who
-  touch its head        it presses up into your hand (or, while guarding,
-                        "you're back")
+What a visitor can do (stage 3, the whole booth):
+  come close              it wakes and looks at you
+  hold something up       it leans in, curious, and follows it while it is
+                          named; then nods: "OK! I'll look out for <it>"
+  later, the thing turns  it points at it and calls; the tablet shows what it
+  up in its view          spotted. Touch its head: "seen it"
+  touch its head          it presses up into your hand
+  someone new shows       the new thing replaces the old one
+  something else
 
 The paper's full delegation cycle is not in this file. For that demo stop this
 and run noticebot_loop.py as in docs/SHOWDAY.md -- two modes that never share a
@@ -53,10 +54,48 @@ VOICE = ("You are a small desk robot with one camera eye, a curious sidekick. "
          "what they wore if it helps. No emoji. ")
 
 FALLBACK = {
-    "shown": "A {label}! I'll remember that one.",
-    "guard": "Your {label} is safe with me.",
-    "taken": "Someone picked up the {label} I was guarding!",
+    "watch": "Got it -- I'll look out for {label}.",
+    "found": "I spotted {label}!",
 }
+
+ID_SCHEMA = {"type": "object",
+             "properties": {"showing": {"type": "boolean"},
+                            "name": {"type": "string"},
+                            "term": {"type": "string"}},
+             "required": ["showing", "name", "term"],
+             "additionalProperties": False}
+
+ID_PROMPT = (
+    "You are the camera eye of a small desk robot. A visitor is holding "
+    "something up to you to show you what to look out for. What is it?\n"
+    "- showing: true if someone is clearly holding up an object to show you\n"
+    "- name: how you would say it, short, with an article and one telling "
+    "detail (e.g. 'a blue water bottle', 'a set of keys')\n"
+    "- term: the everyday noun an object detector would use for it, 1-3 words, "
+    "no colour (e.g. 'water bottle', 'keys', 'cell phone')\n"
+    "If nothing is clearly being shown, showing=false and name=term=''.")
+
+
+def identify(jpeg, guess, offline):
+    """-> (name, term) for what is being shown, or (None, None). Offline, the
+    detector's own guess is used, so the booth still works without a network."""
+    if offline or not jpeg:
+        return f"the {guess}", guess
+    try:
+        from planning.provider import call_json
+        out, _ = call_json(ID_PROMPT, ID_SCHEMA, images=[jpeg],
+                           labels=["what the visitor is holding up"],
+                           model=os.environ.get("NOTICEBOT_SIDEKICK_MODEL",
+                                                "gemini-3.8-flash"),
+                           max_output_tokens=200)
+        term = str(out.get("term", "")).strip().lower()
+        name = str(out.get("name", "")).strip()
+        if not out.get("showing") or not term:
+            return None, None
+        return (name or f"the {term}"), term
+    except Exception as exc:
+        print(f"[identify] {str(exc)[:80]} -- using the detector's guess")
+        return f"the {guess}", guess
 
 
 def robot_line(kind, label, jpegs, offline):
@@ -66,10 +105,10 @@ def robot_line(kind, label, jpegs, offline):
     if offline or not jpegs:
         return fb
     ask = {
-        "shown": f"A visitor just showed you a {label}. React to it.",
-        "guard": f"You are now guarding a visitor's {label}. Reassure them.",
-        "taken": (f"You were guarding a {label} and these frames, in order, show "
-                  f"someone taking it. Tell its owner what happened."),
+        "watch": (f"A visitor just showed you {label} and asked you to look out "
+                  f"for it. Promise them, playfully."),
+        "found": (f"You were asked to look out for {label}, and you just spotted "
+                  f"it -- this is what you see. Call them over, excited."),
     }[kind]
     try:
         from planning.provider import call_json
@@ -164,10 +203,10 @@ def main():
     ap.add_argument("--cores3", nargs="?", const="auto")
     ap.add_argument("--port", default=os.environ.get("NOTICEBOT_PORT"))
     ap.add_argument("--clips", default=os.path.join(ROOT, "motion", "clips"))
-    ap.add_argument("--stage", type=int, default=4, choices=sorted(STAGES),
-                    help="1 touch only | 2 + doze, glance, look at you | "
-                         "3 + show it something | 4 + guard it. Each stage "
-                         "needs only its own clips exported.")
+    ap.add_argument("--stage", type=int, default=3, choices=sorted(STAGES),
+                    help="1 touch only | 2 + sleep/doze, glance, look at you | "
+                         "3 + show it something to look out for; it calls when "
+                         "that turns up. Each stage needs only its own clips.")
     ap.add_argument("--mute", action="store_true")
     ap.add_argument("--conf", type=float, default=0.25)
     ap.add_argument("--cv-hz", type=float, default=4.0)
@@ -248,6 +287,8 @@ def main():
     print(f"[web] tablet: http://<this laptop>:{a.web_port}/")
 
     events = deque()
+    answers = deque()               # (name, term) from the model, any thread
+    teach_jpg = {"jpg": None}
     brain = Brain(player, on_event=lambda k, **kw: events.append((k, kw)),
                   stage=a.stage)
     player.start()
@@ -323,25 +364,39 @@ def main():
                 kind, kw = events.popleft()
                 n_card += 1
                 cid = f"{kind}_{n_card}"
-                if kind in ("shown", "guard_start") and frame is not None:
-                    jpg = crop_jpeg(frame, kw["box"])
+                if kind == "identify" and frame is not None:
+                    jpg = crop_jpeg(frame, kw["box"], pad=0.6)
+                    teach_jpg["jpg"] = jpg
+
+                    def ask(jpg=jpg, guess=kw["guess"]):
+                        answers.append(identify(jpg, guess, a.offline))
+                    threading.Thread(target=ask, daemon=True).start()
+                elif kind == "taught" and teach_jpg["jpg"]:
+                    name = f"{cid}.jpg"
+                    open(os.path.join(feed, name), "wb").write(teach_jpg["jpg"])
+                    PAGE.add_card(cid, "watch", kw["name"], name,
+                                  FALLBACK["watch"].format(label=kw["name"]))
+                    card_async(cid, "watch", kw["name"], [teach_jpg["jpg"]])
+                elif kind == "found" and frame is not None:
+                    jpg = crop_jpeg(frame, kw["box"], pad=0.8)
                     if jpg:
                         name = f"{cid}.jpg"
                         open(os.path.join(feed, name), "wb").write(jpg)
-                        k = "shown" if kind == "shown" else "guard"
-                        PAGE.add_card(cid, k, kw["label"], name,
-                                      FALLBACK[k].format(label=kw["label"]))
-                        card_async(cid, k, kw["label"], [jpg])
-                elif kind == "taken":
-                    strip, jpegs = story_strip(cam.event_frames if cam else [],
-                                               kw["onset"] - 1.5, kw["t"] + 0.5)
-                    if strip:
-                        name = f"{cid}.jpg"
-                        open(os.path.join(feed, name), "wb").write(strip)
-                        PAGE.add_card(cid, "taken", kw["label"], name,
-                                      FALLBACK["taken"].format(label=kw["label"]))
-                        card_async(cid, "taken", kw["label"], jpegs)
-                print(f"[brain] {kind} {kw.get('label', '')}")
+                        PAGE.add_card(cid, "found", kw["name"], name,
+                                      FALLBACK["found"].format(label=kw["name"]))
+                        card_async(cid, "found", kw["name"], [jpg])
+                print(f"[brain] {kind} {kw.get('name') or kw.get('guess') or ''}")
+            # ---- the model's answer to "what is this?" ----
+            while answers:
+                name, term = answers.popleft()
+                print(f"[identify] {name!r} -> watching for {term!r}")
+                if (term and det is not None and term not in props
+                        and hasattr(det, "set_vocab")):
+                    # The detector is told the new word; the old target's word
+                    # is dropped, so it only ever looks out for one thing.
+                    props = tuple(SS.PROPS) + (term,)
+                    det.set_vocab(list(props))
+                brain.on_identified(name, term)
             # ---- face, colour, tablet ----
             if player.state != last_state and player.state:
                 last_state = player.state

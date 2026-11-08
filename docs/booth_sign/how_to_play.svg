@@ -50,16 +50,16 @@
 </g>
 <g filter="url(#wobt)">
 <circle cx="94" cy="235" r="24" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#fff"/>
-<text x="94" y="246" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="30" font-weight="700" fill="#111" text-anchor="middle">5</text>
+<text x="94" y="246" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="30" font-weight="700" fill="#111" text-anchor="middle">1</text>
 <text x="130" y="250" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="44" font-weight="700" fill="#111" text-anchor="start">あたまをポンポン</text>
 <text x="130" y="290" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="28" fill="#111" text-anchor="start">Pat my head</text>
-<text x="130" y="334" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="26" fill="#555" text-anchor="start">→ すりすりするよ</text>
-<text x="130" y="366" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="22" fill="#555" text-anchor="start">I'll nuzzle up into your hand</text>
+<text x="130" y="334" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="26" fill="#555" text-anchor="start">→ おきて、すりすりするよ</text>
+<text x="130" y="366" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="22" fill="#555" text-anchor="start">I wake up and nuzzle your hand</text>
 <path d="M470,275 Q600,215 685,262" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M685,262 L673.2,243.4" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M685,262 L663.0,261.9" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
 <circle cx="1084" cy="295" r="24" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#fff"/>
-<text x="1084" y="306" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="30" font-weight="700" fill="#111" text-anchor="middle">3</text>
+<text x="1084" y="306" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="30" font-weight="700" fill="#111" text-anchor="middle">4</text>
 <text x="1120" y="310" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="44" font-weight="700" fill="#111" text-anchor="start">目の前で見せてね</text>
 <text x="1120" y="350" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="28" fill="#111" text-anchor="start">Hold it up to my eyes</text>
 <text x="1120" y="394" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="26" fill="#555" text-anchor="start">→ おぼえて、さがしておくね</text>
@@ -68,7 +68,7 @@
 <path d="M935,345 L957.0,345.8" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M935,345 L947.6,326.9" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
 <circle cx="1074" cy="575" r="24" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#fff"/>
-<text x="1074" y="586" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="30" font-weight="700" fill="#111" text-anchor="middle">4</text>
+<text x="1074" y="586" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="30" font-weight="700" fill="#111" text-anchor="middle">5</text>
 <text x="1110" y="590" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="44" font-weight="700" fill="#111" text-anchor="start">かくして、また出してね</text>
 <text x="1110" y="630" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="28" fill="#111" text-anchor="start">Hide it, then bring it back</text>
 <text x="1110" y="674" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="26" fill="#555" text-anchor="start">→ 見つけたら呼ぶよ！</text>
@@ -77,7 +77,7 @@
 <path d="M880,450 L879.8,472.0" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M880,450 L898.4,462.1" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
 <circle cx="74" cy="505" r="24" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#fff"/>
-<text x="74" y="516" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="30" font-weight="700" fill="#111" text-anchor="middle">2</text>
+<text x="74" y="516" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="30" font-weight="700" fill="#111" text-anchor="middle">3</text>
 <text x="110" y="520" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="44" font-weight="700" fill="#111" text-anchor="start">手をふってね</text>
 <text x="110" y="560" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="28" fill="#111" text-anchor="start">Wave hi</text>
 <text x="110" y="604" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="26" fill="#555" text-anchor="start">→ ふりかえすよ</text>
@@ -86,13 +86,11 @@
 <path d="M340,675 L319.5,666.9" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
 <path d="M340,675 L322.2,687.9" fill="none" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
 <circle cx="74" cy="950" r="24" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" fill="#fff"/>
-<text x="74" y="961" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="30" font-weight="700" fill="#111" text-anchor="middle">1</text>
+<text x="74" y="961" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="30" font-weight="700" fill="#111" text-anchor="middle">2</text>
 <text x="110" y="965" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="44" font-weight="700" fill="#111" text-anchor="start">ちかづいてね</text>
 <text x="110" y="1005" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="28" fill="#111" text-anchor="start">Come close</text>
 <text x="110" y="1049" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="26" fill="#555" text-anchor="start">→ じっと見てるよ</text>
 <text x="110" y="1081" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="22" fill="#555" text-anchor="start">I'll keep my eyes on you</text>
-<text x="1490" y="1050" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="26" fill="#555" text-anchor="end">ねてたら（-_- zz）あたまをポンポン</text>
-<text x="1490" y="1084" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="22" fill="#555" text-anchor="end">Asleep? Pat my head to wake me</text>
 </g>
 </g>
 </svg>

@@ -98,23 +98,21 @@ add('</g>')
 # --- arrows + labels ------------------------------------------------------
 add('<g filter="url(#wobt)">')
 # 1 pat my head
-label(130,250,"あたまをポンポン","Pat my head","すりすりするよ","I'll nuzzle up into your hand",n=5)
+label(130,250,"あたまをポンポン","Pat my head","おきて、すりすりするよ","I wake up and nuzzle your hand",n=1)
 arrow(470,275, 600,215, cx-75,262)
 # 2 hold it up to my eyes
-label(1120,310,"目の前で見せてね","Hold it up to my eyes","おぼえて、さがしておくね","I'll look out for it",n=3)
+label(1120,310,"目の前で見せてね","Hold it up to my eyes","おぼえて、さがしておくね","I'll look out for it",n=4)
 arrow(975,350, 955,335, 935,345)
 # 3 hide it, bring it back
-label(1110,590,"かくして、また出してね","Hide it, then bring it back","見つけたら呼ぶよ！","I'll point at it and call you",n=4)
+label(1110,590,"かくして、また出してね","Hide it, then bring it back","見つけたら呼ぶよ！","I'll point at it and call you",n=5)
 arrow(1090,620, 960,600, cx+120,450)
 # 4 wave hi
-label(110,520,"手をふってね","Wave hi","ふりかえすよ","I'll wave back",n=2)
+label(110,520,"手をふってね","Wave hi","ふりかえすよ","I'll wave back",n=3)
 arrow(250,640, 300,680, px+40,py-185)
 # 5 come close
-label(110,965,"ちかづいてね","Come close","じっと見てるよ","I'll keep my eyes on you",n=1)
+label(110,965,"ちかづいてね","Come close","じっと見てるよ","I'll keep my eyes on you",n=2)
 
 # asleep note
-add(f'<text x="1490" y="1050" font-family="{JP}" font-size="26" fill="#555" text-anchor="end">ねてたら（-_- zz）あたまをポンポン</text>')
-add(f'<text x="1490" y="1084" font-family="{EN}" font-size="22" fill="#555" text-anchor="end">Asleep? Pat my head to wake me</text>')
 add('</g>')
 add('</g>')
 add('</svg>')

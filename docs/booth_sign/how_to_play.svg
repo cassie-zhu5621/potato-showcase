@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1130" width="1600" height="1130">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1738 1130" width="1738" height="1130">
 <defs>
 <filter id="wob" x="-5%" y="-5%" width="110%" height="110%">
  <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves="2" seed="7"/>
@@ -7,9 +7,10 @@
  <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="1" seed="3"/>
  <feDisplacementMap in="SourceGraphic" scale="2"/></filter>
 </defs>
-<rect width="1600" height="1130" fill="#f4f4f2"/>
+<rect width="1738" height="1130" fill="#f4f4f2"/>
+<g transform="translate(69,0)">
 <g filter="url(#wob)">
-<path d="M-20,-10 L1080,-10 L1060,120 L-20,135 Z" fill="#5cc3ec" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+<path d="M-120,-10 L1080,-10 L1060,120 L-120,135 Z" fill="#5cc3ec" stroke="#111" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g filter="url(#wobt)">
 <text x="70" y="78" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="58" font-weight="700" fill="#111">あそびかた</text>
@@ -92,5 +93,6 @@
 <text x="110" y="1081" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="22" fill="#555" text-anchor="start">I'll keep my eyes on you</text>
 <text x="1490" y="1050" font-family="'Klee One','Klee','Hiragino Maru Gothic ProN','Noto Sans CJK JP',sans-serif" font-size="26" fill="#555" text-anchor="end">ねてたら（-_- zz）あたまをポンポン</text>
 <text x="1490" y="1084" font-family="'Chalkboard SE','Marker Felt','Comic Sans MS','Noto Sans',sans-serif" font-size="22" fill="#555" text-anchor="end">Asleep? Pat my head to wake me</text>
+</g>
 </g>
 </svg>

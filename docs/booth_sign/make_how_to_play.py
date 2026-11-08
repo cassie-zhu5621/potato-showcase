@@ -1,5 +1,6 @@
 import math
-W,H=1600,1130
+W,H=1738,1130     # MacBook Air 13 aspect (2560x1664); drawn on 1600 wide, centred
+DX=(W-1600)//2
 out=[]
 def add(s):
     if s.count(' fill=')>1:
@@ -36,9 +37,10 @@ add('''<defs>
  <feDisplacementMap in="SourceGraphic" scale="2"/></filter>
 </defs>''')
 add(f'<rect width="{W}" height="{H}" fill="#f4f4f2"/>')
+add(f'<g transform="translate({DX},0)">')
 # --- blue title band (slightly tilted), like a strip of tape
 add('<g filter="url(#wob)">')
-add(f'<path d="M-20,-10 L1080,-10 L1060,120 L-20,135 Z" fill="#5cc3ec" {SK}/>')
+add(f'<path d="M-120,-10 L1080,-10 L1060,120 L-120,135 Z" fill="#5cc3ec" {SK}/>')
 add('</g>')
 add('<g filter="url(#wobt)">')
 add(f'<text x="70" y="78" font-family="{JP}" font-size="58" font-weight="700" fill="#111">あそびかた</text>')
@@ -113,6 +115,7 @@ label(110,965,"ちかづいてね","Come close","じっと見てるよ","I'll ke
 # asleep note
 add(f'<text x="1490" y="1050" font-family="{JP}" font-size="26" fill="#555" text-anchor="end">ねてたら（-_- zz）あたまをポンポン</text>')
 add(f'<text x="1490" y="1084" font-family="{EN}" font-size="22" fill="#555" text-anchor="end">Asleep? Pat my head to wake me</text>')
+add('</g>')
 add('</g>')
 add('</svg>')
 open('how_to_play.svg','w').write("\n".join(out))

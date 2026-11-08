@@ -401,7 +401,8 @@ def main():
             for line in sys.stdin:
                 commands.append(line.strip().lower())
         threading.Thread(target=read_stdin, daemon=True).start()
-    print("[run] next visitor: press n in the view window, or type n + Enter here")
+    print("[run] keys (view window, or type + Enter here): n = next visitor "
+          "(keeps the object), f = forget the object")
     player.start()
     player.request(brain.rest)
 
@@ -422,9 +423,21 @@ def main():
             now = time.time()
             # ---- the board: touches and the palm ----
             while commands:
-                if commands.popleft() in ("n", "next"):
+                cmd = commands.popleft()
+                if cmd in ("n", "next"):
                     print("[run] next visitor")
                     brain.next_visitor()
+                    say_until = 0.0
+                    if link:
+                        link.sksay("")
+                elif cmd in ("f", "forget"):
+                    # Nothing to look out for any more, saved memory included.
+                    print("[run] forgot the object")
+                    brain.forget()
+                    for fn in (mem_path, os.path.join(mem_dir, "booth_memory.jpg")):
+                        if os.path.exists(fn):
+                            os.remove(fn)
+                    props = target_vocab([])
                     say_until = 0.0
                     if link:
                         link.sksay("")
@@ -463,8 +476,8 @@ def main():
                 if a.view:
                     key = draw_view(frame, pc, people, brain, player, a.stage,
                                     saying=saying if now < say_until else "")
-                    if key == ord("n"):
-                        commands.append("n")
+                    if key in (ord("n"), ord("f")):
+                        commands.append(chr(key))
                     elif key == ord("t"):
                         brain.on_tap()
                     elif key == ord("p"):
@@ -475,8 +488,8 @@ def main():
                 brain.tick()
                 if a.view and frame is not None:
                     key = cv2.waitKey(1) & 0xFF
-                    if key == ord("n"):
-                        commands.append("n")
+                    if key in (ord("n"), ord("f")):
+                        commands.append(chr(key))
                     elif key == ord("t"):
                         brain.on_tap()
                     elif key == ord("p"):

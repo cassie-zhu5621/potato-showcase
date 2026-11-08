@@ -185,6 +185,19 @@ class Brain:
             self._target_seen = t
             self._relay = "watch" in self.on
 
+    def forget(self):
+        """The operator clears what it was looking out for. It carries on as it
+        was otherwise; a call in progress ends."""
+        self.target = None
+        self._relay = False
+        self._target_armed = False
+        self._found_run = 0
+        if self.phase == "CALL":
+            self.p.request("SK_LOOK")
+            self._last_near = self.now()
+            self._go("LOOK", say="")
+        self.emit("forget", name="")
+
     def next_visitor(self):
         """The operator says a new visitor is here: back to how it starts --
         asleep, nobody followed, nothing half done -- but still looking out

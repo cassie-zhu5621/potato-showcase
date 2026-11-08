@@ -582,3 +582,16 @@ def test_showing_something_new_replaces_it_without_telling():
     awake(clock, player, brain)
     show(clock, brain, "cup")
     assert brain.phase == "TEACH" and not brain._relay
+
+
+def test_forget_clears_the_thing_and_ends_a_call():
+    clock, player, brain, events = teach()
+    for _ in range(int(B.TARGET_AWAY_S / 0.25) + 2):
+        step(clock, brain, 0.25, people=[face()])
+    step(clock, brain, 0.25, people=[face()], props=[prop("water bottle", held=False)])
+    step(clock, brain, 0.25, people=[face()], props=[prop("water bottle", held=False)])
+    assert brain.phase == "CALL"
+    brain.forget()
+    assert brain.target is None and brain.phase == "LOOK" and player.state == "SK_LOOK"
+    brain.next_visitor()
+    assert brain.target is None and not brain._relay

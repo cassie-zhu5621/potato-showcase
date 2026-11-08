@@ -93,11 +93,13 @@ WAVE_FACE_S = 1.8          # the face waves this long ...
 WAVE_FACE_STEP = 0.3       # ... switching hands this often
 WAVE_FACES = ("\\^o^", "^o^/")
 WAVE_SFX = "alert"         # two short level blips; free since the guard went
-# PASSING IT ON (2026-11-08): what one visitor showed it is kept for the next
+# PASSING IT ON (2026-11-08): what one visitor showed it is TOLD to the next
 # -- across a restart (the loop saves it) and across "next visitor" (the
-# operator's key). Woken by the next visitor, it tells them once.
+# operator's key) -- but no longer looked for: the last visitor's thing kept
+# turning up on the table and calling everyone over. A new visitor starts
+# with nothing to look out for. Woken by them, it tells them once.
 RELAY_AFTER_S = 1.0        # looking at them this long first
-RELAY_LINE = "Someone showed me {name}. I'm still looking out for it!"
+RELAY_LINE = "The last visitor showed me {name}. What will you show me?"
 
 KAOMOJI = {
     "SLEEP": "-_- zz", "DOZE": "-.-", "LOOK": "o_o", "TEACH": "o_O?",
@@ -136,8 +138,8 @@ class Brain:
     def __init__(self, player, on_event: Callable = None,
                  clock: Callable[[], float] = time.time, stage: int = 3,
                  memory: Optional[dict] = None):
-        """`memory`: a target kept from before (term, name, words), e.g. the
-        last visitor's thing saved by the loop before a restart."""
+        """`memory`: the last thing shown before a restart (term, name, words),
+        saved by the loop. It is told to the next visitor, not looked for."""
         self.p = player
         self.stage = stage
         self.on = set(STAGES[stage])
@@ -176,20 +178,15 @@ class Brain:
         self._found_run = 0
         self._call_since = -1e9
         self._entered = t
-        self._relay = False              # tell the next visitor about the target
-        if memory and memory.get("term"):
-            self.target = dict(term=memory["term"],
-                               name=memory.get("name") or memory["term"],
-                               words=list(memory.get("words") or [memory["term"]]),
-                               since=t)
-            self._target_seen = t
-            self._relay = "watch" in self.on
+        self._relay = None               # the last visitor's thing, to tell
+        if memory and memory.get("term") and "watch" in self.on:
+            self._relay = memory.get("name") or memory["term"]
 
     def forget(self):
         """The operator clears what it was looking out for. It carries on as it
         was otherwise; a call in progress ends."""
         self.target = None
-        self._relay = False
+        self._relay = None
         self._target_armed = False
         self._found_run = 0
         if self.phase == "CALL":
@@ -200,18 +197,16 @@ class Brain:
 
     def next_visitor(self):
         """The operator says a new visitor is here: back to how it starts --
-        asleep, nobody followed, nothing half done -- but still looking out
-        for the last thing it was shown, and it will tell them about it."""
-        target = self.target
+        asleep, nobody followed, nothing half done, nothing to look out for --
+        but it will tell them what the last visitor showed it."""
+        told = self.target["name"] if self.target else self._relay
         self._set_close(False)
         self.p.clear_aim()
         self.__init__(self.p, on_event=self.emit, clock=self.now, stage=self.stage)
         self.p.request(self.rest)
-        if target:
-            self.target = target
-            self._target_seen = self.now()
-            self._relay = "watch" in self.on
-        self.emit("next_visitor", name=(target or {}).get("name", ""))
+        if told and "watch" in self.on:
+            self._relay = told
+        self.emit("next_visitor", name=told or "")
 
     # ---- outputs --------------------------------------------------------
     def _go(self, phase, face=None, say=None):
@@ -477,14 +472,14 @@ class Brain:
         if near:
             self._last_near = t
         self._closeness(near, pc)
-        if (self._relay and self.target and self.p.state == "SK_LOOK"
+        if (self._relay and self.p.state == "SK_LOOK"
                 and t - self._entered >= RELAY_AFTER_S
                 and self._shown(pc) is None):       # showing something: let them
-            self._relay = False
-            line = RELAY_LINE.format(name=self.target["name"])[:96]
+            line = RELAY_LINE.format(name=self._relay)[:96]
+            self.emit("relay", name=self._relay)
+            self._relay = None
             self.p.request("SK_ACK", resume_to="SK_LOOK")
             self._go("LOOK", face="ACK", say=line)
-            self.emit("relay", name=self.target["name"])
             self.emit("say", text=line)
             return
         shown = (self._shown(pc) if ("watch" in self.on
@@ -496,7 +491,7 @@ class Brain:
                 self._show_since = t
             if t - self._show_since >= SHOW_S and self.p.state == "SK_LOOK":
                 self._show_since = None
-                self._relay = False                  # a new thing replaces it
+                self._relay = None                   # a new thing replaces it
                 self._teach = dict(since=t, box=shown.box, guess=shown.label)
                 self._look_at(shown.at, tilt=None)
                 self.p.request("SK_CURIOUS")         # -> SK_FOLLOW while it is named

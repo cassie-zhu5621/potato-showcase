@@ -545,11 +545,11 @@ def test_showing_something_is_not_waving():
     assert not hasattr(player, "hops")
 
 
-def test_next_visitor_starts_over_but_keeps_the_thing_and_tells_them():
+def test_next_visitor_starts_over_tells_them_but_stops_looking_for_it():
     clock, player, brain, events = teach()
     brain.next_visitor()
     assert brain.phase == "SLEEP" and player.state == "S0_IDLE"
-    assert brain.target["term"] == "water bottle"
+    assert brain.target is None                       # no more calls for it
     awake(clock, player, brain)
     for _ in range(int(B.RELAY_AFTER_S / 0.25) + 1):
         step(clock, brain, 0.25, people=[face(20.0)])
@@ -557,23 +557,25 @@ def test_next_visitor_starts_over_but_keeps_the_thing_and_tells_them():
     line = B.RELAY_LINE.format(name="a blue water bottle")
     assert events[-1] == ("say", {"text": line})
     player.finish()
-    for _ in range(8):                                 # once, not again
+    for _ in range(int(B.TARGET_AWAY_S / 0.25) + 2):  # once, not again ...
         step(clock, brain, 0.25, people=[face(20.0)])
-    assert [e for e in events if e[0] == "relay"].__len__() == 1
+    for _ in range(3):                                # ... and the bottle on the
+        step(clock, brain, 0.25, people=[face(20.0)],  # table is not called
+             props=[prop("water bottle", held=False, area=0.01)])
+    assert brain.phase == "LOOK"
+    assert len([e for e in events if e[0] == "relay"]) == 1
 
 
-def test_a_remembered_thing_is_looked_for_after_a_restart():
+def test_after_a_restart_the_last_thing_is_told_not_looked_for():
     clock, player, events = Clock(), FakePlayer(), []
     brain = B.Brain(player, on_event=lambda k, **kw: events.append((k, kw)),
                     clock=clock, memory=dict(term="teddy bear", name="a teddy bear",
                                              words=["teddy bear", "toy"]))
-    assert brain.target["words"] == ["teddy bear", "toy"] and brain._relay
+    assert brain.target is None and brain._relay == "a teddy bear"
     awake(clock, player, brain)
-    for _ in range(int(B.TARGET_AWAY_S / 0.25) + 2):
-        step(clock, brain, 0.25, people=[face()])
-    step(clock, brain, 0.25, people=[face()], props=[prop("toy", held=False)])
-    step(clock, brain, 0.25, people=[face()], props=[prop("toy", held=False)])
-    assert brain.phase == "CALL"
+    for _ in range(int(B.RELAY_AFTER_S / 0.25) + 1):
+        step(clock, brain, 0.25, people=[face(20.0)])
+    assert ("relay", {"name": "a teddy bear"}) in events
 
 
 def test_showing_something_new_replaces_it_without_telling():

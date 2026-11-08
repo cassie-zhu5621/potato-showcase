@@ -26,7 +26,7 @@ up, hide it, pat my head.
 | waves at it (hand up beside the head, side to side) | waves back: face `\^o^` / `^o^/` for ~2 s, head hops twice with two "hi-hi" blips, "Hi!" under its face; wakes it from dozing too | `^o^/` |
 | touches its head otherwise | presses up into the hand | `=^_^=` |
 | someone else holds up something else | the new thing replaces the old one | |
-| (operator presses n: next visitor) | back to how it starts, asleep; still looking out for the last thing shown. The next visitor it wakes for is told once: "Someone showed me a teddy bear. I'm still looking out for it!" with the ack nod. Kept across restarts in `session_feed/booth_memory.json`; `--forget` clears it | `^_^` |
+| (operator presses n: next visitor) | back to how it starts, asleep, with NOTHING to look out for (the last visitor's thing kept calling everyone over). The next visitor it wakes for is told once: "The last visitor showed me a teddy bear. What will you show me?" with the ack nod. The name is kept across restarts in `session_feed/booth_memory.json`; f or `--forget` clears it | `^_^` |
 | leaves | dozes (head up) after ~6 s; falls asleep (head down) after ~20 s more -- only if it has nothing to look out for | `-.-` then `-_- zz` |
 
 "The same thing" means the same kind (any water bottle), found by YOLO-World

@@ -312,7 +312,7 @@ def main():
         try:
             with open(mem_path) as fh:
                 memory = json.load(fh)
-            print(f"[memory] still looking out for {memory.get('name')!r} "
+            print(f"[memory] will tell the next visitor about {memory.get('name')!r} "
                   f"(shown {memory.get('shown', '?')}); --forget to clear")
         except Exception as e:
             print(f"[memory] !! could not read {mem_path}: {e}")
@@ -388,8 +388,6 @@ def main():
             det.set_vocab(list(v))
         return v
 
-    if memory and memory.get("words"):
-        props = target_vocab(memory["words"])
     brain = Brain(player, on_event=lambda k, **kw: events.append((k, kw)),
                   stage=a.stage, memory=memory)
 
@@ -402,7 +400,7 @@ def main():
                 commands.append(line.strip().lower())
         threading.Thread(target=read_stdin, daemon=True).start()
     print("[run] keys (view window, or type + Enter here): n = next visitor "
-          "(keeps the object), f = forget the object")
+          "(tells them the last object, stops looking for it), f = forget it")
     player.start()
     player.request(brain.rest)
 
@@ -427,6 +425,7 @@ def main():
                 if cmd in ("n", "next"):
                     print("[run] next visitor")
                     brain.next_visitor()
+                    props = target_vocab([])
                     say_until = 0.0
                     if link:
                         link.sksay("")

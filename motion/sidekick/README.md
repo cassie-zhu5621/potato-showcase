@@ -9,6 +9,7 @@ Everything for the new clips is in this folder, apart from the old ones in
 | `generate_sk_doze.py`, `generate_sk_glance.py` | stage 2 -- dozing, glancing at passers-by |
 | `generate_sk_curious.py`, `generate_sk_ack.py` | stage 3 -- "what's that?", "got it" |
 | `generate_sk_guard_alert.py` | stage 4 -- "I see you" |
+| `generate_sk_nap.py` | **1124** -- asleep but still sees the room: body leans back, head droops (tune first with `robot/tools/nap_pose.py`) |
 | `export_sk_clip.py` | writes the open SK_*.blend to `motion/clips/SK_*.csv` |
 | `sidekick_lib.py` | shared helper. Not run by itself |
 

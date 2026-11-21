@@ -76,7 +76,7 @@ html,body{margin:0;height:100%;background:#141414;color:#f2f0ea;overflow:hidden;
 <div id=top><span class=k>Looking for</span><span id=look class=none>nothing yet</span>
  <span id=state></span></div>
 <div id=bar>
- <div id=tof><span class=k>Stir within</span>
+ <div id=tof>
   <button onclick="cmd('tof:-0.1')">&minus;</button><span id=thr>0.8 m</span>
   <button onclick="cmd('tof:+0.1')">+</button>
   <button id=onoff onclick="toggle()">on</button>

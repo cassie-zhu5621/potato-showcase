@@ -149,7 +149,7 @@ def test_a_visitor_shows_a_bottle_and_it_calls_when_the_bottle_turns_up(
     monkeypatch.setattr(R, "PoseEstimator", lambda **k: Poses())
     monkeypatch.setattr(GZ, "HeadPoseEstimator", lambda **k: NoFaces())
     monkeypatch.setattr(sys, "argv", ["sidekick_loop.py", "--clips", clips_dir,
-                                      "--stage", "3", "--offline", "--cv-hz", "8",
+                                      "--stage", "3", "--offline", "--cv-hz", "8", "--booth", "1108",
                                       "--feed-dir", str(tmp_path)])
     L.main()
     kinds = [k for k, _ in sim["events"] if k != "say"]

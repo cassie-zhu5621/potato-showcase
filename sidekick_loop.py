@@ -190,6 +190,16 @@ PHASE_COL = {"SLEEP": (90, 90, 90), "DOZE": (120, 120, 120), "LOOK": (60, 200, 2
 def draw_view(frame, pc, people, brain, player, stage, saying=""):
     """The debug window: every person and prop the robot found, as it judged
     them, and what it decided. Nothing here feeds back into the decisions."""
+    im = annotate(frame, pc, people, brain, saying)
+    h, w = im.shape[:2]
+    s = 1100.0 / w
+    cv2.imshow(VIEW, cv2.resize(im, (int(w * s), int(h * s))))
+    return cv2.waitKey(1) & 0xFF
+
+
+def annotate(frame, pc, people, brain, saying=""):
+    """The picture with what it judged drawn on it (the view window, and the
+    1124 web UI's live picture)."""
     im = frame.copy()
     h, w = im.shape[:2]
     for p in people:
@@ -238,9 +248,7 @@ def draw_view(frame, pc, people, brain, player, stage, saying=""):
             tw = cv2.getTextSize(ln, cv2.FONT_HERSHEY_SIMPLEX, 1.3, 3)[0][0]
             cv2.putText(im, ln, ((w - tw) // 2, y0 + 48 * k),
                         cv2.FONT_HERSHEY_SIMPLEX, 1.3, (60, 230, 255), 3)
-    s = 1100.0 / w
-    cv2.imshow(VIEW, cv2.resize(im, (int(w * s), int(h * s))))
-    return cv2.waitKey(1) & 0xFF
+    return im
 
 
 def main():
@@ -281,6 +289,11 @@ def main():
                     help="debug window: what the camera sees, the people and props "
                          "it found, and what it decided (on by default with "
                          "--no-robot)")
+    ap.add_argument("--booth", choices=("1124", "1108"), default="1124",
+                    help="1124 (default): the researcher booth -- only a pat wakes "
+                         "it, it follows its owner, web UI with NEXT and the ToF "
+                         "setting (docs/SHOWCASE_1124_PLAN.md). 1108: the earlier "
+                         "sidekick booth")
     ap.add_argument("--forget", action="store_true",
                     help="start with nothing to look out for: delete the saved "
                          "memory of the last thing shown (session_feed/booth_memory.json)")
@@ -300,6 +313,28 @@ def main():
     _stdout = _tee(os.path.join(feed, "run.log"))
     print(f"[run] cards and stories -> {feed}")
 
+    booth = a.booth == "1124"
+    if booth:
+        from webui import booth_page
+        globals()["PAGE"] = booth_page       # same API, plus the live picture
+    # 1124: the ToF distance set on the web UI is kept for the next run.
+    settings_path = os.path.join(a.feed_dir or os.path.join(ROOT, "session_feed"),
+                                 "booth_settings.json")
+    settings = {}
+    if booth and os.path.exists(settings_path):
+        try:
+            with open(settings_path) as fh:
+                settings = json.load(fh)
+        except Exception:
+            settings = {}
+
+    def save_settings():
+        try:
+            with open(settings_path, "w") as fh:
+                json.dump(dict(tof_m=brain.tof_m, tof_on=brain.tof_on), fh)
+        except Exception as e:
+            print(f"[settings] !! could not save: {e}")
+
     # THE LAST THING SHOWN OUTLIVES THE RUN: kept beside the run folders, not
     # in one, so a restart (or the next day, unless --forget) carries it on.
     mem_dir = a.feed_dir or os.path.join(ROOT, "session_feed")
@@ -308,7 +343,7 @@ def main():
     if a.forget and os.path.exists(mem_path):
         os.remove(mem_path)
         print("[memory] forgotten")
-    elif os.path.exists(mem_path):
+    elif os.path.exists(mem_path) and not booth:
         try:
             with open(mem_path) as fh:
                 memory = json.load(fh)
@@ -336,7 +371,14 @@ def main():
             if not a.cores3:
                 sys.exit("no CoreS3 found")
         link = CoreS3Link(a.cores3, on_input=lambda line: pending.append(line))
-        link.claim(approach="palm", volume=0 if a.mute else 100)
+        if booth:
+            # The ToF is only READ: the laptop decides what a distance means
+            # (BoothBrain.on_distance). The board's own approach gate held its
+            # button down for anyone who stood still -- what used to hang
+            # exhibitions -- so it stays off.
+            link.claim(dist=True, approach=False, volume=0 if a.mute else 100)
+        else:
+            link.claim(approach="palm", volume=0 if a.mute else 100)
         link.skface("-_-")
 
     def on_led(v):
@@ -388,8 +430,16 @@ def main():
             det.set_vocab(list(v))
         return v
 
-    brain = Brain(player, on_event=lambda k, **kw: events.append((k, kw)),
-                  stage=a.stage, memory=memory)
+    if booth:
+        from session.booth_brain import BoothBrain, TOF_DEFAULT_M
+        brain = BoothBrain(player, on_event=lambda k, **kw: events.append((k, kw)),
+                           stage=a.stage, tof_m=settings.get("tof_m", TOF_DEFAULT_M),
+                           tof_on=settings.get("tof_on", True))
+        print(f"[booth] 1124: pat to wake; ToF stir within {brain.tof_m:.1f} m "
+              f"({'on' if brain.tof_on else 'off'}); web UI http://localhost:{a.web_port}/")
+    else:
+        brain = Brain(player, on_event=lambda k, **kw: events.append((k, kw)),
+                      stage=a.stage, memory=memory)
 
     # NEXT VISITOR, by hand: 'n' in the view window, or n + Enter in the
     # terminal. Back to how it starts; the last thing shown is kept.
@@ -399,8 +449,11 @@ def main():
             for line in sys.stdin:
                 commands.append(line.strip().lower())
         threading.Thread(target=read_stdin, daemon=True).start()
-    print("[run] keys (view window, or type + Enter here): n = next visitor "
-          "(tells them the last object, stops looking for it), f = forget it")
+    if booth:
+        print("[run] NEXT on the web UI (or n in the view window / n + Enter here)")
+    else:
+        print("[run] keys (view window, or type + Enter here): n = next visitor "
+              "(tells them the last object, stops looking for it), f = forget it")
     player.start()
     player.request(brain.rest)
 
@@ -408,6 +461,8 @@ def main():
     last_seen, last_phase = None, None
     period = 1.0 / a.cv_hz
     next_cv = 0.0
+    next_live = 0.0
+    last_pc, last_people = None, []
     frame = None
     n_card = 0
 
@@ -440,8 +495,30 @@ def main():
                     say_until = 0.0
                     if link:
                         link.sksay("")
+            if booth:
+                while PAGE.commands:
+                    c = PAGE.commands.popleft()
+                    if c == "next":
+                        commands.append("n")
+                    elif c.startswith("tof:"):
+                        v = c[4:]
+                        if v in ("on", "off"):
+                            brain.set_tof(on=(v == "on"))
+                        else:
+                            brain.set_tof(metres=brain.tof_m + float(v))
+                        print(f"[booth] ToF stir within {brain.tof_m:.1f} m "
+                              f"({'on' if brain.tof_on else 'off'})")
+                        save_settings()
             while pending:
                 line = pending.popleft()
+                if line.startswith("IN DIST "):
+                    try:
+                        mm = int(line.split()[2])
+                    except (IndexError, ValueError):
+                        continue                 # "IN DIST on" / "off": the ack
+                    if hasattr(brain, "on_distance"):
+                        brain.on_distance(mm, now)
+                    continue
                 if "BODYTAP" in line:
                     brain.on_tap()
                 elif "PTT_DOWN" in line:
@@ -468,6 +545,7 @@ def main():
                     n = pc.nearest
                     print(f"[sense] {seen}"
                           + (f" (size {n.sw_frac:.0%}, bearing {n.head.pan:+.0f})" if n else ""))
+                last_pc, last_people = pc, people
                 if a.stage >= 2:
                     brain.on_percept(pc)
                 else:
@@ -495,6 +573,20 @@ def main():
                         brain.on_palm()
                     elif key in (ord("q"), 27):
                         raise KeyboardInterrupt
+            # ---- 1124: the live picture and the line above it ----
+            if booth:
+                if (cam is not None and now >= next_live):
+                    next_live = now + 1.0 / PAGE.LIVE_FPS
+                    im = annotate(cam.latest, last_pc or SS.Percept(t=now, pose={}),
+                                  last_people, brain,
+                                  saying=saying if now < say_until else "")
+                    im = cv2.resize(im, (960, int(960 * im.shape[0] / im.shape[1])))
+                    ok, jpg = cv2.imencode(".jpg", im, [cv2.IMWRITE_JPEG_QUALITY, 72])
+                    if ok:
+                        PAGE.set_frame(jpg.tobytes())
+                PAGE.set_status(looking_for=(brain.target or {}).get("name", ""),
+                                tof_m=brain.tof_m, tof_on=brain.tof_on,
+                                tof_mm=brain.tof_last_mm)
             # ---- what the brain asked to be written down ----
             while events:
                 kind, kw = events.popleft()
@@ -516,7 +608,7 @@ def main():
                     def ask(jpg=jpg, guess=kw["guess"]):
                         answers.append(identify(jpg, guess, a.offline))
                     threading.Thread(target=ask, daemon=True).start()
-                if kind == "taught" and brain.target:
+                if kind == "taught" and brain.target and not booth:
                     try:
                         with open(mem_path, "w") as fh:
                             json.dump(dict(term=brain.target["term"],

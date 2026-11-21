@@ -43,50 +43,50 @@ PAGE = """<!doctype html><html><head><meta charset=utf-8>
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:#141414;color:#f2f0ea;overflow:hidden;
  font-family:-apple-system,"SF Pro Text",Helvetica,Arial,sans-serif;user-select:none}
-#wrap{display:grid;grid-template-columns:1fr 22vw;grid-template-rows:auto 1fr;
- height:100vh;gap:1.4vh;padding:1.4vh}
-#top{grid-column:1;display:flex;align-items:baseline;gap:1.2vw;padding:0 .5vw}
+#wrap{display:grid;grid-template-rows:auto auto 1fr;height:100vh;gap:1.2vh;padding:1.2vh}
+#top{display:flex;align-items:baseline;gap:1.2vw;padding:0 .5vw}
 #top .k{font-size:2.6vh;color:#8d897f;white-space:nowrap}
 #look{font-size:5.4vh;font-weight:800;color:#cfe33a;white-space:nowrap;overflow:hidden;
  text-overflow:ellipsis}
 #look.none{color:#5c5a54;font-weight:600}
 #state{margin-left:auto;font:600 2.6vh ui-monospace,Menlo,monospace;color:#8d897f;white-space:nowrap}
-#live{grid-column:1;grid-row:2;background:#000;border-radius:1.2vh;overflow:hidden;
- display:flex;align-items:center;justify-content:center}
-#live img{width:100%;height:100%;object-fit:contain}
-#side{grid-column:2;grid-row:1/3;display:flex;flex-direction:column;gap:1.4vh}
-#next{flex:1;border:0;border-radius:1.6vh;background:#cfe33a;color:#141414;
- font:800 7vh -apple-system,Helvetica,Arial,sans-serif;cursor:pointer}
-#next:active{transform:scale(.98);background:#e4f56a}
-#next small{display:block;font-size:2.2vh;font-weight:600;margin-top:1vh;opacity:.7}
-#tof{background:#1e1e1b;border-radius:1.6vh;padding:2vh 1.4vw}
-#tof .h{font-size:2.2vh;color:#8d897f;display:flex;justify-content:space-between;align-items:center}
-#tof .row{display:flex;align-items:center;justify-content:space-between;margin:1.4vh 0}
-#tof button{width:7vh;height:7vh;border:0;border-radius:1vh;background:#33332e;color:#f2f0ea;
- font:700 4vh -apple-system,Helvetica,Arial,sans-serif;cursor:pointer}
+#bar{display:flex;align-items:center;gap:1.2vw}
+#tof{flex:1;display:flex;align-items:center;gap:1vw;background:#1e1e1b;border-radius:1.2vh;
+ padding:.8vh 1.2vw;min-width:0}
+#tof .k{font-size:2vh;color:#8d897f;white-space:nowrap}
+#tof button{height:5vh;min-width:5vh;border:0;border-radius:.8vh;background:#33332e;color:#f2f0ea;
+ font:700 3vh -apple-system,Helvetica,Arial,sans-serif;cursor:pointer}
 #tof button:active{background:#4a4a44}
-#thr{font:800 5vh ui-monospace,Menlo,monospace}
-#now{font-size:2.2vh;color:#bdb8aa}
-#bar{height:1.2vh;background:#33332e;border-radius:1vh;position:relative;margin-top:1vh;overflow:hidden}
+#thr{font:800 3.4vh ui-monospace,Menlo,monospace;white-space:nowrap}
+#onoff{font-size:1.8vh!important;padding:0 1vw}
+#onoff.off{background:#5a2a2a!important}
+#now{font-size:2vh;color:#bdb8aa;white-space:nowrap;min-width:9vw}
+#meter{flex:1;height:1.2vh;background:#33332e;border-radius:1vh;position:relative;overflow:hidden;min-width:6vw}
 #fill{position:absolute;left:0;top:0;bottom:0;background:#7d796f}
 #fill.in{background:#cfe33a}
-#mark{position:absolute;top:-.4vh;bottom:-.4vh;width:.4vh;background:#ff6b8b}
-#onoff{width:auto!important;height:auto!important;padding:.6vh 1vw;font-size:2vh!important}
-#onoff.off{background:#5a2a2a!important}
+#mark{position:absolute;top:0;bottom:0;width:.4vh;background:#ff6b8b}
+#next{height:7vh;padding:0 3vw;border:0;border-radius:1.2vh;background:#cfe33a;color:#141414;
+ font:800 3.6vh -apple-system,Helvetica,Arial,sans-serif;cursor:pointer;white-space:nowrap}
+#next:active{transform:scale(.97);background:#e4f56a}
+#next small{font-size:1.8vh;font-weight:600;opacity:.7;margin-left:.6vw}
+#live{background:#000;border-radius:1.2vh;overflow:hidden;display:flex;align-items:center;
+ justify-content:center;min-height:0}
+#live img{width:100%;height:100%;object-fit:contain}
 </style></head><body><div id=wrap>
 <div id=top><span class=k>Looking for</span><span id=look class=none>nothing yet</span>
  <span id=state></span></div>
-<div id=live><img id=img src="/live.mjpg" alt=""></div>
-<div id=side>
- <button id=next onclick="cmd('next')">NEXT<small>next visitor</small></button>
- <div id=tof>
-  <div class=h><span>Stir when someone is within</span><button id=onoff onclick="toggle()">on</button></div>
-  <div class=row><button onclick="cmd('tof:-0.1')">&minus;</button><span id=thr>0.8 m</span>
-   <button onclick="cmd('tof:+0.1')">+</button></div>
-  <div id=now>now: &ndash;</div>
-  <div id=bar><div id=fill></div><div id=mark></div></div>
+<div id=bar>
+ <div id=tof><span class=k>Stir within</span>
+  <button onclick="cmd('tof:-0.1')">&minus;</button><span id=thr>0.8 m</span>
+  <button onclick="cmd('tof:+0.1')">+</button>
+  <button id=onoff onclick="toggle()">on</button>
+  <span id=now>now: &ndash;</span>
+  <div id=meter><div id=fill></div><div id=mark></div></div>
  </div>
-</div></div>
+ <button id=next onclick="cmd('next')">NEXT<small>next visitor</small></button>
+</div>
+<div id=live><img id=img src="/live.mjpg" alt=""></div>
+</div>
 <script>
 let on=true;
 async function cmd(c){try{await fetch("/cmd?c="+encodeURIComponent(c),{method:"POST"})}catch(e){}}
